@@ -1,5 +1,7 @@
 # Lab: cache stampede
 
+*[Leer en español](es/README.md)*
+
 Users open ~200 pages/s; each page reads 3 keys through your `get()`. Popularity is
 Zipf-skewed (a few hot keys), and the 5 hottest keys are expensive aggregates that
 take 8x longer to build. The database takes 20 ms per read and does 8 reads at a
@@ -15,6 +17,9 @@ uv run python -m live cache            # watch it; edit main.py and save
 uv run python -m live cache --lesson   # the concept, links and a checklist
 uv run pytest labs/cache               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` | What you see |
 |---|---|---|

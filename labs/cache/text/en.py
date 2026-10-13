@@ -1,4 +1,67 @@
+"""Lab cache, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Cache stampede"
+SUMMARY = "Every read waits for a slow database. Cache the hot keys, then survive a cache flush."
+PARAMS = {"rate": "pages per second (each page reads 3 keys)", "ttl": "seconds a cached value lives"}
+
+INCIDENT = IncidentText("Flush", "the flush", "the next flush")
+VERBS = {"flush": "FLUSH", "end": ""}
+CAUSES = {
+    "deploy_restart": "a deploy restarted the cache nodes",
+    "config_roll": "a config change rolled the cache cluster",
+    "out_of_memory": "the cache ran out of memory and restarted",
+    "kernel_update": "a kernel update rebooted the cache hosts",
+    "empty_replica": "the cache failed over to an empty replica",
+    "cold_node": "a network blip made the cache client reconnect to a cold node",
+}
+
+STAGES = [
+    StageText("No cache",
+              "Challenge: every read waits for the database. Keep the hot keys in memory.",
+              "Stage 1: cache-aside with a TTL"),
+    StageText("Cache-aside",
+              "Challenge: after a flush every miss hits the database at once. Load each key once.",
+              "Stage 2: single-flight loads and jittered TTLs"),
+    StageText("Stampede-safe",
+              "Solved: hot keys come from memory, and one load per key refills the cache after a flush.",
+              "Both stages done"),
+]
+
+GOALS = {
+    "hits": GoalText("Hit ratio ≥ 80%", "add cache-aside with a TTL"),
+    "dups": GoalText("Dup loads < 5%", "single-flight loads in get()"),
+    "p99": GoalText("p99 < 100ms", "load each key once"),
+}
+
+LEGEND = {"idle": "idle", "hit": "hit", "shared": "waits on a load", "first": "first load",
+          "dup": "duplicate load", "rejected": "rejected", "limit": "limit", "flush": "after a flush"}
+
+STRINGS = {
+    # incidents
+    "flushed": "is empty: {cause}",
+    "warn_db": "database reads {ratio:.1f}x normal",
+    # goal values
+    "failed": "failed",
+    # the panel
+    "tile_hits": "Hits",
+    "tile_dups": "Dups",
+    "tile_p99": "p99",
+    "toplist": "Reads",
+    "bar_users": "Users",
+    "bar_db": "Database",
+    "limit": "limit {limit:.0f}/s",
+    "head_hit_db": "Flush: {ratio:.0f}x reads hit the database",
+    "head_refilling": "Flush: the cache is refilling",
+    "head_no_cache": "No cache: every read goes to the database",
+    "head_cache": "Cache: {share:.0%} of reads from memory",
+    "note_dots": "Dots are a sample of reads, slowed down (cosmetic).",
+    "note_chart": "The chart: database reads per second.",
+    # errors in your code
+    "stuck": "a read has been running for over {seconds:.0f} s: does get() wait for something that never finishes?",
+}
 
 LESSON = Lesson(
     title="Cache stampede",
@@ -18,7 +81,7 @@ LESSON = Lesson(
         "TTL (say ±20%) spreads the expiries out.",
     ),
     watch_for=(
-        "No cache: 'Users read' is above the database limit, the queue fills, reads wait or fail.",
+        "No cache: 'Users' is above the database limit, the queue fills, reads wait or fail.",
         "Cache-aside: calm until a flush, then deep orange duplicate loads and a p99 near a second.",
         "Stampede-safe: after a flush the database briefly works harder, but every key loads once.",
         "Single-flight does not cut the misses for different keys; it removes the duplicates.",

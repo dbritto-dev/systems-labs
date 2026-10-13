@@ -22,6 +22,7 @@ from bisect import bisect_left
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.services import DatabaseBusy, SlowDatabase, current_request
 from core.vtime import VirtualRun, now
@@ -38,14 +39,12 @@ QUEUE_LIMIT = 400
 TTL = 30.0
 HOT_KEYS = 5  # the hottest keys are expensive aggregates (a home page, a top-10 list)
 HOT_COST = 8.0  # ...that take 8x longer to build than a plain read (160 ms)
-FIRST = Planned(20.0, 20.0, "deploy", 1.0, "a deploy restarted the cache nodes")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 20.0, "deploy", 1.0, "deploy_restart")
 KINDS = [
-    Kind("deploy", 0.6, causes=("a deploy restarted the cache nodes",
-                                "a config change rolled the cache cluster")),
-    Kind("restart", 0.25, causes=("the cache ran out of memory and restarted",
-                                  "a kernel update rebooted the cache hosts")),
-    Kind("failover", 0.15, causes=("the cache failed over to an empty replica",
-                                   "a network blip made the cache client reconnect to a cold node")),
+    Kind("deploy", 0.6, causes=("deploy_restart", "config_roll")),
+    Kind("restart", 0.25, causes=("out_of_memory", "kernel_update")),
+    Kind("failover", 0.15, causes=("empty_replica", "cold_node")),
 ]
 MEAN_GAP = 35.0
 QUIET = 27.0  # at least this calm after a flush: 12 s to judge it + a 15 s baseline
@@ -201,8 +200,7 @@ def stream(variant="main", seed: int = 1, rate: float = 200.0, keys: int = 3,
             if s.bugs:
                 raise s.bugs[0]
             if any(t < b + DRAIN - STUCK for t in s.open.values()):
-                raise RuntimeError(f"a read has been running for over {STUCK:.0f} s: "
-                                   "does get() wait for something that never finishes?")
+                raise RuntimeError(lab_text(LAB).STRINGS["stuck"].format(seconds=STUCK))
             s.classify()
             yield {
                 "lab": LAB,
