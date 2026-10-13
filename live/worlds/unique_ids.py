@@ -3,16 +3,14 @@ labs/unique_ids/text/<lang>.py."""
 
 from __future__ import annotations
 
-from core.i18n import lab_text
+from core.i18n import strings
 from labs.unique_ids import lab
 from labs.unique_ids.scenario import ECHO, GENERATE
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
 from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, history
 
 
-def _s(key: str, **values) -> str:
-    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
-    return lab_text("unique_ids").STRINGS[key].format(**values)
+_s = strings("unique_ids")  # one of the lab's STRINGS, for the goal measures below
 
 
 OP_START, OP_KIND, OP_NODE, OP_END, OP_OK, OP_ID, OP_DUP, OP_COMPACT = range(8)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.i18n import lab_text
+from core.i18n import strings
 from labs.cache import lab
 from labs.cache.scenario import DUP, FAILED, HIT, MISS, SHARED
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, RGB, WHITE
@@ -13,9 +13,7 @@ from live.worlds.base import (
 FLUSH_KEY = (110, 44, 56)  # the legend swatch for the shaded seconds after a flush
 
 
-def _s(key: str, **values) -> str:
-    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
-    return lab_text("cache").STRINGS[key].format(**values)
+_s = strings("cache")  # one of the lab's STRINGS, for the goal measures below
 
 PAGE_ID, PAGE_START, PAGE_END, PAGE_OK, PAGE_KIND = range(5)
 READ_START, READ_PAGE, READ_KEY, READ_END, READ_OK, READ_KIND = range(6)

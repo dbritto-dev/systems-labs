@@ -128,7 +128,7 @@ def test_contract_names_missing_names(tmp_path):
 
 
 def test_params_are_validated():
-    meta = {"id": "x", "params": {"rate": contract.Param(100.0, "r"), "n": contract.Param(3, "n")}}
+    meta = {"id": "x", "params": {"rate": contract.Param(100.0), "n": contract.Param(3)}}
     assert contract.parse_params(meta, ["rate=50", "n=4"]) == {"rate": 50.0, "n": 4}
     with pytest.raises(ValueError, match="must be a number"):
         contract.parse_params(meta, ["rate=fast"])

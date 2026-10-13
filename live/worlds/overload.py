@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from bisect import bisect_right
 
-from core.i18n import lab_text
+from core.i18n import strings
 from labs.overload import lab
 from labs.overload.scenario import FAILED, GAVE_UP, IN_TIME, LATE, OK, REFUSED, REJECTED, SERVED
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
@@ -23,9 +23,7 @@ WASTED = EXTRA3  # work done for a user who already left
 INCIDENT_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 
 
-def _s(key: str, **values) -> str:
-    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
-    return lab_text("overload").STRINGS[key].format(**values)
+_s = strings("overload")  # one of the lab's STRINGS, for the goal measures below
 
 
 def capacity_at(run: Run, t: float) -> float:

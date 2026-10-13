@@ -59,6 +59,16 @@ def screen_text(code: str | None = None) -> ModuleType:
     return catalog("live.text", code)
 
 
+def strings(lab: str):
+    """A formatter for one lab's STRINGS in the language in use: `_s = strings("cache")`,
+    then `_s("few")` or `_s("avg", value=1.2)`. Looked up on every call, so it follows --lang."""
+
+    def s(key: str, /, **values: Any) -> str:
+        return lab_text(lab).STRINGS[key].format(**values)
+
+    return s
+
+
 # ---------------------------------------------------------------- shapes shared by lab catalogs
 
 

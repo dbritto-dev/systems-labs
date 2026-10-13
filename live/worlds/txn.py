@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.i18n import lab_text
+from core.i18n import strings
 from labs.txn import lab
 from labs.txn.scenario import TXN_END, TXN_OK, TXN_START
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, MUTED, RED, WHITE
@@ -20,9 +20,7 @@ def fresh(run: Run, a: float, b: float) -> float | None:
     return 1 - sum(sum(r[1]) for r in rows) / (len(rows) * lab.NODES * lab.KEYS)
 
 
-def _s(key: str, **values) -> str:
-    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
-    return lab_text("txn").STRINGS[key].format(**values)
+_s = strings("txn")  # one of the lab's STRINGS, for the goal measures below
 
 
 # ---------------------------------------------------------------- goals

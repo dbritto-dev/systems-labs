@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.i18n import lab_text
+from core.i18n import strings
 from labs.kafka_log import lab
 from labs.kafka_log.scenario import DUPLICATE, LOST_COMMIT, LOST_WRITE, SEND
 from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PURPLE, RED, WHITE
@@ -18,9 +18,7 @@ INF = float("inf")
 ANOMALY_KEYS = {DUPLICATE: "duplicate", LOST_WRITE: "lost_write", LOST_COMMIT: "lost_commit"}  # STRINGS keys
 
 
-def _s(key: str, **values) -> str:
-    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
-    return lab_text("kafka_log").STRINGS[key].format(**values)
+_s = strings("kafka_log")  # one of the lab's STRINGS, for the goal measures below
 
 
 def _count(run: Run, kind: int, a: float, b: float) -> int:

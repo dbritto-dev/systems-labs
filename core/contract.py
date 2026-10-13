@@ -88,34 +88,19 @@ def load(lab: str, module: str, names: list[str] | tuple[str, ...]) -> SimpleNam
 
 @dataclass(frozen=True, slots=True)
 class Param:
-    default: Any
-    help: str = ""  # in the lab's catalog: PARAMS[name]
-
-
-def _text_or_none(lab: str) -> ModuleType | None:
-    try:
-        return lab_text(lab)
-    except ModuleNotFoundError:
-        return None
+    default: Any  # what it means is in the lab's catalog: PARAMS[name]
 
 
 def meta_of(lab: str) -> dict:
-    """A lab's META, with its title, summary and param help in the language in use."""
-    meta = dict(importlib.import_module(f"labs.{lab}.lab").META)
-    text = _text_or_none(lab)
-    if text is not None:
-        meta["title"], meta["summary"] = text.TITLE, text.SUMMARY
-        helps = getattr(text, "PARAMS", {})
-        meta["params"] = {k: Param(p.default, helps.get(k, p.help)) for k, p in meta.get("params", {}).items()}
-    return meta
+    """A lab's META plus its words in the language in use: title, summary, param_help."""
+    text = lab_text(lab)
+    return {**importlib.import_module(f"labs.{lab}.lab").META,
+            "title": text.TITLE, "summary": text.SUMMARY, "param_help": getattr(text, "PARAMS", {})}
 
 
 def lesson_of(lab: str):
     """A lab's Lesson in the language in use."""
-    text = _text_or_none(lab)
-    if text is not None:
-        return text.LESSON
-    return importlib.import_module(f"labs.{lab}.lesson").LESSON
+    return lab_text(lab).LESSON
 
 
 def discover() -> dict[str, dict]:

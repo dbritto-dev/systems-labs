@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.i18n import lab_text
+from core.i18n import strings
 from labs.broadcast import lab
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
@@ -14,9 +14,7 @@ MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 INF = float("inf")
 
 
-def _s(key: str, **values) -> str:
-    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
-    return lab_text("broadcast").STRINGS[key].format(**values)
+_s = strings("broadcast")  # one of the lab's STRINGS, for the goal measures below
 
 
 def _sent(run: Run) -> dict[int, float]:

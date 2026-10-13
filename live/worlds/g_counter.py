@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from core.i18n import lab_text
+from core.i18n import strings
 from labs.g_counter import lab
 from labs.g_counter.scenario import ADD, CLIENT_TIMEOUT, KV_REQ, READ
 from live.canvas import BLUE, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED, WHITE
 from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
 
-def _s(key: str, **values) -> str:
-    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
-    return lab_text("g_counter").STRINGS[key].format(**values)
+_s = strings("g_counter")  # one of the lab's STRINGS, for the goal measures below
 
 
 OP_START, OP_KIND, OP_NODE, OP_VALUE, OP_END, OP_OK, OP_LOW, OP_HIGH = range(8)
