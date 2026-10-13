@@ -11,13 +11,14 @@ from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
 
 @adapts("retry_storm", "lanes")
 class RetryStormLanes(LaneAdapter):
+    """Users send ~100 requests/s; each call is coloured by its try; the door closes while the service is down."""
+
     def state(self, down: bool, degraded: bool) -> tuple[str, tuple[int, int, int]]:
+        """The words under the server, in the language in use."""
         words = self.world.screen.STATES
         if down:
             return words["down"], RED
         return (words["degraded"], EXTRA2) if degraded else (words["healthy"], GREEN)
-
-    """Users send ~100 requests/s; each call is coloured by its try; the door closes while the service is down."""
 
     def frame(self, variant: str, t: float, users: int) -> LaneFrame:
         from live.worlds.retry_storm import (
