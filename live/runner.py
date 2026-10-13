@@ -15,6 +15,9 @@ import traceback
 from pathlib import Path
 from typing import Any
 
+from core.contract import module_path
+from core.i18n import screen_text
+
 TIMEOUT = 20.0
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -46,7 +49,7 @@ def describe(exc: BaseException, default: str = "") -> str:
             where = f"{_rel(mine[-1].filename)}:{mine[-1].lineno}"
     where = where or default
     msg = f"{type(exc).__name__}: {exc}"
-    return f"{msg}  (edit {where})" if where else msg
+    return f"{msg}  ({screen_text().EDIT_HERE.format(where=where)})" if where else msg
 
 
 def _rel(path: str) -> str:
@@ -62,7 +65,7 @@ def _child(conn, target: str, variant: str, params: dict) -> None:
     except BaseException as exc:  # noqa: BLE001 - report everything to the parent
         lab = target.split(".")[1] if target.startswith("labs.") else ""
         default = _rel(str(variant)) if str(variant).endswith(".py") else (
-            f"labs/{lab}/{variant}.py" if lab else "")
+            _rel(str(module_path(lab, variant))) if lab else "")
         result = ("error", describe(exc, default))
     try:
         conn.send(result)
@@ -94,16 +97,15 @@ class Job:
                 self._proc.join(timeout=1)
                 return self.result
         except (EOFError, OSError):
-            self.result = ("error", f"the run crashed (exit code {self._proc.exitcode})")
+            self.result = ("error", screen_text().RUN_CRASHED.format(code=self._proc.exitcode))
             return self.result
         if not self._proc.is_alive():
             self._proc.join()
-            self.result = ("error", f"the run crashed (exit code {self._proc.exitcode})")
+            self.result = ("error", screen_text().RUN_CRASHED.format(code=self._proc.exitcode))
             return self.result
         if time.monotonic() - self._started > self.timeout:
             self.cancel()
-            self.result = ("error", f"no result after {self.timeout:.0f} s, so it was stopped. "
-                           "Is there an endless loop (a retry loop without a limit)?")
+            self.result = ("error", screen_text().NO_RESULT.format(seconds=f"{self.timeout:.0f}"))
             return self.result
         return None
 
@@ -128,7 +130,7 @@ def _stream_child(conn, target: str, variant: str, params: dict) -> None:
     """Run one endless simulation; send the next piece each time the parent asks."""
     lab = target.split(".")[1] if target.startswith("labs.") else ""
     default = _rel(str(variant)) if str(variant).endswith(".py") else (
-        f"labs/{lab}/{variant}.py" if lab else "")
+        _rel(str(module_path(lab, variant))) if lab else "")
     try:
         module, _, func = target.partition(":")
         mod = importlib.import_module(module)
@@ -198,12 +200,11 @@ class StreamJob:
                     self.cancel()
                 return result
         except (EOFError, OSError):
-            return self._dead(f"the run crashed (exit code {self._proc.exitcode})")
+            return self._dead(screen_text().RUN_CRASHED.format(code=self._proc.exitcode))
         if not self._proc.is_alive():
-            return self._dead(f"the run crashed (exit code {self._proc.exitcode})")
+            return self._dead(screen_text().RUN_CRASHED.format(code=self._proc.exitcode))
         if time.monotonic() - self._asked > self.timeout:
-            return self._dead(f"no result after {self.timeout:.0f} s, so it was stopped. "
-                              "Is there an endless loop (a retry loop without a limit)?")
+            return self._dead(screen_text().NO_RESULT.format(seconds=f"{self.timeout:.0f}"))
         return None
 
     def _dead(self, message: str) -> tuple[str, str]:

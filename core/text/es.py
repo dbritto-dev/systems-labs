@@ -1,0 +1,12 @@
+"""Mensajes de core/ (cargar tu código, revisar --set), en español."""
+
+MUST_DEFINE = "{file} debe definir {names}"
+A_TYPO = "{name!r} (hay {close!r}: ¿una errata?)"
+DOES_NOT_EXIST = "{file} no existe"
+SET_FORMAT = "--set espera nombre=valor, no {item!r}"
+UNKNOWN_PARAM = "parámetro desconocido {name!r} para {lab} (conocidos: {known}).{hint}"
+DID_YOU_MEAN = " ¿Quisiste decir {name!r}?"
+NOT_BOOL = "{name} debe ser true o false, no {raw!r}"
+NOT_INT = "{name} debe ser un número entero, no {raw!r}"
+NOT_NUMBER = "{name} debe ser un número, no {raw!r}"
+NONE = "ninguno"

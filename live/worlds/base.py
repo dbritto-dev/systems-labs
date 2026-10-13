@@ -17,6 +17,10 @@ from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from dataclasses import replace
+from types import ModuleType
+
+from core.i18n import IncidentText, lab_text, screen_text
 from live.canvas import BLUE, GREEN, MUTED, ORANGE, RED, RGB
 
 PIECE = 60.0  # seconds per piece
@@ -63,8 +67,8 @@ class Traffic:
     limit_label: str
     headline: str
     headline_colour: RGB = MUTED
-    title: str = "Calls"
-    subtitle: str = "per second, last 1 s"
+    title: str = ""  # the toplist's title (default: "Calls" in the screen's language)
+    subtitle: str = ""  # default: "per second, last 1 s"
     top: float | None = None  # the toplist's scale (default: from the limit and the bars)
     unit: str = "/s"  # after each toplist value; "" for counts
 
@@ -97,6 +101,7 @@ class GoalSpec:
     ok: Callable[[float | None], bool]
     doomed: Callable[[Any, Incident, float], bool] | None = None
     settle_extra: float = 0.0  # wait this long after the window for slow requests
+    key: str = ""  # its words (rule, fix) come from the lab's catalog: text.GOALS[key]
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,12 +123,17 @@ class Settled:
 @dataclass(frozen=True, slots=True)
 class TimelineEvent:
     t: float
-    verb: str  # up to 5 letters: DOWN, UP, SPIKE, FLUSH, WARN, ALERT, OK, ...
+    verb: str  # the word shown, up to 5 letters: DOWN, SPIKE, ALERT, AVISO, ...
     text: str
     colour: RGB
     incident: int
     fix: str = ""
-    start: bool = False  # an incident starting (its cause is shown in full)
+    kind: str = ""  # what it is, in any language: start, end, alert, ok, warn
+
+    @property
+    def start(self) -> bool:
+        """An incident starting (its cause is shown in full)."""
+        return self.kind == "start"
 
 
 class Run:
@@ -187,22 +197,72 @@ class Run:
 
 
 class World:
-    """Base class. Subclasses fill in the class attributes and the hooks."""
+    """Base class. Subclasses fill in the class attributes and the hooks.
+
+    Words come from the lab's catalog (labs/<lab>/text/<lang>.py) when it has one:
+    TITLE, INCIDENT, STAGES, GOALS, LEGEND, VERBS, CAUSES and STRINGS. `self.text` is
+    that catalog and `self.screen` the screen's (live/text/<lang>.py); `self.s(key, ...)`
+    formats one of the lab's STRINGS.
+    """
 
     id: str = ""
     title: str = ""
     files: tuple[str, ...] = ()  # files you edit, shown in the footer
-    view: str = "lanes"
+    view: str = "lanes"  # the picture it opens with; any view with an adapter for this lab works
     stages: list[Stage] = []
-    legend: list[tuple[str, RGB]] = []
+    stage_colours: tuple[RGB, ...] = ()  # one per stage, with text.STAGES
+    legend: list[tuple] = []  # (colour or [colours], name or text.LEGEND key[, glyph])
     incident_name: str = "Incident"
-    incident_verbs: tuple[str, str] = ("DOWN", "UP")
+    incident_verbs: tuple[str, str] = ("DOWN", "UP")  # words, or text.VERBS keys
     tables: dict[str, Table] = {}
     goals: list[GoalSpec] = []
 
     def __init__(self, params: dict | None = None) -> None:
         self.params = dict(params or {})
         self.runs: dict[str, Run] = {}
+        self.screen: ModuleType = screen_text()
+        self.text: ModuleType | None = None
+        try:
+            self.text = lab_text(self.id)
+        except ModuleNotFoundError:
+            pass
+        if self.text is not None:
+            self._apply_text(self.text)
+        if not self.files and self.id:
+            from core.contract import ROOT, module_path
+
+            self.files = (str(module_path(self.id, "main").relative_to(ROOT)),)
+
+    def _apply_text(self, text: ModuleType) -> None:
+        """Take every word from the lab's catalog."""
+        self.title = text.TITLE
+        self.incident_name = text.INCIDENT.name
+        if hasattr(text, "STAGES"):
+            self.stages = [Stage(s.label, s.story, colour, s.next)
+                           for s, colour in zip(text.STAGES, self.stage_colours)]
+        self.goals = [replace(g, rule=text.GOALS[g.key].rule, fix=text.GOALS[g.key].fix) if g.key else g
+                      for g in self.goals]
+        names = getattr(text, "LEGEND", {})
+        self.legend = [(item[0], names.get(item[1], item[1]), *item[2:]) for item in type(self).legend]
+
+    def s(self, key: str, **values: Any) -> str:
+        """One of the lab's STRINGS, formatted: self.s("down", load=3.9)."""
+        return self.text.STRINGS[key].format(**values) if self.text else key
+
+    def word(self, key: str) -> str:
+        """An event verb from the lab's VERBS (or the key itself)."""
+        return getattr(self.text, "VERBS", {}).get(key, key) if self.text else key
+
+    def cause(self, inc: "Incident") -> str:
+        """The incident's cause in words (a trace holds only its key)."""
+        return getattr(self.text, "CAUSES", {}).get(inc.cause, inc.cause) if self.text else inc.cause
+
+    @property
+    def incident_phrases(self) -> IncidentText:
+        if self.text is not None:
+            return self.text.INCIDENT
+        name = self.incident_name.lower()
+        return IncidentText(self.incident_name, f"the {name}", f"the next {name}")
 
     # ------------------------------------------------------------ runs
 
@@ -282,30 +342,34 @@ class World:
                             break
                         k2 += 1
                 results[k] = r = Settled(ok, text, settle, alert_at)
+                verbs = self.screen.VERBS
                 if r.ok:
-                    ev = TimelineEvent(r.settle, "OK", f"{g.rule}: {r.value}", GREEN, inc.index)
+                    ev = TimelineEvent(r.settle, verbs["ok"], f"{g.rule}: {r.value}", GREEN, inc.index,
+                                       kind="ok")
                 else:
                     # What it showed when it alerted (an early alert's final value comes later).
                     shown = g.measure(run, inc, r.alert_at)[1] if r.alert_at < settle else r.value
-                    ev = TimelineEvent(r.alert_at, "ALERT", f"{g.rule}: {shown}", RED, inc.index, g.fix)
+                    ev = TimelineEvent(r.alert_at, verbs["alert"], f"{g.rule}: {shown}", RED, inc.index,
+                                       g.fix, kind="alert")
                 run.timeline.append(ev)
             warned = run.data.setdefault("warned", set())
             if inc.index not in warned and inc.t1 + 1.0 <= run.end:
                 warned.add(inc.index)
                 for t, text in self.warnings(run, inc):
-                    run.timeline.append(TimelineEvent(t, "WARN", text, ORANGE, inc.index))
+                    run.timeline.append(TimelineEvent(t, self.screen.VERBS["warn"], text, ORANGE, inc.index,
+                                                      kind="warn"))
         run.timeline.sort(key=_event_order)
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         """The event verb (up to 5 letters) for an incident starting or ending, e.g. SPIKE."""
-        return self.incident_verbs[0 if start else 1]
+        return self.word(self.incident_verbs[0 if start else 1])
 
     def _add_incident_events(self, run: Run, inc: Incident) -> None:
         run.timeline.append(TimelineEvent(inc.t0, self.incident_verb(inc, True),
-                                          self.incident_text(inc, start=True), RED, inc.index, start=True))
+                                          self.incident_text(inc, start=True), RED, inc.index, kind="start"))
         if inc.t1 > inc.t0:
             run.timeline.append(TimelineEvent(inc.t1, self.incident_verb(inc, False),
-                                              self.incident_text(inc, start=False), BLUE, inc.index))
+                                              self.incident_text(inc, start=False), BLUE, inc.index, kind="end"))
         run.timeline.sort(key=_event_order)
 
     def current_incident(self, variant: str, t: float) -> Incident | None:
@@ -317,7 +381,7 @@ class World:
         return started[-1] if started else run.incidents[0]
 
     def incident_title(self, inc: Incident) -> str:
-        return f"{self.incident_name} #{inc.index + 1}"
+        return self.screen.INCIDENT_TITLE.format(name=self.incident_name, n=inc.index + 1)
 
     def goal_title(self, variant: str, t: float) -> str:
         inc = self.current_incident(variant, t)
@@ -326,41 +390,43 @@ class World:
     def goal_lines(self, variant: str, t: float) -> list[GoalRow]:
         run = self.runs.get(variant)
         inc = self.current_incident(variant, t)
+        phases = self.screen.PHASES
         if run is None or inc is None:
-            return [GoalRow("wait", g.rule, "–", g.phase) for g in self.goals]
+            return [GoalRow("wait", g.rule, "–", phases[g.phase]) for g in self.goals]
         final = run.settled.get(inc.index)
         rows = []
         for k, g in enumerate(self.goals):
             a, _ = g.window(inc)
             f = final[k] if final else None
             if f is not None and t >= f.settle:
-                rows.append(GoalRow("ok" if f.ok else "alert", g.rule, f.value, g.phase))
+                rows.append(GoalRow("ok" if f.ok else "alert", g.rule, f.value, phases[g.phase]))
                 continue
             text = g.measure(run, inc, t)[1] if t > a else "–"
             if f is not None:
                 alert = (not f.ok) and t >= f.alert_at
             else:
                 alert = g.doomed is not None and t > a and g.doomed(run, inc, t)
-            rows.append(GoalRow("alert" if alert else "wait", g.rule, text, g.phase))
+            rows.append(GoalRow("alert" if alert else "wait", g.rule, text, phases[g.phase]))
         return rows
 
     def next_check(self, variant: str, t: float) -> str:
         """What will be judged next, without giving away future times."""
+        sc = self.screen
         inc = self.current_incident(variant, t)
         if inc is None:
-            return "waiting for the first run"
-        name = self.incident_name.lower()
+            return sc.NEXT_FIRST_RUN
+        phrases = self.incident_phrases
         rows = self.goal_lines(variant, t)
         pending = [(g, r) for g, r in zip(self.goals, rows) if r.status == "wait"]
         if not pending:
-            return f"waiting for the next {name}"
+            return sc.NEXT_INCIDENT.format(incident=phrases.next)
         g, _ = pending[0]
         if g.phase == "before" and t < inc.t0:
-            return f"{g.rule}: judged when the {name} starts"
+            return sc.NEXT_AT_START.format(rule=g.rule, incident=phrases.the)
         if g.phase == "during" and inc.t0 <= t < inc.t1:
-            return f"{g.rule}: judged when the {name} ends"
+            return sc.NEXT_AT_END.format(rule=g.rule, incident=phrases.the)
         if t < max(inc.t0, inc.t1):
-            return f"{g.rule}: judged after the {name}"
+            return sc.NEXT_AFTER.format(rule=g.rule, incident=phrases.the)
         return f"{clock(self._settle_time(g, inc))} {g.rule}"
 
     def stage_index(self, variant: str) -> int | None:
@@ -405,7 +471,7 @@ class World:
         return []
 
     def incident_text(self, inc: Incident, start: bool) -> str:
-        return "started" if start else "ended"
+        return self.screen.STARTED if start else self.screen.ENDED
 
     def traffic(self, variant: str, t: float) -> Traffic:
         raise NotImplementedError
@@ -426,7 +492,7 @@ class World:
 
 def _event_order(e: TimelineEvent) -> tuple[float, int]:
     """Time order; at the same time, an incident starting or ending shows as the newest."""
-    return e.t, 1 if e.verb not in ("OK", "ALERT", "WARN") else 0
+    return e.t, 1 if e.kind in ("start", "end", "") else 0
 
 
 def clock(t: float) -> str:

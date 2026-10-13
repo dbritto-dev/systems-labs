@@ -79,3 +79,45 @@ def test_the_cluster_view_draws_nodes_messages_and_a_partition_cut():
     assert text.count("◉") == 9 and "PARTITIONED  6 | 3" in text
     assert any(cv.cell(r, c)[1] == RED and cv.cell(r, c)[0] not in " ◉" for r in range(20) for c in range(60))
     del ADAPTERS[("toynet", "cluster")]
+
+
+def test_a_lab_can_have_several_views_and_opens_with_its_own():
+    from live.canvas import BLUE
+    from live.views import next_view, set_view, views_for
+    from live.views.cluster import ClusterAdapter, ClusterFrame
+
+    class Both(World):
+        id, title = "toyboth", "Toy both"  # view defaults to lanes
+
+        def __init__(self):
+            super().__init__()
+            self.start("main")
+
+    @adapts("toyboth", "lanes")
+    class BothLanes(LaneAdapter):
+        def frame(self, variant, t, users):
+            return LaneFrame(state=("LANES", BLUE))
+
+    @adapts("toyboth", "cluster")
+    class BothCluster(ClusterAdapter):
+        def frame(self, variant, t):
+            return ClusterFrame(nodes=[BLUE] * 4, state=("CLUSTER", BLUE))
+
+    w = Both()
+    assert views_for(w) == ["lanes", "cluster"] and w.view == "lanes"
+
+    def drawn():
+        cv = Canvas(60, 20)
+        render(w, cv, "main", 1.0)
+        return "\n".join(cv.plain())
+
+    assert "LANES" in drawn()
+    assert next_view(w) == "cluster" and "CLUSTER" in drawn()
+    assert next_view(w) == "lanes"
+    set_view(w, "cluster")
+    assert "CLUSTER" in drawn()
+    import pytest
+
+    with pytest.raises(LookupError):
+        set_view(w, "globe")
+    del ADAPTERS[("toyboth", "lanes")], ADAPTERS[("toyboth", "cluster")]

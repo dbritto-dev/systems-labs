@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import textwrap
 
+from core.i18n import screen_text
 from live.canvas import GREEN, INK, LIMIT, MUTED, PURPLE, RED, RGB, Style, vis
 from live.worlds.base import GoalRow, Tile, Traffic, clock
 
@@ -29,14 +30,12 @@ DD_STATE: dict[str, tuple[RGB, RGB]] = {
     "idle": ((200, 205, 215), (58, 64, 78)),
 }
 SEVERITY = {"idle": 0, "ok": 0, "warn": 1, "bad": 2}
-STATUS = {"ok": ("●", "OK", GREEN), "alert": ("●", "ALERT", RED), "wait": ("○", "WAIT", MUTED)}
-EVENT_STYLE: dict[str, tuple[str, RGB]] = {
-    "DOWN": ("▼", (226, 60, 76)), "FLUSH": ("▼", (226, 60, 76)), "UP": ("▲", (52, 168, 100)),
-    "ALERT": ("✖", (226, 60, 76)), "OK": ("✔", (52, 168, 100)), "WARN": ("▲", (226, 150, 40)),
-    "SPLIT": ("▼", (226, 60, 76)), "HEAL": ("▲", (52, 168, 100)),
+STATUS = {"ok": ("●", GREEN), "alert": ("●", RED), "wait": ("○", MUTED)}  # the words: screen.STATUS
+EVENT_STYLE: dict[str, tuple[str, RGB]] = {  # by kind, in any language
+    "start": ("▼", (226, 60, 76)), "end": ("▲", (52, 168, 100)), "alert": ("✖", (226, 60, 76)),
+    "ok": ("✔", (52, 168, 100)), "warn": ("▲", (226, 150, 40)),
 }
-START_STYLE = ("▼", (226, 60, 76))  # any other incident starting
-END_STYLE = ("▲", (52, 168, 100))  # ... or ending
+OTHER_STYLE = ("●", (100, 150, 230))
 
 
 def split_row(left: str, right: str, width: int) -> str:
@@ -154,20 +153,23 @@ def dd_monitors(lines: list[GoalRow], width: int, style: Style) -> list[str]:
     """One monitor per goal: a status dot and word, the rule, its value right after it, and when it is judged
     (before / during / after) when there is room."""
     p = style.paint
+    words = screen_text().STATUS
+    ww = max(len(w) for w in words.values()) + 1
     lw = max([len(g.rule) for g in lines] or [0]) + 1
     vw = max([len(g.value) for g in lines] or [0])
     tw = max([len(g.phase) for g in lines] or [0])
-    room = width - 2 - 8
+    room = width - 2 - (ww + 2)
     if lw + max(5, vw) > room:  # a long value: shorten the rules first
         lw = max(8, room - max(5, vw) - 1)
-    tags = 8 + lw + max(5, vw) + 1 + tw <= width - 2
+    tags = ww + 2 + lw + max(5, vw) + 1 + tw <= width - 2
     rows = []
     for g in lines:
-        dot, word, col = STATUS[g.status]
+        dot, col = STATUS[g.status]
+        word = words[g.status]
         shown = {"ok": GREEN, "alert": RED}.get(g.status, MUTED)
         rule = g.rule if len(g.rule) < lw else g.rule[:lw - 2] + "…"
         value = g.value[: max(5, room - lw)]
-        row = (p(dot, col) + " " + style.bold(p(f"{word:<6}", col)) + p(f"{rule:<{lw}}", INK)
+        row = (p(dot, col) + " " + style.bold(p(f"{word:<{ww}}", col)) + p(f"{rule:<{lw}}", INK)
                + style.bold(p(f"{value:>{max(5, vw)}}", shown)))
         if tags:
             row += p(f" {g.phase:>{tw}}", CAPTION)
@@ -183,15 +185,15 @@ def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) 
     alert of this incident stays pinned on top with what to do; the rest follow, newest first. Then the
     next check. Nothing that has not happened yet is shown."""
     p = style.paint
+    sc = screen_text()
     inner = width - 3
     seen = [e for e in world.timeline(v) if e.t <= t]
     inc = world.current_incident(v, t)
-    alerts = [e for e in seen if e.verb == "ALERT" and inc is not None and e.incident == inc.index]
+    alerts = [e for e in seen if e.kind == "alert" and inc is not None and e.incident == inc.index]
     pin = alerts[-1] if alerts else None
 
     def row(e, dim: bool = False) -> list[str]:
-        icon, col = EVENT_STYLE.get(e.verb) or (START_STYLE if e.start else END_STYLE
-                                                if e.verb not in ("ALERT", "OK", "WARN") else ("●", (100, 150, 230)))
+        icon, col = EVENT_STYLE.get(e.kind, OTHER_STYLE)
         c = FADED if dim else col
         head = p("▌", FADED_BAR if dim else col) + p(f"{clock(e.t):>4} ", DD_TITLE) + p(icon + " ", c)
         head += style.bold(p(f"{e.verb:<6}"[:6], c))
@@ -205,16 +207,16 @@ def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) 
     if pin is not None:
         out += row(pin)
         if pin.fix:
-            out.append(p("▌", EVENT_STYLE["ALERT"][1]) + "      " + p("→ ", FIX_ARROW) + p(pin.fix[:inner - 8], INK))
+            out.append(p("▌", EVENT_STYLE["alert"][1]) + "      " + p("→ ", FIX_ARROW) + p(pin.fix[:inner - 8], INK))
     for e in reversed(seen):
         if e is not pin:
             out += row(e)
     nxt = world.next_check(v, t)
     out = out[:rows - 1] if nxt and len(out) >= rows else out[:rows]
     if len(out) < rows and nxt:
-        out.append(p("▌", FADED_BAR) + p("     ○ ", FADED) + style.bold(p("NEXT  ", FADED))
+        out.append(p("▌", FADED_BAR) + p("     ○ ", FADED) + style.bold(p(f"{sc.NEXT:<6}"[:6], FADED))
                    + p(nxt[:inner - 13], DD_TITLE))
-    right = p(f"{len(seen)} so far" if seen else "none yet", DD_TITLE)
+    right = p(sc.SO_FAR.format(n=len(seen)) if seen else sc.NONE_YET, DD_TITLE)
     return right, out
 
 
@@ -266,22 +268,25 @@ def dd_panel(world, v: str, t: float, tr: Traffic, lines: list[GoalRow], width: 
     """The widgets with a blank row between them; level 1, 2 and 3 drop the events, the tiles and users,
     then the titles and gaps."""
     gap = [] if level >= 3 else [""]
+    sc = screen_text()
     out: list[str] = []
     if tr.tiles and level < 2:
         out += dd_tiles(tr.tiles, width, style)  # their colour sets them apart: no gap needed
     stats = world.user_stats(v, t)
     if stats and level < 2:
-        out += widget("Users", style.paint("waits: last 5 s", DD_TITLE),
+        out += widget(sc.USERS, style.paint(sc.WAITS, DD_TITLE),
                       stat_rows(stats, width - 2, style), width, style) + gap
     rows = dd_toplist(tr, width, style) + [style.bold(style.paint(tr.headline[:width - 2], tr.headline_colour))]
-    sub = style.paint(tr.subtitle, DD_TITLE)
-    out += (widget(tr.title, sub, rows, width, style) if level < 3
+    sub = style.paint(tr.subtitle or sc.PER_SECOND, DD_TITLE)
+    out += (widget(tr.title or sc.CALLS, sub, rows, width, style) if level < 3
             else [tinted(" " + r, width, style) for r in rows]) + gap
     ok = sum(g.status == "ok" for g in lines)
     bad = sum(g.status == "alert" for g in lines)
     wait = len(lines) - ok - bad
     title = world.goal_title(v, t)
-    full = [(f"{ok} OK", GREEN), (f"{bad} ALERT", RED if bad else MUTED), (f"{wait} WAIT", MUTED)]
+    counts = sc.COUNTS
+    full = [(counts["ok"].format(n=ok), GREEN), (counts["alert"].format(n=bad), RED if bad else MUTED),
+            (counts["wait"].format(n=wait), MUTED)]
     summary = ""
     for parts in (full, [(s, c) for s, c in full if not s.startswith("0 ")]):  # drop zero counts if needed
         text = " · ".join(s for s, _ in parts)
@@ -293,7 +298,7 @@ def dd_panel(world, v: str, t: float, tr: Traffic, lines: list[GoalRow], width: 
             else [tinted(" " + r, width, style) for r in mons])
     if level < 1:
         right, erows = dd_events(world, v, t, width, style, events)
-        out += gap + widget("Events", right, erows, width, style)
+        out += gap + widget(sc.EVENTS, right, erows, width, style)
     return out
 
 

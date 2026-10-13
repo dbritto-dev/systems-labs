@@ -1,0 +1,12 @@
+"""Messages from core/ (loading your code, checking --set), in English."""
+
+MUST_DEFINE = "{file} must define {names}"
+A_TYPO = "{name!r} (found {close!r}: a typo?)"
+DOES_NOT_EXIST = "{file} does not exist"
+SET_FORMAT = "--set expects name=value, got {item!r}"
+UNKNOWN_PARAM = "unknown param {name!r} for {lab} (known: {known}).{hint}"
+DID_YOU_MEAN = " Did you mean {name!r}?"
+NOT_BOOL = "{name} must be true or false, got {raw!r}"
+NOT_INT = "{name} must be a whole number, got {raw!r}"
+NOT_NUMBER = "{name} must be a number, got {raw!r}"
+NONE = "none"

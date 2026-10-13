@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import textwrap
 
+from core.i18n import screen_text
 from live.canvas import BLUE, DIM, EXTRA2, GREEN, INK, LIMIT, MUTED, PURPLE, RED, RGB, Canvas, Style, vis
 from live.panel import EMPTY, panel, split_row
 from live.views import render
@@ -19,7 +20,7 @@ MAX_COLS = 124
 CHART_ROWS = 6
 WINDOW = 60.0  # seconds the chart shows; it scrolls once the run passes a minute
 EIGHTHS = " ▁▂▃▄▅▆▇█"
-KEYS = [("pause/resume", "space"), ("restart", "0"), ("rerun", "r"), ("quit", "q")]  # ← → seek and ↑ ↓ speed work too
+KEYS = [("pause", "space"), ("restart", "0"), ("rerun", "r"), ("view", "v"), ("quit", "q")]  # ← → and ↑ ↓ work too
 
 
 def layout(cols: int, rows: int) -> dict[str, int]:
@@ -98,20 +99,24 @@ def axis(t: float, cols: int) -> str:
 
 def clock_text(t: float, mode: str, speed: float, style: Style) -> str:
     p = style.paint
+    sc = screen_text()
     match mode:
         case "paused":
-            return p("❚❚ ", MUTED) + style.bold(p(clock(t), INK)) + p("  paused", MUTED)
+            return p("❚❚ ", MUTED) + style.bold(p(clock(t), INK)) + p(f"  {sc.PAUSED}", MUTED)
         case "simulating":
-            return p("… ", MUTED) + style.bold(p(clock(t), INK)) + p("  simulating", MUTED)
+            return p("… ", MUTED) + style.bold(p(clock(t), INK)) + p(f"  {sc.SIMULATING}", MUTED)
         case _:
             return p("▶ ", GREEN) + style.bold(p(clock(t), INK)) + p(f"  {speed:g}x", MUTED)
 
 
-def menu(width: int, style: Style) -> str:
-    """The keys, as "pause/resume [space] - restart [0] - rerun [r] - quit [q]"."""
+def menu(width: int, style: Style, views: int = 1) -> str:
+    """The keys, as "pause/resume [space] - restart [0] - rerun [r] - quit [q]" (and view [v]
+    when a lab has more than one picture)."""
     p = style.paint
-    sep = " - " if len(" " + " - ".join(f"{a} [{k}]" for a, k in KEYS)) < width else "  "
-    return " " + p(sep, MUTED).join(p(a + " ", MUTED) + p(f"[{k}]", INK) for a, k in KEYS)
+    words = screen_text().MENU
+    keys = [(words[a], k) for a, k in KEYS if a != "view" or views > 1]
+    sep = " - " if len(" " + " - ".join(f"{a} [{k}]" for a, k in keys)) < width else "  "
+    return " " + p(sep, MUTED).join(p(a + " ", MUTED) + p(f"[{k}]", INK) for a, k in keys)
 
 
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -123,12 +128,11 @@ def spinner(elapsed: float) -> str:
 
 def _about(world) -> tuple[str, str, str]:
     """The lab's one-line summary, the lesson's one-liner, and the first thing to watch for."""
-    import importlib
+    from core.contract import lesson_of, meta_of
 
     try:
-        meta = importlib.import_module(f"labs.{world.id}.lab").META
-        lesson = importlib.import_module(f"labs.{world.id}.lesson").LESSON
-        return meta.get("summary", ""), lesson.one_liner, (lesson.watch_for or ("",))[0]
+        lesson = lesson_of(world.id)
+        return meta_of(world.id).get("summary", ""), lesson.one_liner, (lesson.watch_for or ("",))[0]
     except (ImportError, AttributeError):
         return "", "", ""
 
@@ -145,53 +149,62 @@ def _card(rows: list[str], width: int, height: int) -> list[str]:
 def loading_card(world, step: str, elapsed: float, width: int, height: int, style: Style) -> list[str]:
     """What is happening while the first minute is simulated: each step, ticked off as it is done."""
     p = style.paint
+    sc = screen_text()
     files = world.files[0] if world.files else f"labs/{world.id}/main.py"
     spin = p(spinner(elapsed), BLUE)
     done, todo = p("✔", GREEN), p("·", DIM)
     loaded = step != "starting"
     steps = [
-        (done, "Started a Python process for your code", ""),
-        (done if loaded else spin, f"Loaded {files}", "" if loaded else f"{elapsed:.1f}s"),
-        (spin if loaded else todo, "Simulating the first minute on a virtual clock",
-         f"{elapsed:.1f}s" if loaded else ""),
+        (done, sc.STEP_PROCESS, ""),
+        (done if loaded else spin, sc.STEP_LOADED.format(file=files), "" if loaded else f"{elapsed:.1f}s"),
+        (spin if loaded else todo, sc.STEP_SIMULATING, f"{elapsed:.1f}s" if loaded else ""),
     ]
     inner = min(68, width - 6)
-    rows = [style.bold(p(f"{spinner(elapsed)}  Starting {world.title}", INK)), ""]
+    rows = [style.bold(p(f"{spinner(elapsed)}  " + sc.STARTING.format(title=world.title), INK)), ""]
     for mark, text, when in steps:
         rows.append(split_row(f"{mark}  " + p(text, INK if mark != todo else MUTED), p(when, MUTED), inner))
-    rows.append("   " + p("users arrive, things go wrong at random, goals are judged", MUTED))
+    rows.append("   " + p(sc.STEP_WHAT, MUTED))
     summary, one_liner, watch = _about(world)
     if one_liner or watch:
-        rows += ["", p("While you wait", PURPLE)]
-        for text in (one_liner, f"Watch for: {watch}" if watch else ""):
+        rows += ["", p(sc.WHILE_YOU_WAIT, PURPLE)]
+        for text in (one_liner, sc.WATCH_FOR.format(text=watch) if watch else ""):
             rows += [p(line, MUTED) for line in textwrap.wrap(text, inner)] if text else []
     if elapsed > 8:
-        rows += ["", p(f"Still simulating after {elapsed:.0f} s: a slow loop in your code? "
-                       f"It is stopped at 20 s.", EXTRA2)]
+        rows += [""] + [p(line, EXTRA2) for line in
+                        textwrap.wrap(sc.STILL_SIMULATING.format(seconds=f"{elapsed:.0f}"), inner)]
     return _card(rows, width, height)
+
+
+def split_error(error: str) -> tuple[str, str]:
+    """An error from the runner: (message, where to edit), or (message, "") if it names no file."""
+    head = screen_text().EDIT_HERE.split("{where}")[0]  # "edit " / "edita "
+    message, sep, where = error.partition(f"  ({head}")
+    return (message, where.rstrip(")")) if sep else (error, "")
 
 
 def error_card(world, error: str, width: int, height: int, style: Style) -> list[str]:
     """Your code stopped before the first minute was ready: what happened and where to fix it."""
     p = style.paint
-    message, _, where = error.partition("  (edit ")
-    where = where.rstrip(")")
+    sc = screen_text()
+    message, where = split_error(error)
     inner = min(76, width - 6)
-    rows = [style.bold(p("✖  Your code stopped with an error", RED)), ""]
+    rows = [style.bold(p(f"✖  {sc.STOPPED_WITH_ERROR}", RED)), ""]
     rows += [p(line, INK) for line in textwrap.wrap(message, inner)[:6]]
     if where:
-        rows += ["", p("Edit ", MUTED) + style.bold(p(where, INK))]
-    rows += ["", p("Fix it and save: this window reruns it.", MUTED)]
+        rows += ["", p(f"{sc.EDIT} ", MUTED) + style.bold(p(where, INK))]
+    rows += ["", p(sc.FIX_AND_SAVE, MUTED)]
     return _card(rows, width, height)
 
 
 def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style | None = None,
             mode: str = "play", speed: float = 1.0, status: tuple[str, RGB] | None = None,
-            error: str | None = None, loading: tuple[str, float] | None = None) -> list[str]:
+            error: str | None = None, loading: tuple[str, float] | None = None,
+            views: int = 1) -> list[str]:
     style = style or Style("none")
+    sc = screen_text()
     if cols < MIN_COLS or rows < MIN_ROWS:
-        return [f"The terminal is {cols}x{rows}; this needs at least {MIN_COLS}x{MIN_ROWS} "
-                "(110x44 looks best). Make the window bigger."[:cols]]
+        return [sc.TOO_SMALL.format(cols=cols, rows=rows, min_cols=MIN_COLS, min_rows=MIN_ROWS,
+                                    best="110x44")[:cols]]
     L = layout(cols, rows)
     W = L["width"]
     p = style.paint
@@ -203,15 +216,16 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
     if run:
         right = clock_text(t, mode, speed, style)
     elif error:
-        right = p("✖ stopped", RED)
+        right = p(f"✖ {sc.STOPPED}", RED)
     else:
-        right = p(f"{spinner(loading[1] if loading else 0)} loading", BLUE)
+        right = p(f"{spinner(loading[1] if loading else 0)} {sc.LOADING}", BLUE)
     out.append(split_row(title, right, W - 1))
     stage = world.stage(variant) if run else None
     if stage:
         out.append(p(f" {stage.story}"[:W], MUTED))
-        out.append(" " + p("Behavior: ", MUTED) + style.bold(p(stage.label, stage.colour))
-                   + p(f"   → {stage.next}"[: max(0, W - len(stage.label) - 12)], MUTED))
+        lead = f"{sc.BEHAVIOR} "
+        out.append(" " + p(lead, MUTED) + style.bold(p(stage.label, stage.colour))
+                   + p(f"   → {stage.next}"[: max(0, W - len(stage.label) - len(lead) - 3)], MUTED))
     else:
         out += [p(f" {_about(world)[0]}"[:W], MUTED), ""]
     out.append("")
@@ -236,14 +250,14 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
 
     # The footer: where your code lives, then the keys (or what is going on).
     files = world.files[0] if world.files else f"labs/{world.id}/main.py"
-    out.append(p(f" Edit {files} and save: this window reruns it.", MUTED))
+    out.append(p(" " + sc.EDIT_AND_SAVE.format(file=files), MUTED))
     if error and run is not None:
-        out.append(" " + p(f"error: {error}"[: W - 2], RED))
+        out.append(" " + p(sc.ERROR.format(error=error)[: W - 2], RED))
     elif run is None:
-        out.append(" " + p("quit ", MUTED) + p("[q]", INK))
+        out.append(" " + p(f"{sc.MENU['quit']} ", MUTED) + p("[q]", INK))
     elif status:
         out.append(" " + p(status[0][: W - 2], status[1]))
     else:
-        out.append(menu(W, style))
+        out.append(menu(W, style, views))
     return out
 
