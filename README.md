@@ -98,20 +98,35 @@ Keys: `space` pause/resume, `0` restart from 0:00, `r` rerun, `q` quit, `← →
 
 ## Labs
 
+Backend systems (the **lanes** picture: users, a door, a server):
+
 | Lab | Problem | Stages |
 |---|---|---|
 | `retry_storm` | the service goes down; retries pile on | retry → backoff → jitter → retry budget |
 | `cache` | a slow database; then a cache flush | cache-aside with TTL → single-flight + jittered TTLs |
+| `rate_limit` | a few clients flood the API | fixed window → token bucket → bucket + fair share |
+| `conn_pool` | the database slows down or traffic spikes | pool → bounded pool → acquire timeout |
+| `circuit_breaker` | one dependency gets very slow and takes the rest down | timeouts → bulkhead → circuit breaker |
+| `overload` | a traffic spike; the queue never recovers (metastable) | bounded queue → skip late requests → adaptive LIFO |
+
+Distributed systems: the Fly.io [Gossip Glomers](https://fly.io/dist-sys/) challenges on a
+simulated network with partitions (the **cluster** picture: nodes and the messages between them):
+
+| Lab | Challenge | Stages |
+|---|---|---|
+| `broadcast` | #3 Broadcast | multi-node → fault tolerant → efficient → batched (3b–3e) |
 
 ## Layout
 
 ```
 core/   vtime.py (virtual-time asyncio)  services.py (fakeable downstreams)
-        contract.py (load lab code, discover labs, --set)  lessons.py  testing.py
+        net.py (a Maelstrom-like network: nodes, RPC, latency, partitions, seq-kv/lin-kv)
+        incidents.py (random incidents, drifting traffic)  contract.py (load lab code,
+        discover labs, --set)  lessons.py  testing.py
 labs/   <lab>/ main.py  reference.py  scenario.py  lab.py  lesson.py  test_lab.py  README.md
 live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child processes, Feed)
-        frame.py (header, chart, footer)  panel.py (dashboard)  views/ (View, Adapter, lanes)
-        adapters/ (one LaneAdapter per lab)  worlds/ (one World per lab)  __main__.py
+        frame.py (header, chart, footer)  panel.py (dashboard)  views/ (View, Adapter,
+        lanes, cluster)  adapters/ (one adapter per lab)  worlds/ (one World per lab)  __main__.py
 ```
 
 ## Adding a lab
@@ -142,16 +157,23 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
    | `bands(variant, t)` | shaded spans (default: incidents that have started) |
    | `warnings(run, inc)`, `incident_text(inc, start)` | extra timeline events |
    | `legend`, `legend_notes()` | one legend for the picture and the chart |
-   | `incident_name`, `incident_title(inc)`, `incident_verbs`, `files`, `view` | names on screen; `view = "lanes"` |
+   | `incident_name`, `incident_title(inc)`, `incident_verb(inc, start)`, `files`, `view` | names on screen; `view = "lanes"` or `"cluster"` |
 
    The base class gives you `goal_lines`, `goal_title`, `next_check`, `timeline`,
    `stage(variant)`, the endless-run storage and settled-goal caching.
-3. **A LaneAdapter** in `live/adapters/<lab>.py` (every module there is imported):
+3. **An adapter** in `live/adapters/<lab>.py` (every module there is imported), for the
+   picture your World names in `view`:
    ```python
-   @adapts("my_lab", "lanes")
+   @adapts("my_lab", "lanes")              # users, a door, a server
    class MyLanes(LaneAdapter):
        def frame(self, variant, t, users) -> LaneFrame: ...
+
+   @adapts("my_dist_lab", "cluster")       # nodes, messages, partitions
+   class MyCluster(ClusterAdapter):
+       def frame(self, variant, t) -> ClusterFrame: ...
    ```
+   A distributed lab's nodes are `core.net.Node` subclasses with `on_<type>` handlers;
+   copy `labs/broadcast` to start one.
 4. **A View** in `live/views/` only for a new kind of picture: subclass `View`, set
    `name`, implement `draw(cv, adapter, variant, t)`, and decorate it with `@register`.
 
