@@ -34,6 +34,10 @@ class TxnCluster(ClusterAdapter):
         cut = w.cut_at(variant, t)
         n = len(w.stale_at(run, t))
         groups = None if cut is None else [1 if i == cut else 0 for i in range(n)]
-        state = (f"PARTITIONED  n{cut} cut off", RED) if cut is not None else ("CONNECTED", GREEN)
+        words = w.screen.STATES
+        if cut is not None:
+            state = (f"{words['partitioned']}  {w.s('state_cut', node=cut)}", RED)
+        else:
+            state = (words["connected"], GREEN)
         return ClusterFrame(nodes=w.node_colours(run, t), groups=groups, flights=every(flights, MAX_FLIGHTS),
                             drops=every(drops, 30), state=state)

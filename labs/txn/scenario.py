@@ -23,6 +23,7 @@ import random
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.net import Client, Network
 from core.vtime import VirtualRun, now
@@ -38,14 +39,11 @@ STALE_EVERY = 0.1  # how often each node's staleness is recorded
 STALE_AFTER = 1.0  # a key is stale on a node if it is this far behind the newest value anywhere
 CLIENT_TIMEOUT = 1.0
 FORGET = 300.0  # forget values written this long ago (an old value left in a store counts as very old)
-FIRST = Planned(20.0, 30.0, "isolate", 1.0, "a top-of-rack switch failed under one node")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "isolate", 1.0, "tor_switch")
 KINDS = [
     Kind("isolate", 1.0, median=10.0, shortest=5.0, longest=25.0, causes=(
-        "a top-of-rack switch failed under one node",
-        "a firewall rule blocked the replication port on one node",
-        "one node's network card started dropping packets",
-        "a cloud zone lost its link to the other two",
-    )),
+        "tor_switch", "firewall_port", "nic_drops", "zone_link")),
 ]
 MEAN_GAP = 30.0
 QUIET = 27.0  # calm before the next one: 15 s measured before it, 10 s to judge the last
@@ -87,7 +85,7 @@ class _Sim:
         for n in self.ids:
             node = self.code.TxnNode(n, self.ids)
             if not isinstance(getattr(node, "store", None), dict):
-                raise AttributeError("TxnNode must keep its key/value store in self.store (a dict)")
+                raise AttributeError(lab_text(LAB).STRINGS["no_store"])
             self.net.join(node)
             self.nodes.append(node)
 
