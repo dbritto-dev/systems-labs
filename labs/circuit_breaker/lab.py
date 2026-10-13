@@ -1,15 +1,10 @@
-"""Lab circuit_breaker: the numbers, the goals and the stages."""
+"""Lab circuit_breaker: the numbers and how the stage is judged. The words are in text/<lang>.py."""
 
 from core.contract import Param
 
 META = {
     "id": "circuit_breaker",
-    "title": "Circuit breaker",
-    "summary": "One slow dependency takes every worker. Add timeouts, a bulkhead and a circuit breaker.",
-    "params": {
-        "rate": Param(100.0, "user requests per second"),
-        "workers": Param(24, "workers in our service"),
-    },
+    "params": {"rate": Param(100.0), "workers": Param(24)},
 }
 
 BASELINE_WINDOW = 15.0  # seconds before an incident used as the baseline
@@ -22,24 +17,9 @@ HEALTHY_MIN = 0.99  # served share of requests to the healthy dependency during 
 FAST_MAX = 0.050  # seconds: the p99 of requests to the slow dependency once detected
 RECOVERED_MIN = 0.95  # served share of requests to it after it is back
 
-STAGES = [
-    ("No protection",
-     "Challenge: one slow dependency holds every worker, so all requests fail. Add timeouts.",
-     "Stage 1: give up on a call after TIMEOUT"),
-    ("Timeouts",
-     "Challenge: slow calls still hold the workers for a second each. Fence each dependency.",
-     "Stage 2: a Bulkhead per dependency"),
-    ("Timeouts + bulkhead",
-     "Challenge: the healthy path is safe, but users still wait 1 s on the slow one. Fail fast.",
-     "Stage 3: a CircuitBreaker per dependency"),
-    ("Timeouts + bulkhead + breaker",
-     "Solved: the slow dependency is fenced off and fails fast, and the rest keeps working.",
-     "All stages done"),
-]
-
 
 def stage_of(baseline_ok: bool, calls_ok: bool, healthy_ok: bool, fast_ok: bool, back_ok: bool) -> int:
-    """Judge the stage from what the first incident did."""
+    """Judge the stage from what the first incident did: 0 no protection ... 3 timeouts + bulkhead + breaker."""
     for stage, ok in enumerate((calls_ok, healthy_ok, fast_ok)):
         if not ok:
             return stage

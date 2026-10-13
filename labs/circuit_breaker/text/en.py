@@ -1,4 +1,77 @@
+"""Lab circuit_breaker, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Circuit breaker"
+SUMMARY = "One slow dependency takes every worker. Add timeouts, a bulkhead and a circuit breaker."
+PARAMS = {"rate": "user requests per second", "workers": "workers in our service"}
+
+INCIDENT = IncidentText("Slowdown", "the slowdown", "the next slowdown")
+VERBS = {"slow": "SLOW", "fast": "FAST"}
+CAUSES = {
+    "ledger_lock": "a lock on the ledger table",
+    "provider_brownout": "a network brownout to the payment provider",
+    "payments_gc": "a GC storm in the payments service",
+    "rate_limited": "the payment provider is rate-limiting us",
+    "recs_gc": "a GC storm in the recommendations service",
+    "cold_cache": "a cold model cache after a deploy",
+    "slow_features": "a slow feature store",
+    "noisy_neighbour": "a noisy neighbour on its database",
+}
+
+STAGES = [
+    StageText("No protection",
+              "Challenge: one slow dependency holds every worker, so all requests fail. Add timeouts.",
+              "Stage 1: give up on a call after TIMEOUT"),
+    StageText("Timeouts",
+              "Challenge: slow calls still hold the workers for a second each. Fence each dependency.",
+              "Stage 2: a Bulkhead per dependency"),
+    StageText("Timeouts + bulkhead",
+              "Challenge: the healthy path is safe, but users still wait 1 s on the slow one. Fail fast.",
+              "Stage 3: a CircuitBreaker per dependency"),
+    StageText("Timeouts + bulkhead + breaker",
+              "Solved: the slow dependency is fenced off and fails fast, and the rest keeps working.",
+              "All stages done"),
+]
+
+GOALS = {
+    "baseline": GoalText("Baseline ok", "Client must return results"),
+    "calls": GoalText("Calls ≤ 1.2s", "time out after TIMEOUT"),
+    "healthy": GoalText("Healthy ≥ 99%", "a Bulkhead per dependency"),
+    "fast": GoalText("Fail fast <50ms", "a CircuitBreaker per dep"),
+    "back": GoalText("Back ≥ 95%", "close the breaker again"),
+}
+
+LEGEND = {"idle": "idle", "fast_call": "fast call", "waits_worker": "waits for a worker", "slow_call": "slow call",
+          "refused": "refused", "failed": "failed", "served": "served", "workers": "workers",
+          "incident": "incident"}
+
+STRINGS = {
+    # the dependencies (toplist bars: at most 10 letters)
+    "dep_payments": "Payments",
+    "dep_recs": "Recs",
+    # incidents
+    "title": "{dep} slow",
+    "slow": "{dep} is slow, {seconds:.0f} s a call: {cause}",
+    "fast_again": "{dep} is fast again",
+    "warn_busy": "all {workers} workers are busy",
+    # the panel
+    "tile_healthy": "Healthy",
+    "tile_fails": "Fails",
+    "tile_workers": "Workers",
+    "target_busy": "busy",
+    "answers": "Answers",
+    "head_both_fail": "{dep} is slow, and {healthy} fails too",
+    "head_contained": "{dep} is slow; {healthy} is fine",
+    "head_still_open": "{dep} is back; the breaker is still open",
+    "head_back": "{dep} is back",
+    "head_calm": "Both dependencies answer fast",
+    "chart_limit": "{workers} workers",
+    "note_chart": "The chart: busy workers each second.",
+    # errors in your code
+    "stuck": "a request has been running for over {seconds:.0f} s: does Client.call wait for something that never finishes?",
+}
 
 LESSON = Lesson(
     title="Circuit breaker",

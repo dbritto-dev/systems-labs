@@ -1,4 +1,4 @@
-"""World for lab circuit_breaker."""
+"""World for lab circuit_breaker. Its words are in labs/circuit_breaker/text/<lang>.py."""
 
 from __future__ import annotations
 
@@ -8,12 +8,11 @@ from live.canvas import (
     BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, RGB, WHITE,
 )
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
+    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World,
     fmt_int, fmt_ms, history, percentile,
 )
 
 DOWN_KEY: RGB = (110, 44, 56)  # the legend swatch for the shaded incidents
-NAMES = {"payments": "Payments", "recs": "Recs"}
 
 REQ_ID, REQ_START, REQ_GOT, REQ_END, REQ_DEP, REQ_OUTCOME, REQ_CALLED = range(7)
 CALL_START, CALL_REQ, CALL_DEP, CALL_END, CALL_OUTCOME = range(5)
@@ -86,32 +85,29 @@ def _back(run: Run, inc: Incident, upto: float):
     return (None, "–") if v is None else (v, f"{v:.0%}")
 
 
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Baseline ok", "before", "Client must return results",
-             _before, _baseline, lambda v: v is not None and v >= lab.BASELINE_MIN),
-    GoalSpec("Calls ≤ 1.2s", "during", "time out after TIMEOUT",
-             _during, _calls, lambda v: v is not None and v <= lab.CALL_MAX),
-    GoalSpec("Healthy ≥ 99%", "during", "a Bulkhead per dependency",
-             _during, _healthy, lambda v: v is not None and v >= lab.HEALTHY_MIN),
-    GoalSpec("Fail fast <50ms", "during", "a CircuitBreaker per dep",
-             _fast_window, _fast, lambda v: v is not None and v < lab.FAST_MAX, settle_extra=2.5),
-    GoalSpec("Back ≥ 95%", "after", "close the breaker again",
-             _after, _back, lambda v: v is not None and v >= lab.RECOVERED_MIN, settle_extra=2.5),
+    GoalSpec("", "before", "", _before, _baseline,
+             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "during", "", _during, _calls,
+             lambda v: v is not None and v <= lab.CALL_MAX, key="calls"),
+    GoalSpec("", "during", "", _during, _healthy,
+             lambda v: v is not None and v >= lab.HEALTHY_MIN, key="healthy"),
+    GoalSpec("", "during", "", _fast_window, _fast,
+             lambda v: v is not None and v < lab.FAST_MAX, settle_extra=2.5, key="fast"),
+    GoalSpec("", "after", "", _after, _back,
+             lambda v: v is not None and v >= lab.RECOVERED_MIN, settle_extra=2.5, key="back"),
 ]
 
 
 class CircuitBreakerWorld(World):
     id = "circuit_breaker"
-    title = "Circuit breaker"
-    files = ("labs/circuit_breaker/main.py",)
     view = "lanes"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA2, EXTRA1, BLUE))]
-    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "fast call"), (EXTRA1, "waits for a worker"),
-              (EXTRA2, "slow call"), (EXTRA3, "refused"), (RED, "failed"), (GREEN, "served"),
+    stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
+    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "fast_call"), (EXTRA1, "waits_worker"),
+              (EXTRA2, "slow_call"), (EXTRA3, "refused"), (RED, "failed"), (GREEN, "served"),
               (LIMIT, "workers", "┄"), (DOWN_KEY, "incident", "█")]
-    incident_name = "Slowdown"
-    incident_verbs = ("SLOW", "FAST")
+    incident_verbs = ("slow", "fast")
     tables = {
         "requests": Table(sort=REQ_START, times=(REQ_START, REQ_END)),
         "calls": Table(sort=CALL_START, times=(CALL_START, CALL_END)),
@@ -150,17 +146,22 @@ class CircuitBreakerWorld(World):
         for s in range(int(inc.t0), int(inc.t1)):
             busy = sum(run.series(n, s, s + 1)[0] for n in ("busy_ok", "busy_sick"))
             if busy >= self.workers * 0.95:
-                return [(s + 1.0, f"all {self.workers} workers are busy")]
+                return [(s + 1.0, self.s("warn_busy", workers=self.workers))]
         return []
 
+    def dep_name(self, dep: str) -> str:
+        """A dependency's name on screen ("payments" -> "Payments" / "Pagos")."""
+        return self.s(f"dep_{dep}")
+
     def incident_title(self, inc: Incident) -> str:
-        return f"{NAMES[inc.kind]} slow #{inc.index + 1}"
+        name = self.s("title", dep=self.dep_name(inc.kind))
+        return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
 
     def incident_text(self, inc: Incident, start: bool) -> str:
-        name = NAMES[inc.kind]
+        name = self.dep_name(inc.kind)
         if start:
-            return f"{name} is slow, {inc.severity:.0f} s a call: {inc.cause}"
-        return f"{name} is fast again"
+            return self.s("slow", dep=name, seconds=inc.severity, cause=self.cause(inc))
+        return self.s("fast_again", dep=name)
 
     def incident_at(self, variant: str, t: float) -> Incident | None:
         run = self.runs.get(variant)
@@ -218,37 +219,37 @@ class CircuitBreakerWorld(World):
             return n, busy_state(n)
 
         tiles = [
-            Tile("Healthy", "–" if served is None else f"{served:.0%}", "≥99%", served_state(served),
-                 history(run, t, served_s)),
-            Tile("Fails", "–" if fast is None else fmt_ms(fast), "<50ms", fast_state(fast),
+            Tile(self.s("tile_healthy"), "–" if served is None else f"{served:.0%}", "≥99%",
+                 served_state(served), history(run, t, served_s)),
+            Tile(self.s("tile_fails"), "–" if fast is None else fmt_ms(fast), "<50ms", fast_state(fast),
                  history(run, t, fast_s)),
-            Tile("Workers", f"{busy}/{self.workers}", "busy", busy_state(busy), history(run, t, busy_s)),
+            Tile(self.s("tile_workers"), f"{busy}/{self.workers}", self.s("target_busy"), busy_state(busy),
+                 history(run, t, busy_s)),
         ]
         last = [r for r in run.rows("requests", t - 1 - span, t) if t - 1 <= r[REQ_END] < t]
         bars = []
         for d, name in enumerate(DEPS):
             rows = [r for r in last if r[REQ_DEP] == d]
             count = {k: sum(r[REQ_OUTCOME] == k for r in rows) for k in (OK, REFUSED, FAILED, GAVE_UP)}
-            bars.append(Bar(NAMES[name], [(count[OK], WHITE), (count[REFUSED], EXTRA3),
-                                          (count[FAILED], EXTRA2), (count[GAVE_UP], RED)]))
+            bars.append(Bar(self.dep_name(name), [(count[OK], WHITE), (count[REFUSED], EXTRA3),
+                                                  (count[FAILED], EXTRA2), (count[GAVE_UP], RED)]))
         headline, colour = self._headline(variant, run, t, served)
-        return Traffic(tiles, bars, 0.0, "", headline, colour, title="Answers",
-                       subtitle="per second, last 1 s", top=100.0)
+        return Traffic(tiles, bars, 0.0, "", headline, colour, title=self.s("answers"), top=100.0)
 
     def _headline(self, variant: str, run: Run, t: float, served: float | None):
         inc = self.incident_at(variant, t)
         if inc is not None:
-            healthy = NAMES[DEPS[1 - _sick(inc)]]
+            sick, healthy = self.dep_name(inc.kind), self.dep_name(DEPS[1 - _sick(inc)])
             if served is not None and served < lab.HEALTHY_MIN:
-                return f"{NAMES[inc.kind]} is slow, and {healthy} fails too", RED
-            return f"{NAMES[inc.kind]} is slow; {healthy} is fine", BLUE
+                return self.s("head_both_fail", dep=sick, healthy=healthy), RED
+            return self.s("head_contained", dep=sick, healthy=healthy), BLUE
         last = self.current_incident(variant, t)
         if last is not None and last.t1 <= t < last.t1 + 10:
             refused = self.door_at(run, t, _sick(last))
             if refused > 0.5:
-                return f"{NAMES[last.kind]} is back; the breaker is still open", EXTRA2
-            return f"{NAMES[last.kind]} is back", BLUE
-        return "Both dependencies answer fast", MUTED
+                return self.s("head_still_open", dep=self.dep_name(last.kind)), EXTRA2
+            return self.s("head_back", dep=self.dep_name(last.kind)), BLUE
+        return self.s("head_calm"), MUTED
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
@@ -261,12 +262,13 @@ class CircuitBreakerWorld(World):
         waiting = len(run.active("requests", t, REQ_END))
         recent = [r[REQ_END] - r[REQ_START] for r in run.rows("requests", t - 5 - span, t)
                   if t - 5 <= r[REQ_END] < t]
+        words = self.screen.STATS
         return [
-            ("served", fmt_int(served), GREEN),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), EXTRA2 if waiting > 20 else WHITE),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
+            (words["served"], fmt_int(served), GREEN),
+            (words["failed"], fmt_int(failed), RED if failed else MUTED),
+            (words["waiting"], fmt_int(waiting), EXTRA2 if waiting > 20 else WHITE),
+            (words["p50"], fmt_ms(percentile(recent, 50)), WHITE),
+            (words["p99"], fmt_ms(percentile(recent, 99)), WHITE),
         ]
 
     def stacks(self, variant: str):
@@ -274,10 +276,10 @@ class CircuitBreakerWorld(World):
         return [(WHITE, run.hist.get("busy_ok", [])), (EXTRA2, run.hist.get("busy_sick", []))]
 
     def chart_limit(self):
-        return float(self.workers), f"{self.workers} workers"
+        return float(self.workers), self.s("chart_limit", workers=self.workers)
 
     def legend_notes(self) -> list[str]:
-        return ["The chart: busy workers each second."]
+        return [self.s("note_chart")]
 
 
 WORLD = CircuitBreakerWorld

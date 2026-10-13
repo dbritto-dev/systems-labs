@@ -54,11 +54,12 @@ class CircuitBreakerLanes(LaneAdapter):
         busy = w.busy_at(run, t)
         full = busy >= w.workers
         inc = w.incident_at(variant, t)
+        words = w.screen.STATES
         if full:
-            state, gauge, outline = ("OVERLOADED", RED), RED, RED
+            state, gauge, outline = (words["overloaded"], RED), RED, RED
         elif inc is not None:
-            state, gauge, outline = ("DEGRADED", EXTRA2), EXTRA2 if busy >= w.workers * 0.8 else BLUE, EXTRA2
+            state, gauge, outline = (words["degraded"], EXTRA2), EXTRA2 if busy >= w.workers * 0.8 else BLUE, EXTRA2
         else:
-            state, gauge, outline = ("HEALTHY", GREEN), BLUE, OUTLINE
+            state, gauge, outline = (words["healthy"], GREEN), BLUE, OUTLINE
         return LaneFrame(users=found, flights=flights, outcomes=outcomes, closed=closed, door_color=door,
                          fill=busy / w.workers, gauge=gauge, outline=outline, state=state)

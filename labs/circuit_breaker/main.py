@@ -1,6 +1,6 @@
 """Lab circuit_breaker: YOUR FILE. Edit it and save; the live window reruns it.
 
-Our service takes ~100 requests/s with a pool of 30 workers. Each request
+Our service takes ~100 requests/s with a pool of 24 workers. Each request
 holds a worker while it calls ONE dependency through your `Client`:
 "payments" (60% of requests) or "recs" (recommendations, 40%). At random
 times one dependency gets very slow (seconds per call). Right now `Client`

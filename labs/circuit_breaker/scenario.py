@@ -21,6 +21,7 @@ import random
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.services import FaultyService, ServiceError, current_request
 from core.vtime import VirtualRun, now
@@ -34,20 +35,13 @@ DEADLINE = 2.0  # a user gives up after this long
 DEPS = ("payments", "recs")
 SHARE = (0.6, 0.4)  # of requests per dependency
 LATENCY = 0.020  # a normal call
-FIRST = Planned(20.0, 30.0, "recs", 8.0, "a GC storm in the recommendations service")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "recs", 8.0, "recs_gc")
 KINDS = [
     Kind("payments", 0.5, median=10.0, shortest=6.0, longest=25.0, severity=(4.0, 10.0), causes=(
-        "a lock on the ledger table",
-        "a network brownout to the payment provider",
-        "a GC storm in the payments service",
-        "the payment provider is rate-limiting us",
-    )),
+        "ledger_lock", "provider_brownout", "payments_gc", "rate_limited")),
     Kind("recs", 0.5, median=10.0, shortest=6.0, longest=25.0, severity=(4.0, 10.0), causes=(
-        "a GC storm in the recommendations service",
-        "a cold model cache after a deploy",
-        "a slow feature store",
-        "a noisy neighbour on its database",
-    )),
+        "recs_gc", "cold_cache", "slow_features", "noisy_neighbour")),
 ]
 MEAN_GAP = 30.0
 QUIET = 28.0  # at least this calm after an incident: 13 s to judge it + a 15 s baseline
@@ -182,8 +176,7 @@ def stream(variant="main", seed: int = 1, rate: float = 100.0, workers: int = 24
             if s.bugs:
                 raise s.bugs[0]
             if any(t < b + DRAIN - STUCK for t in s.holding.values()):
-                raise RuntimeError(f"a request has been running for over {STUCK:.0f} s: "
-                                   "does Client.call wait for something that never finishes?")
+                raise RuntimeError(lab_text(LAB).STRINGS["stuck"].format(seconds=STUCK))
             yield {
                 "lab": LAB,
                 "start": a,
