@@ -35,6 +35,8 @@ EVENT_STYLE: dict[str, tuple[str, RGB]] = {
     "ALERT": ("✖", (226, 60, 76)), "OK": ("✔", (52, 168, 100)), "WARN": ("▲", (226, 150, 40)),
     "SPLIT": ("▼", (226, 60, 76)), "HEAL": ("▲", (52, 168, 100)),
 }
+START_STYLE = ("▼", (226, 60, 76))  # any other incident starting
+END_STYLE = ("▲", (52, 168, 100))  # ... or ending
 
 
 def split_row(left: str, right: str, width: int) -> str:
@@ -125,7 +127,7 @@ def dd_toplist(tr: Traffic, width: int, style: Style) -> list[str]:
                 cum += value
             cells.append(cell)
         end = max([i + 1 for i, c in enumerate(cells) if c] or [0])
-        text = f" {sum(v for v, _ in bar.segments):,.0f}/s"
+        text = f" {sum(v for v, _ in bar.segments):,.0f}{tr.unit}"
         at = k + 1 if k is not None and end <= k < end + len(text) else end  # never hide the limit tick
         line: list[tuple[str, RGB]] = []
         for i in range(bw):
@@ -188,12 +190,13 @@ def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) 
     pin = alerts[-1] if alerts else None
 
     def row(e, dim: bool = False) -> list[str]:
-        icon, col = EVENT_STYLE.get(e.verb, ("●", (100, 150, 230)))
+        icon, col = EVENT_STYLE.get(e.verb) or (START_STYLE if e.start else END_STYLE
+                                                if e.verb not in ("ALERT", "OK", "WARN") else ("●", (100, 150, 230)))
         c = FADED if dim else col
         head = p("▌", FADED_BAR if dim else col) + p(f"{clock(e.t):>4} ", DD_TITLE) + p(icon + " ", c)
         head += style.bold(p(f"{e.verb:<6}"[:6], c))
         room = inner - 13
-        if e.verb == world.incident_verbs[0] and len(e.text) > room:  # what went wrong: up to 3 lines
+        if e.start and len(e.text) > room:  # what went wrong: up to 3 lines, so the cause shows
             first, *rest = textwrap.wrap(e.text, room, max_lines=3, placeholder="…")
             return [head + p(first, INK)] + [p("▌", col) + " " * 12 + p(more, INK) for more in rest]
         return [head + p(e.text[:room], DD_TITLE if dim else INK)]

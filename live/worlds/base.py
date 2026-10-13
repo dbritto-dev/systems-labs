@@ -66,6 +66,7 @@ class Traffic:
     title: str = "Calls"
     subtitle: str = "per second, last 1 s"
     top: float | None = None  # the toplist's scale (default: from the limit and the bars)
+    unit: str = "/s"  # after each toplist value; "" for counts
 
 
 @dataclass(slots=True)
@@ -117,11 +118,12 @@ class Settled:
 @dataclass(frozen=True, slots=True)
 class TimelineEvent:
     t: float
-    verb: str  # DOWN, UP, FLUSH, WARN, ALERT, OK
+    verb: str  # up to 5 letters: DOWN, UP, SPIKE, FLUSH, WARN, ALERT, OK, ...
     text: str
     colour: RGB
     incident: int
     fix: str = ""
+    start: bool = False  # an incident starting (its cause is shown in full)
 
 
 class Run:
@@ -283,7 +285,9 @@ class World:
                 if r.ok:
                     ev = TimelineEvent(r.settle, "OK", f"{g.rule}: {r.value}", GREEN, inc.index)
                 else:
-                    ev = TimelineEvent(r.alert_at, "ALERT", f"{g.rule}: {r.value}", RED, inc.index, g.fix)
+                    # What it showed when it alerted (an early alert's final value comes later).
+                    shown = g.measure(run, inc, r.alert_at)[1] if r.alert_at < settle else r.value
+                    ev = TimelineEvent(r.alert_at, "ALERT", f"{g.rule}: {shown}", RED, inc.index, g.fix)
                 run.timeline.append(ev)
             warned = run.data.setdefault("warned", set())
             if inc.index not in warned and inc.t1 + 1.0 <= run.end:
@@ -292,13 +296,16 @@ class World:
                     run.timeline.append(TimelineEvent(t, "WARN", text, ORANGE, inc.index))
         run.timeline.sort(key=_event_order)
 
+    def incident_verb(self, inc: Incident, start: bool) -> str:
+        """The event verb (up to 5 letters) for an incident starting or ending, e.g. SPIKE."""
+        return self.incident_verbs[0 if start else 1]
+
     def _add_incident_events(self, run: Run, inc: Incident) -> None:
-        down, up = self.incident_verbs
-        run.timeline.append(
-            TimelineEvent(inc.t0, down, self.incident_text(inc, start=True), RED, inc.index))
+        run.timeline.append(TimelineEvent(inc.t0, self.incident_verb(inc, True),
+                                          self.incident_text(inc, start=True), RED, inc.index, start=True))
         if inc.t1 > inc.t0:
-            run.timeline.append(
-                TimelineEvent(inc.t1, up, self.incident_text(inc, start=False), BLUE, inc.index))
+            run.timeline.append(TimelineEvent(inc.t1, self.incident_verb(inc, False),
+                                              self.incident_text(inc, start=False), BLUE, inc.index))
         run.timeline.sort(key=_event_order)
 
     def current_incident(self, variant: str, t: float) -> Incident | None:
