@@ -21,6 +21,7 @@ from collections import deque
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, rate_at, schedule
 from core.vtime import VirtualRun, now
 
@@ -33,21 +34,13 @@ SERVICE_TIME = 0.010  # seconds per request: 100 requests/s
 USER_TIMEOUT = 1.0
 MAX_RETRIES = 2
 SAMPLE = 0.1  # seconds between samples of the queue
-FIRST = Planned(20.0, 30.0, "spike", 2.5, "a post went viral")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "spike", 2.5, "viral_post")
 KINDS = [
     Kind("spike", 0.6, median=9.0, shortest=5.0, longest=15.0, severity=(2.0, 3.0), causes=(
-        "a post went viral",
-        "a thundering herd after a deploy",
-        "a partner's batch job started early",
-        "a retry storm from a mobile app release",
-        "a cache in front of it was flushed",
-    )),
+        "viral_post", "thundering_herd", "early_batch", "app_retry_storm", "cache_flushed")),
     Kind("capacity", 0.4, median=10.0, shortest=6.0, longest=20.0, severity=(0.3, 0.5), causes=(
-        "one of its nodes was lost",
-        "a noisy neighbour is starving the CPU",
-        "a bad config halved the workers",
-        "garbage collection pauses",
-    )),
+        "node_lost", "noisy_neighbour", "bad_config", "gc_pauses")),
 ]
 MEAN_GAP = 30.0
 QUIET = 32.0  # calm after an incident: 15 s to judge recovery + a 15 s baseline
@@ -214,7 +207,7 @@ def stream(variant="main", seed: int = 1, rate: float = 75.0) -> Iterator[dict]:
             if s.bugs:
                 raise s.bugs[0]
             if any(first < b + DRAIN - STUCK for first, _ in s.open.values()):
-                raise RuntimeError(f"a user has been waiting for over {STUCK:.0f} s")
+                raise RuntimeError(lab_text(LAB).STRINGS["stuck"].format(seconds=STUCK))
             yield {
                 "lab": LAB,
                 "start": a,

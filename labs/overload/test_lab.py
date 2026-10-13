@@ -62,14 +62,14 @@ def test_an_unbounded_fifo_queue_never_recovers():
     results = statuses(world, FIFO)
     assert results[0] == [True, False, False, False, False, False]
     assert all(r == [False] * 6 for r in results[1:])  # still broken at the next incident: metastable
-    assert world.stage(FIFO).label == "Unbounded FIFO"
+    assert world.stage_index(FIFO) == 0  # Unbounded FIFO
 
 
 def test_a_bounded_queue_still_works_for_users_who_left():
     world = build_world("overload", BOUNDED, 4)
     results = statuses(world, BOUNDED)
     assert results[0] == [True, True, False, False, False, False]
-    assert world.stage(BOUNDED).label == "Bounded queue"
+    assert world.stage_index(BOUNDED) == 1  # Bounded queue
 
 
 def test_skipping_late_requests_recovers_but_replies_are_slow():
@@ -77,7 +77,7 @@ def test_skipping_late_requests_recovers_but_replies_are_slow():
     results = statuses(world, SKIP)
     assert len(results) >= 4
     assert all(r == [True, True, True, True, False, True] for r in results)
-    assert world.stage(SKIP).label == "Skip late requests"
+    assert world.stage_index(SKIP) == 2  # Skip late requests
 
 
 def test_reference_passes_every_goal_on_the_first_eight_incidents():
@@ -86,7 +86,7 @@ def test_reference_passes_every_goal_on_the_first_eight_incidents():
     kinds = {i.kind for i in world.runs["reference"].incidents}
     assert len(results) >= 8 and kinds == {"spike", "capacity"}
     assert all(all(r) for r in results[:8])
-    assert world.stage("reference").label == "Adaptive LIFO"
+    assert world.stage_index("reference") == 3  # Adaptive LIFO
 
 
 def test_pieces_join_and_totals_survive_forgetting():

@@ -1,16 +1,16 @@
-"""World for lab overload."""
+"""World for lab overload. Its words are in labs/overload/text/<lang>.py."""
 
 from __future__ import annotations
 
 import math
 from bisect import bisect_right
 
+from core.i18n import lab_text
 from labs.overload import lab
 from labs.overload.scenario import FAILED, GAVE_UP, IN_TIME, LATE, OK, REFUSED, REJECTED, SERVED
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
+    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
 )
 
 REQ_CLIENT, REQ_FIRST, REQ_DONE, REQ_OUTCOME, REQ_TRIES = range(5)
@@ -21,6 +21,11 @@ Q_T, Q_LEN, Q_STALE = range(3)
 TRIES = (WHITE, EXTRA1, EXTRA2)  # first try, retry 1, retry 2
 WASTED = EXTRA3  # work done for a user who already left
 INCIDENT_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("overload").STRINGS[key].format(**values)
 
 
 def capacity_at(run: Run, t: float) -> float:
@@ -128,43 +133,41 @@ def _recovered(run: Run, inc: Incident, upto: float):
             return None, "–"  # not known yet
         if all(v >= lab.RECOVERED_MIN for v in shares):
             v = max(0.0, s - inc.t1)
-            return v, f"{v:.0f} s"
-    return float("inf"), f">{lab.RECOVERY:.0f} s"
+            return v, _s("seconds", seconds=v)
+    return float("inf"), _s("over_seconds", seconds=lab.RECOVERY)
 
 
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Baseline ok", "before", "answer users in time",
-             _before, _baseline, lambda v: v is not None and v >= lab.BASELINE_MIN),
-    GoalSpec("Queue ≤ 250", "during", "reject when queue is full",
-             _busy, _queue, lambda v: v is not None and v <= lab.QUEUE_MAX, doomed=_queue_doomed),
-    GoalSpec("Waste < 5%", "during", "skip requests too late",
-             _busy, _waste, lambda v: v is not None and v < lab.WASTE_MAX),
-    GoalSpec("Goodput ≥ 80%", "during", "stop serving gone users",
-             _during, _goodput, lambda v: v is not None and v >= lab.GOODPUT_MIN),
-    GoalSpec("Fast < 300ms", "during", "newest first when long",
-             _during, _fast, lambda v: v is not None and v < lab.FAST_MAX),
-    GoalSpec("Recovered ≤ 5 s", "after", "shed load to recover",
-             _after, _recovered, lambda v: v is not None and v <= lab.RECOVERY),
+    GoalSpec("", "before", "", _before, _baseline,
+             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "during", "", _busy, _queue,
+             lambda v: v is not None and v <= lab.QUEUE_MAX, doomed=_queue_doomed, key="queue"),
+    GoalSpec("", "during", "", _busy, _waste,
+             lambda v: v is not None and v < lab.WASTE_MAX, key="waste"),
+    GoalSpec("", "during", "", _during, _goodput,
+             lambda v: v is not None and v >= lab.GOODPUT_MIN, key="goodput"),
+    GoalSpec("", "during", "", _during, _fast,
+             lambda v: v is not None and v < lab.FAST_MAX, key="fast"),
+    GoalSpec("", "after", "", _after, _recovered,
+             lambda v: v is not None and v <= lab.RECOVERY, key="recovered"),
 ]
 
 
 class OverloadWorld(World):
     id = "overload"
-    title = "Overload & queues"
-    files = ("labs/overload/main.py",)
     view = "lanes"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA2, EXTRA1, BLUE))]
-    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first try"), ([EXTRA1, EXTRA2], "retry 1,2"),
-              (WASTED, "work for users who left"), (RED, "rejected"), (GREEN, "in time"),
+    stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
+    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first_try"), ([EXTRA1, EXTRA2], "retries"),
+              (WASTED, "wasted"), (RED, "rejected"), (GREEN, "in_time"),
               (LIMIT, "max", "┄"), (INCIDENT_KEY, "incident", "█")]
-    incident_name = "Incident"
-    incident_verbs = ("DOWN", "UP")
+    incident_verbs = ("spike", "calm")
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         if inc.kind == "capacity":
-            return "DROP" if start else "UP"
-        return "SPIKE" if start else "CALM"
+            return self.word("drop" if start else "up")
+        return self.word("spike" if start else "calm")
+
     tables = {
         "requests": Table(sort=REQ_FIRST, times=(REQ_FIRST, REQ_DONE)),
         "tries": Table(sort=TRY_SENT, times=(TRY_SENT, TRY_END)),
@@ -200,23 +203,23 @@ class OverloadWorld(World):
         a, b = _busy(inc)
         for q in run.rows("queue", a, b):
             if q[Q_LEN] > lab.QUEUE_MAX:
-                return [(q[Q_T], f"queue passed {lab.QUEUE_MAX}")]
+                return [(q[Q_T], self.s("warn_queue", limit=lab.QUEUE_MAX))]
         for s in _seconds(a, b):
             late, done = run.series("late", s, s + 1)[0], run.series("in_time", s, s + 1)[0]
             if late and late / (late + done) > 0.5:
-                return [(s + 1.0, f"{late / (late + done):.0%} of work wasted")]
+                return [(s + 1.0, self.s("warn_waste", share=late / (late + done)))]
         return []
 
     def incident_title(self, inc: Incident) -> str:
-        name = "Capacity drop" if inc.kind == "capacity" else "Spike"
-        return f"{name} #{inc.index + 1}"
+        name = self.s("capacity_drop") if inc.kind == "capacity" else self.s("spike")
+        return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         if not start:
-            return "is back to normal"
+            return self.s("back_to_normal")
         if inc.kind == "capacity":
-            return f"is down to {inc.severity:.0%} capacity: {inc.cause}"
-        return f"is getting {inc.severity:.1f}x the traffic: {inc.cause}"
+            return self.s("capacity_down", share=inc.severity, cause=self.cause(inc))
+        return self.s("traffic_up", factor=inc.severity, cause=self.cause(inc))
 
     def queue_at(self, run: Run, t: float) -> tuple[int, int]:
         """(waiting, of those already given up) at t, from the last sample."""
@@ -255,9 +258,9 @@ class OverloadWorld(World):
         fv = percentile([r[TRY_END] - r[TRY_SENT] for r in _in_time(run, t - 5, t, t)], 50)
         fs = "idle" if fv is None else "bad" if fv >= lab.FAST_MAX else "warn" if fv >= 0.15 else "ok"
         tiles = [
-            Tile("Served", f"{gv:.0%}", "≥80%", gs, history(run, t, goodput_s)),
-            Tile("Waste", f"{wv:.0%}", "<5%", ws, history(run, t, waste_s)),
-            Tile("Reply", fmt_ms(fv), "<300ms", fs, history(run, t, fast_s)),
+            Tile(self.s("tile_served"), f"{gv:.0%}", "≥80%", gs, history(run, t, goodput_s)),
+            Tile(self.s("tile_waste"), f"{wv:.0%}", "<5%", ws, history(run, t, waste_s)),
+            Tile(self.s("tile_reply"), fmt_ms(fv), "<300ms", fs, history(run, t, fast_s)),
         ]
         tries = run.rows("tries", t - 1, t)
         rounds = [0, 0, 0]
@@ -268,24 +271,24 @@ class OverloadWorld(World):
         wasted = sum(w[WORK_KIND] == LATE for w in work)
         rejected = sum(1 for r in run.rows("tries", t - 1, t) if r[TRY_RESULT] == REJECTED)
         bars = [
-            Bar("Arrive", [(float(n), TRIES[k]) for k, n in enumerate(rounds)]),
-            Bar("Server", [(float(in_time), GREEN), (float(wasted), WASTED)]),
-            Bar("Rejected", [(float(rejected), RED)]),
+            Bar(self.s("bar_arrive"), [(float(n), TRIES[k]) for k, n in enumerate(rounds)]),
+            Bar(self.s("bar_server"), [(float(in_time), GREEN), (float(wasted), WASTED)]),
+            Bar(self.s("bar_rejected"), [(float(rejected), RED)]),
         ]
         headline, colour = self._headline(run, t, in_time, wasted, rejected)
-        return Traffic(tiles, bars, lab.CAPACITY, f"max {lab.CAPACITY:.0f}/s", headline, colour,
-                       title="Requests", top=400.0)
+        return Traffic(tiles, bars, lab.CAPACITY, self.s("max", limit=lab.CAPACITY), headline, colour,
+                       title=self.s("toplist"), top=400.0)
 
     def _headline(self, run: Run, t: float, in_time: int, wasted: int, rejected: int):
         done = in_time + wasted
         if done and wasted / done > 0.5:
-            return f"{wasted / done:.0%} of the work is for users who left", RED
+            return self.s("head_wasted", share=wasted / done), RED
         waiting, _ = self.queue_at(run, t)
         if capacity_at(run, t) < lab.CAPACITY:
-            return f"Capacity down to {capacity_at(run, t):.0f}/s; {waiting} waiting", EXTRA2
+            return self.s("head_capacity", capacity=capacity_at(run, t), waiting=waiting), EXTRA2
         if rejected:
-            return "Extra requests are rejected at the door", BLUE
-        return "Every reply arrives in time", MUTED
+            return self.s("head_rejecting"), BLUE
+        return self.s("head_ok"), MUTED
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
@@ -300,13 +303,14 @@ class OverloadWorld(World):
         waiting = len(run.active("requests", t, REQ_DONE))
         recent = [r[REQ_DONE] - r[REQ_FIRST] for r in run.rows("requests", t - 5 - span, t)
                   if t - 5 <= r[REQ_DONE] < t and r[REQ_OUTCOME] == SERVED]
+        words = self.screen.STATS
         return [
-            ("served", fmt_int(served), GREEN),
-            ("gave up", fmt_int(failed), EXTRA2 if failed else MUTED),
-            ("rejected", fmt_int(refused), RED if refused else MUTED),
-            ("waiting", fmt_int(waiting), EXTRA2 if waiting > 50 else WHITE),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
+            (words["served"], fmt_int(served), GREEN),
+            (self.s("stat_gave_up"), fmt_int(failed), EXTRA2 if failed else MUTED),
+            (self.s("stat_rejected"), fmt_int(refused), RED if refused else MUTED),
+            (words["waiting"], fmt_int(waiting), EXTRA2 if waiting > 50 else WHITE),
+            (words["p50"], fmt_ms(percentile(recent, 50)), WHITE),
+            (words["p99"], fmt_ms(percentile(recent, 99)), WHITE),
         ]
 
     def stacks(self, variant: str):
@@ -317,7 +321,7 @@ class OverloadWorld(World):
         return lab.CAPACITY, f"{lab.CAPACITY:.0f}/s"
 
     def legend_notes(self) -> list[str]:
-        return ["Dots: a sample, slowed down (cosmetic)."]
+        return [self.s("note_dots")]
 
 
 WORLD = OverloadWorld

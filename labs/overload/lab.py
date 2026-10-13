@@ -1,14 +1,10 @@
-"""Lab overload: the numbers, the goals and the stages."""
+"""Lab overload: the numbers and how the stage is judged. The words are in text/<lang>.py."""
 
 from core.contract import Param
 
 META = {
     "id": "overload",
-    "title": "Overload & queues",
-    "summary": "A spike fills the queue with users who already left. Shed load so the server recovers.",
-    "params": {
-        "rate": Param(75.0, "users per second (each waits 1 s, then retries up to twice)"),
-    },
+    "params": {"rate": Param(75.0)},
 }
 
 CAPACITY = 100.0  # requests/s the server does at full speed
@@ -26,25 +22,9 @@ GOODPUT_MIN = 0.80  # replies in time vs what the server could do (or what users
 FAST_MAX = 0.300  # median time to an in-time reply, seconds
 RECOVERED_MIN = 0.90  # share of first tries answered in time, to count as recovered
 
-STAGES = [
-    ("Unbounded FIFO",
-     "Challenge: after a spike the queue fills with users who left, and it never recovers.",
-     "Stage 1: reject at the door when the queue is full"),
-    ("Bounded queue",
-     "Challenge: the queue is bounded, but the server still works for users who already left.",
-     "Stage 2: skip requests that are too late to answer"),
-    ("Skip late requests",
-     "Challenge: no wasted work, but every reply arrives just before users give up. Serve fresh.",
-     "Stage 3: newest first while the queue is long"),
-    ("Adaptive LIFO",
-     "Solved: the queue is bounded, nothing is wasted, and the newest users get quick replies.",
-     "All stages done"),
-]
-
-
 def stage_of(baseline_ok: bool, queue_ok: bool, waste_ok: bool, goodput_ok: bool, fast_ok: bool,
              recovered_ok: bool) -> int:
-    """Judge the stage from what the first incident did."""
+    """Judge the stage from what the first incident did: 0 unbounded FIFO ... 3 adaptive LIFO."""
     for stage, ok in enumerate((queue_ok, waste_ok, fast_ok)):
         if not ok:
             return stage

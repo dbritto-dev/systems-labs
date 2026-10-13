@@ -49,12 +49,13 @@ class OverloadLanes(LaneAdapter):
         recent = run.rows("work", t - 1.0, t + 1e-9)
         late = sum(x[WORK_KIND] == LATE for x in recent)
         busy = sum(x[WORK_KIND] != 2 for x in recent)
+        words = w.screen.STATES
         if busy and late / busy > 0.5:
-            state, outline = ("WASTING", EXTRA2), EXTRA2
+            state, outline = (w.s("state_wasting"), EXTRA2), EXTRA2
         elif waiting > 100 or capacity_at(run, t) < overload_lab.CAPACITY:
-            state, outline = ("OVERLOADED", RED), RED
+            state, outline = (words["overloaded"], RED), RED
         else:
-            state, outline = ("HEALTHY", GREEN), OUTLINE
+            state, outline = (words["healthy"], GREEN), OUTLINE
         return LaneFrame(
             users=found, flights=flights, outcomes=outcomes, closed=rejecting,
             fill=waiting / overload_lab.QUEUE_SHOWN,
