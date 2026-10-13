@@ -115,3 +115,27 @@ def test_grid_topology():
     t = Topology.grid([f"n{i}" for i in range(9)])
     assert sorted(t.neighbours["n4"]) == ["n1", "n3", "n5", "n7"]
     assert sorted(t.neighbours["n0"]) == ["n1", "n3"]
+
+
+def test_a_periodic_task_that_awaits_stops_when_the_run_is_closed():
+    from core.vtime import VirtualRun
+
+    class Ticker(Node):
+        def __init__(self, node_id, node_ids):
+            super().__init__(node_id, node_ids)
+            self.ticks = 0
+            self.every(0.1, self.tick)
+
+        async def tick(self):
+            self.ticks += 1
+            await self.sleep(0.05)  # awaits inside every(): cancellation must still get through
+
+    async def boot():
+        net = Network()
+        net.join(Ticker("n0", ["n0"]))
+
+    sim = VirtualRun()
+    sim.spawn(boot())
+    sim.run_until(1.0)
+    sim.close()  # used to hang forever
+    assert sim.loop.is_closed()

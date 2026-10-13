@@ -197,8 +197,9 @@ class Endpoint:
         """Run a handler; a bug in it is recorded (and shown), not swallowed."""
         try:
             await coro
-        except (TimeoutError, RPCError, asyncio.CancelledError):
+        except (TimeoutError, RPCError):
             pass  # an unanswered or refused RPC inside a handler is the handler's business
+        # CancelledError is not caught: shutting the run down must stop every loop.
         except Exception as exc:  # noqa: BLE001
             self.net.bugs.append(exc)
 
