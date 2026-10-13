@@ -115,6 +115,11 @@ class ConnPoolWorld(World):
               (LIMIT, "limit", "┄"), (INCIDENT_KEY, "incident", "█")]
     incident_name = "Incident"
     incident_verbs = ("DOWN", "UP")
+
+    def incident_verb(self, inc: Incident, start: bool) -> str:
+        if inc.kind == "slowdown":
+            return "SLOW" if start else "FAST"
+        return "SPIKE" if start else "CALM"
     tables = {
         "requests": Table(sort=REQ_START, times=(REQ_START, REQ_END)),
         "samples": Table(sort=S_T, times=(S_T,)),

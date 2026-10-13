@@ -160,6 +160,11 @@ class OverloadWorld(World):
               (LIMIT, "max", "┄"), (INCIDENT_KEY, "incident", "█")]
     incident_name = "Incident"
     incident_verbs = ("DOWN", "UP")
+
+    def incident_verb(self, inc: Incident, start: bool) -> str:
+        if inc.kind == "capacity":
+            return "DROP" if start else "UP"
+        return "SPIKE" if start else "CALM"
     tables = {
         "requests": Table(sort=REQ_FIRST, times=(REQ_FIRST, REQ_DONE)),
         "tries": Table(sort=TRY_SENT, times=(TRY_SENT, TRY_END)),

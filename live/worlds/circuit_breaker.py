@@ -111,7 +111,7 @@ class CircuitBreakerWorld(World):
               (EXTRA2, "slow call"), (EXTRA3, "refused"), (RED, "failed"), (GREEN, "served"),
               (LIMIT, "workers", "┄"), (DOWN_KEY, "incident", "█")]
     incident_name = "Slowdown"
-    incident_verbs = ("DOWN", "UP")
+    incident_verbs = ("SLOW", "FAST")
     tables = {
         "requests": Table(sort=REQ_START, times=(REQ_START, REQ_END)),
         "calls": Table(sort=CALL_START, times=(CALL_START, CALL_END)),
