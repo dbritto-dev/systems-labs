@@ -1,14 +1,17 @@
-"""World for lab g_counter (Fly.io Gossip Glomers #4)."""
+"""World for lab g_counter (Fly.io Gossip Glomers #4). Its words are in labs/g_counter/text/<lang>.py."""
 
 from __future__ import annotations
 
+from core.i18n import lab_text
 from labs.g_counter import lab
 from labs.g_counter.scenario import ADD, CLIENT_TIMEOUT, KV_REQ, READ
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED, WHITE
-from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
-)
+from live.canvas import BLUE, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED, WHITE
+from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("g_counter").STRINGS[key].format(**values)
+
 
 OP_START, OP_KIND, OP_NODE, OP_VALUE, OP_END, OP_OK, OP_LOW, OP_HIGH = range(8)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED, MSG_KIND = range(5)
@@ -47,7 +50,7 @@ def _after(inc: Incident) -> tuple[float, float]:
 def _stored(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     n = sum(1 for m in run.rows("msgs", a, min(b, upto)) if m[MSG_KIND] == KV_REQ)
-    return float(n), f"{n:,} ops"
+    return float(n), _s("ops", n=n)
 
 
 def _right_before(run: Run, inc: Incident, upto: float):
@@ -76,33 +79,32 @@ def _right_after(run: Run, inc: Incident, upto: float):
     return _share_right(_reads(run, a, b, upto))
 
 
+def _during(inc: Incident) -> tuple[float, float]:
+    return inc.t0, inc.t1
+
+
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Count in seq-kv", "before", "keep the count in seq-kv",
-             _before, _stored, lambda v: v is not None and v > 0, settle_extra=lab.BEFORE[1]),
-    GoalSpec("No lost adds", "before", "use cas, not write",
-             _before, _right_before, lambda v: v is not None and v >= lab.RIGHT_MIN,
-             settle_extra=lab.BEFORE[1]),
-    GoalSpec("Conflicts < 10%", "during", "one key per node",
-             lambda i: (i.t0, i.t1), _conflicts, lambda v: v is not None and v < lab.CONFLICTS_MAX),
-    GoalSpec("Adds answered", "during", "fewer retries per add",
-             lambda i: (i.t0, i.t1), _answered, lambda v: v is not None and v >= lab.ANSWERED_MIN,
-             settle_extra=CLIENT_TIMEOUT + 0.5),
-    GoalSpec("Right after", "after", "make reads catch up",
-             _after, _right_after, lambda v: v is not None and v >= lab.RIGHT_MIN, settle_extra=1.5),
+    GoalSpec("", "before", "", _before, _stored, lambda v: v is not None and v > 0,
+             settle_extra=lab.BEFORE[1], key="stored"),
+    GoalSpec("", "before", "", _before, _right_before, lambda v: v is not None and v >= lab.RIGHT_MIN,
+             settle_extra=lab.BEFORE[1], key="right"),
+    GoalSpec("", "during", "", _during, _conflicts, lambda v: v is not None and v < lab.CONFLICTS_MAX,
+             key="conflicts"),
+    GoalSpec("", "during", "", _during, _answered, lambda v: v is not None and v >= lab.ANSWERED_MIN,
+             settle_extra=CLIENT_TIMEOUT + 0.5, key="answered"),
+    GoalSpec("", "after", "", _after, _right_after, lambda v: v is not None and v >= lab.RIGHT_MIN,
+             settle_extra=1.5, key="after"),
 ]
 
 
 class GCounterWorld(World):
     id = "g_counter"
-    title = "Grow-only counter (Gossip Glomers #4)"
-    files = ("labs/g_counter/main.py",)
     view = "cluster"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA3, EXTRA2, BLUE))]
-    legend = [(BLUE, "node", "◉"), ([EXTRA2, RED], "reads off", "◉"), (PURPLE, "seq-kv", "◉"),
-              (WHITE, "client request"), (BLUE, "kv request"), (GREEN, "kv ok"), (RED, "cas conflict")]
-    incident_name = "Incident"
-    incident_verbs = ("BURST", "CALM")
+    stage_colours = (RED, EXTRA3, EXTRA2, BLUE)
+    legend = [(BLUE, "node", "◉"), ([EXTRA2, RED], "reads_off", "◉"), (PURPLE, "seq_kv", "◉"),
+              (WHITE, "client_request"), (BLUE, "kv_request"), (GREEN, "kv_ok"), (RED, "cas_conflict")]
+    incident_verbs = ("burst", "calm")
     tables = {
         "ops": Table(sort=OP_START, times=(OP_START, OP_END)),
         "msgs": Table(sort=MSG_SENT, times=(MSG_SENT, MSG_ARRIVED)),
@@ -133,25 +135,25 @@ class GCounterWorld(World):
         return lab.stage_of(*(r.ok for r in first))
 
     def incident_title(self, inc: Incident) -> str:
-        return f"{'Burst' if inc.kind == 'burst' else 'Slow network'} #{inc.index + 1}"
+        name = self.s("title_burst" if inc.kind == "burst" else "title_slow")
+        return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         if inc.kind == "slow":
-            return "SLOW" if start else "FAST"
-        return "BURST" if start else "CALM"
+            return self.word("slow" if start else "fast")
+        return self.word("burst" if start else "calm")
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         if not start:
-            return "back to normal"
-        if inc.kind == "slow":
-            return f"every message takes {inc.severity:.1f}x longer: {inc.cause}"
-        return f"{inc.severity:.1f}x the adds: {inc.cause}"
+            return self.s("back_to_normal")
+        key = "slow_text" if inc.kind == "slow" else "burst_text"
+        return self.s(key, factor=inc.severity, cause=self.cause(inc))
 
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1)):
             cas, bad = run.series("cas", s, s + 1)[0], run.series("conflicts", s, s + 1)[0]
             if cas >= 5 and bad / cas >= 0.5:
-                return [(s + 1.0, f"{bad / cas:.0%} of compare-and-swaps conflict")]
+                return [(s + 1.0, self.s("warn_conflicts", share=bad / cas))]
         return []
 
     def incident_at(self, variant: str, t: float) -> Incident | None:
@@ -206,49 +208,35 @@ class GCounterWorld(World):
             return (v or 0.0), ans_state(v)
 
         tiles = [
-            Tile("Right", "–" if share is None else f"{share:.0%}", "≥99%", right_state(share),
+            Tile(self.s("tile_right"), "–" if share is None else f"{share:.0%}", "≥99%", right_state(share),
                  history(run, t, right_s)),
-            Tile("Adds ok", "–" if answered is None else f"{answered:.0%}", "≥99%", ans_state(answered),
-                 history(run, t, ans_s)),
-            Tile("Conflict", f"{conf:.0%}", "<10%", conf_state(conf), history(run, t, conf_s)),
+            Tile(self.s("tile_adds"), "–" if answered is None else f"{answered:.0%}", "≥99%",
+                 ans_state(answered), history(run, t, ans_s)),
+            Tile(self.s("tile_conflict"), f"{conf:.0%}", "<10%", conf_state(conf), history(run, t, conf_s)),
         ]
         ops = run.count("ops", t - 1, t)
         kv = [m for m in run.rows("msgs", t - 1, t) if m[MSG_KIND] == KV_REQ]
         conflicts = sum(1 for c in run.rows("cas", t - 1, t) if not c[CAS_OK])
-        bars = [Bar("Clients", [(float(ops), WHITE)]),
-                Bar("seq-kv", [(float(max(0, len(kv) - conflicts)), BLUE), (float(conflicts), RED)])]
+        bars = [Bar(self.s("bar_clients"), [(float(ops), WHITE)]),
+                Bar(self.s("bar_kv"), [(float(max(0, len(kv) - conflicts)), BLUE), (float(conflicts), RED)])]
         inc = self.incident_at(variant, t)
         last = next((r for r in reversed(run.rows("ops", t - 3, t)) if r[OP_KIND] == READ and r[OP_OK]
                      and r[OP_END] <= t), None)
         if inc is not None and conf >= lab.CONFLICTS_MAX:
-            headline, colour = f"{conf:.0%} of compare-and-swaps conflict", RED
+            headline, colour = self.s("head_conflicts", share=conf), RED
         elif share is not None and share < lab.RIGHT_MIN:
             lost = (last[OP_LOW] - last[OP_VALUE]) if last and last[OP_VALUE] < last[OP_LOW] else 0
-            headline = f"Reads miss {lost:,} acknowledged adds" if lost else "Reads are off"
+            headline = self.s("head_missing", lost=lost) if lost else self.s("head_off")
             colour = RED
         elif last is not None:
-            headline, colour = f"Total {last[OP_VALUE]:,}: every read is right", MUTED
+            headline, colour = self.s("head_total", total=last[OP_VALUE]), MUTED
         else:
-            headline, colour = "Waiting for reads", MUTED
-        return Traffic(tiles, bars, 0.0, "", headline, colour, title="Requests",
+            headline, colour = self.s("head_waiting"), MUTED
+        return Traffic(tiles, bars, 0.0, "", headline, colour, title=self.s("requests"),
                        top=max(1.0, (len(kv) + ops) * 1.1))
 
     def user_stats(self, variant: str, t: float):
-        run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("ops", 0.0)
-        partial = [o for o in run.rows("ops", s - span - 1, t) if s <= o[OP_END] < t]
-        served = run.total("served", t) + sum(1 for o in partial if o[OP_OK])
-        failed = run.total("failed", t) + sum(1 for o in partial if not o[OP_OK])
-        waiting = len(run.active("ops", t, OP_END))
-        recent = [o[OP_END] - o[OP_START] for o in run.rows("ops", t - 5 - span, t) if t - 5 <= o[OP_END] < t]
-        return [
-            ("served", fmt_int(served), GREEN),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), EXTRA1 if waiting > 20 else WHITE),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
-        ]
+        return self.request_stats(self.runs[variant], "ops", OP_START, OP_END, OP_OK, t)
 
     def stacks(self, variant: str):
         run = self.runs[variant]
@@ -260,7 +248,7 @@ class GCounterWorld(World):
         return None
 
     def legend_notes(self) -> list[str]:
-        return ["Chart: requests to seq-kv per second."]
+        return [self.s("note_chart")]
 
 
 WORLD = GCounterWorld

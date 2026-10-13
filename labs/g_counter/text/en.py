@@ -1,4 +1,80 @@
+"""Lab g_counter, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Grow-only counter (Gossip Glomers #4)"
+SUMMARY = "Gossip Glomers #4: count adds on 3 stateless nodes with a sequentially consistent KV store."
+PARAMS = {"rate": "client operations per second (60% add, 40% read)"}
+
+INCIDENT = IncidentText("Incident", "the incident", "the next incident")
+VERBS = {"burst": "BURST", "calm": "CALM", "slow": "SLOW", "fast": "FAST"}
+CAUSES = {
+    "flash_sale": "a flash sale started",
+    "retry_loop": "a client retried every add in a loop",
+    "batch_import": "a batch import replayed a day of events",
+    "congested_link": "a congested link between racks",
+    "noisy_neighbour": "a noisy neighbour saturated the host's network",
+    "bad_mtu": "a misconfigured MTU fragmented every packet",
+}
+
+STAGES = [
+    StageText("In memory",
+              "Challenge: each node counts only its own adds. Keep the count in seq-kv, shared.",
+              "Stage 1: read the key, add, write it back"),
+    StageText("Shared key",
+              "Challenge: nodes overwrite each other's adds, so the total drifts low. Use CAS.",
+              "Stage 2: compare-and-swap, and retry when it fails"),
+    StageText("Compare-and-swap",
+              "Challenge: every add fights every other one on one hot key. Give each node its own key.",
+              "Stage 3: one key per node; a read adds them up"),
+    StageText("Key per node",
+              "Solved: no lost adds, no conflicts: each node writes only its own key.",
+              "All stages done"),
+]
+
+GOALS = {
+    "stored": GoalText("Count in seq-kv", "keep the count in seq-kv"),
+    "right": GoalText("No lost adds", "use cas, not write"),
+    "conflicts": GoalText("Conflicts < 10%", "one key per node"),
+    "answered": GoalText("Adds answered", "fewer retries per add"),
+    "after": GoalText("Right after", "make reads catch up"),
+}
+
+LEGEND = {"node": "node", "reads_off": "reads off", "seq_kv": "seq-kv", "client_request": "client request",
+          "kv_request": "kv request", "kv_ok": "kv ok", "cas_conflict": "cas conflict"}
+
+STRINGS = {
+    # incidents
+    "title_burst": "Burst",
+    "title_slow": "Slow network",
+    "back_to_normal": "back to normal",
+    "slow_text": "every message takes {factor:.1f}x longer: {cause}",
+    "burst_text": "{factor:.1f}x the adds: {cause}",
+    "warn_conflicts": "{share:.0%} of compare-and-swaps conflict",
+    # goal values
+    "ops": "{n:,} ops",
+    # the panel
+    "tile_right": "Right",
+    "tile_adds": "Adds ok",
+    "tile_conflict": "Conflict",
+    "requests": "Requests",
+    "bar_clients": "Clients",
+    "bar_kv": "seq-kv",
+    "head_conflicts": "{share:.0%} of compare-and-swaps conflict",
+    "head_missing": "Reads miss {lost:,} acknowledged adds",
+    "head_off": "Reads are off",
+    "head_total": "Total {total:,}: every read is right",
+    "head_waiting": "Waiting for reads",
+    "note_chart": "Chart: requests to seq-kv per second.",
+    # the picture
+    "state_conflicts": "CAS CONFLICTS {share:.0%}",
+    "state_burst": "BURST x{factor:.1f}",
+    "state_slow": "SLOW NETWORK x{factor:.1f}",
+    "state_off": "READS OFF",
+    # errors in your code
+    "stuck": "a client request has waited over {seconds:.0f} s: does a handler never reply?",
+}
 
 LESSON = Lesson(
     title="Grow-only counter (Gossip Glomers #4)",

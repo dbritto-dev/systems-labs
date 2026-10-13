@@ -36,12 +36,11 @@ class GCounterCluster(ClusterAdapter):
         conflicts = [c for c in run.rows("cas", t - 1, t + 1e-9)]
         share = sum(1 for c in conflicts if not c[2]) / len(conflicts) if conflicts else 0.0
         if share >= 0.5:
-            state = (f"CAS CONFLICTS {share:.0%}", RED)
+            state = (w.s("state_conflicts", share=share), RED)
         elif inc is not None:
-            state = ((f"BURST x{inc.severity:.1f}" if inc.kind == "burst" else f"SLOW NETWORK x{inc.severity:.1f}"),
-                     EXTRA2)
+            state = (w.s("state_burst" if inc.kind == "burst" else "state_slow", factor=inc.severity), EXTRA2)
         elif any(off):
-            state = ("READS OFF", RED)
+            state = (w.s("state_off"), RED)
         else:
-            state = ("HEALTHY", GREEN)
+            state = (w.screen.STATES["healthy"], GREEN)
         return ClusterFrame(nodes=nodes, flights=every(flights, MAX_FLIGHTS), drops=every(drops, 30), state=state)
