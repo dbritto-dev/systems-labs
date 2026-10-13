@@ -1,5 +1,7 @@
 # Lab: Kafka log (Fly.io Gossip Glomers #5)
 
+*[Leer en español](es/README.md)*
+
 [Gossip Glomers](https://fly.io/dist-sys/) challenge #5, in Python, on a simulated network:
 two nodes and Maelstrom's `lin-kv`, ~10 ms per message. Clients (~30 operations/s) talk to
 either node: `send` appends a message to a key's log and gets its offset, `poll` reads from an
@@ -13,6 +15,9 @@ uv run python -m live kafka_log            # watch it; edit main.py and save
 uv run python -m live kafka_log --lesson   # the concept, links and a checklist
 uv run pytest labs/kafka_log               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | Challenge | In `main.py` | What you see |
 |---|---|---|---|

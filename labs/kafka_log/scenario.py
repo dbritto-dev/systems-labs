@@ -38,18 +38,13 @@ LATENCY = 0.01  # seconds per message (a fast LAN)
 CLIENT_TIMEOUT = 1.0
 CONSUMERS = 4
 HOT_SHARE = 0.4  # during a burst, this share of operations are sends to the hot key
-FIRST = Planned(20.0, 30.0, "burst", 2.5, "a producer replayed a day of events into one topic")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "burst", 2.5, "replay")
 KINDS = [
     Kind("burst", 0.6, median=10.0, shortest=6.0, longest=20.0, severity=(2.0, 2.5), causes=(
-        "a producer replayed a day of events into one topic",
-        "a flash sale sent every order to one topic",
-        "a retry storm upstream hammered one topic",
-    )),
+        "replay", "flash_sale", "retry_storm")),
     Kind("slowkv", 0.4, median=10.0, shortest=6.0, longest=18.0, severity=(2.0, 4.0), causes=(
-        "lin-kv is compacting its storage",
-        "a noisy neighbour is starving lin-kv's disk",
-        "lin-kv lost a replica and is catching up",
-    )),
+        "compaction", "noisy_disk", "lost_replica")),
 ]
 MEAN_GAP = 25.0
 QUIET = 27.0  # 15 s measured before the next one, and 10 s after the last

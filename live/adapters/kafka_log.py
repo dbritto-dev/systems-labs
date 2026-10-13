@@ -35,14 +35,14 @@ class KafkaLogCluster(ClusterAdapter):
             flights.append((-1, o[OP_NODE], (t - o[OP_START]) / TRAVEL, RED if o[OP_BAD] else WHITE))
         recent = run.rows("anomalies", t - 2, t + 1e-9)
         if recent:
-            from live.worlds.kafka_log import ANOMALY_NAMES, AN_KIND
-            state = (ANOMALY_NAMES[recent[-1][AN_KIND]].upper(), RED)
+            from live.worlds.kafka_log import AN_KIND
+            state = (w.anomaly(recent[-1][AN_KIND]).upper(), RED)
         elif inc is not None and inc.kind == "burst":
-            state = (f"HOT KEY {w.hot_key(run, inc).upper()}", EXTRA2)
+            state = (w.s("state_hot", k=w.hot_key(run, inc).upper()), EXTRA2)
         elif inc is not None:
-            state = ("LIN-KV SLOW", EXTRA2)
+            state = (w.s("state_kv_slow"), EXTRA2)
         else:
-            state = ("HEALTHY", GREEN)
+            state = (w.screen.STATES["healthy"], GREEN)
         return ClusterFrame(nodes=nodes, flights=every(flights, MAX_FLIGHTS), state=state)
 
 
