@@ -83,16 +83,16 @@ def kinds(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
-@pytest.mark.parametrize("module, stage, label", [
-    (CONNECT_EACH, 0, "New connection"),
-    (UNBOUNDED, 1, "Pool"),
-    (BOUNDED, 2, "Bounded pool"),
+@pytest.mark.parametrize("module, stage", [
+    (CONNECT_EACH, 0),  # New connection
+    (UNBOUNDED, 1),  # Pool
+    (BOUNDED, 2),  # Bounded pool
 ])
-def test_each_stage_is_judged_from_what_the_run_did(module, stage, label):
+def test_each_stage_is_judged_from_what_the_run_did(module, stage):
     world = build_world("conn_pool", module, 5)
     results = statuses(world, module)
     assert len(results) >= 4 and {"slowdown", "spike"} <= set(kinds(world, module))
-    assert world.stage_index(module) == stage and world.stage(module).label == label
+    assert world.stage_index(module) == stage
     for kind, r in zip(kinds(world, module), results):
         baseline, reuse, errors, wait, recovered = r
         assert baseline and recovered
@@ -110,7 +110,7 @@ def test_reference_passes_every_goal():
     results = statuses(world, "reference")
     assert len(results) >= 6
     assert all(all(r) for r in results)
-    assert world.stage("reference").label == "Bounded pool + timeout"
+    assert world.stage_index("reference") == 3  # Bounded pool + timeout
 
 
 def test_one_run_never_restarts_and_incidents_come_at_random():

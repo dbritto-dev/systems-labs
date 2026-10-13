@@ -43,12 +43,13 @@ class ConnPoolLanes(LaneAdapter):
         open_, busy = w.sample_at(run, t)
         refusing = any(r[REQ_FAIL] == TOO_MANY for r in ended)
         queued = len(w.waiting_at(run, t))
+        words = w.screen.STATES
         if refusing or open_ >= pool_lab.MAX_CONNECTIONS:
-            state, gauge, outline = ("OVERLOADED", RED), RED, RED
+            state, gauge, outline = (words["overloaded"], RED), RED, RED
         elif busy > pool_lab.CORES or queued > 20:
-            state, gauge, outline = ("BUSY", EXTRA2), EXTRA2, EXTRA2
+            state, gauge, outline = (words["busy"], EXTRA2), EXTRA2, EXTRA2
         else:
-            state, gauge, outline = ("HEALTHY", GREEN), BLUE, OUTLINE
+            state, gauge, outline = (words["healthy"], GREEN), BLUE, OUTLINE
         return LaneFrame(
             users=found, flights=flights, outcomes=outcomes, closed=refusing,
             door_color=EXTRA1 if queued > 20 else None,
