@@ -83,3 +83,26 @@ def test_check_finds_every_kind_of_difference():
     a.Z = "z"
     problems = "\n".join(i18n.check(a, b))
     assert "placeholders" in problems and "only_a" in problems and "2 items" in problems and "Z" in problems
+
+
+def test_every_lab_speaks_every_language():
+    missing = [f"{lab}/text/{code}.py" for lab in LAB_IDS for code in i18n.LANGS
+               if not (LABS / lab / "text" / f"{code}.py").exists()]
+    missing += [f"{lab}/es/{m}" for lab in LAB_IDS for m in ("main.py", "reference.py", "README.md")
+                if not (LABS / lab / "es" / m).exists()]
+    assert missing == []
+
+
+@pytest.mark.parametrize("lab", LAB_IDS)
+def test_every_goal_phase_and_legend_key_has_words(lab):
+    from live.worlds import make_world
+
+    world = make_world(lab)
+    for code in i18n.LANGS:
+        phases = i18n.screen_text(code).PHASES
+        assert {g.phase for g in world.goals} <= phases.keys()
+    names = getattr(world.text, "LEGEND", {})
+    for item in type(world).legend:
+        assert item[1] in names, f"{lab}: legend key {item[1]!r} is not in LEGEND"
+    for g in type(world).goals:
+        assert g.key in world.text.GOALS, f"{lab}: goal key {g.key!r} is not in GOALS"

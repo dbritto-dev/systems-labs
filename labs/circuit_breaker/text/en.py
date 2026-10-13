@@ -57,7 +57,7 @@ STRINGS = {
     "fast_again": "{dep} is fast again",
     "warn_busy": "all {workers} workers are busy",
     # the panel
-    "tile_healthy": "Healthy",
+    "tile_healthy": "Fine",
     "tile_fails": "Fails",
     "tile_workers": "Workers",
     "target_busy": "busy",

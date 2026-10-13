@@ -64,7 +64,7 @@ STRINGS = {
     "back": "{n} back",
     # the panel
     "tile_dups": "Dups",
-    "tile_answers": "Answers",
+    "tile_answers": "Avail",
     "tile_ordered": "Ordered",
     "bar_clients": "Clients",
     "bar_ids": "Ids",
