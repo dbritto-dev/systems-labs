@@ -1,4 +1,75 @@
+"""Lab rate_limit, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Rate limiting"
+SUMMARY = "A few clients flood the API at random. Limit each one so everyone else keeps working."
+PARAMS = {"rate": "requests per second from all clients together, normally"}
+
+INCIDENT = IncidentText("Flood", "the flood", "the next flood")
+VERBS = {"flood": "FLOOD", "calm": "CALM"}
+CAUSES = {
+    "batch_first": "a batch job on 5 accounts sends its work in chunks",
+    "batch_chunks": "a batch job on several accounts sends its work in chunks",
+    "nightly_export": "a nightly export runs early on several accounts",
+    "partner_sync": "a partner's sync job restarted with no backoff",
+    "scraper_reset": "a scraper times its bursts to the window reset",
+    "load_test": "a load test aimed at production by mistake",
+    "retry_loop": "a client's retry loop with no delay",
+    "sdk_retry_bug": "an SDK release with a retry bug",
+    "mobile_polls": "a mobile app update polls in bursts",
+    "webhook_replay": "a misconfigured webhook replays its queue",
+}
+
+STAGES = [
+    StageText("No limit",
+              "Challenge: a few clients flood the API and everyone else fails with them. Limit each one.",
+              "Stage 1: count each client's requests per 1 s window"),
+    StageText("Fixed window",
+              "Challenge: a fixed window lets 2x through when a burst straddles the reset. Smooth it.",
+              "Stage 2: replace the window with a token bucket"),
+    StageText("Token bucket",
+              "Challenge: each client is capped, but together they still swamp the backend. Share it.",
+              "Stage 3: cap each client at its fair share of capacity"),
+    StageText("Bucket + fair share",
+              "Solved: each client gets a smooth, fair share, so a flood never hurts the others.",
+              "All stages done"),
+]
+
+GOALS = {
+    "baseline": GoalText("Baseline ok", "let normal traffic through"),
+    "limited": GoalText("Flood limited ≥ 50%", "limit each client per second"),
+    "peak": GoalText("Peak ≤ 1.6x", "use a token bucket"),
+    "others": GoalText("Others served ≥ 99%", "cap clients at a fair share"),
+    "served": GoalText("Served ≥ 99%", "stop limiting once calm"),
+}
+
+LEGEND = {"idle": "idle", "normal": "normal", "flooding": "flooding", "limited": "limited",
+          "failed": "failed", "served": "served", "limit": "limit", "flood": "flood"}
+
+STRINGS = {
+    # incidents
+    "who_one": "1 client",
+    "who_many": "{n} clients",
+    "flooded": "is flooded by {who}: {cause}",
+    "calm_again": "is calm again",
+    "warn_503": "backend returns 503s",
+    # the panel
+    "tile_load": "Load",
+    "tile_others": "Others",
+    "tile_peak": "Peak",
+    "bar_clients": "Clients",
+    "bar_backend": "Backend",
+    "requests": "Requests",
+    "limit": "limit {limit:.0f}/s",
+    "head_flood": "{n} flooding: backend gets {sent}/s",
+    "head_calm": "Backend: {sent}/s of {capacity:.0f}/s",
+    "stat_limited": "limited",
+    "note_chart": "The chart: requests that reach the backend, per second.",
+    # errors in your code
+    "stuck": "a request has been running for over {seconds:.0f} s: does RateLimiter.allow wait for something?",
+}
 
 LESSON = Lesson(
     title="Rate limiting",

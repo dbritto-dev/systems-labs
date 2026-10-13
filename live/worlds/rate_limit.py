@@ -1,4 +1,4 @@
-"""World for lab rate_limit."""
+"""World for lab rate_limit. Its words are in labs/rate_limit/text/<lang>.py."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from labs.rate_limit import lab
 from labs.rate_limit.scenario import FAILED, LIMITED, SERVED
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
+    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World,
     fmt_int, fmt_ms, history, percentile,
 )
 
@@ -93,31 +93,28 @@ def _after_served(run: Run, inc: Incident, upto: float):
     return (None, "–") if v is None else (v, f"{v:.0%}")
 
 
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Baseline ok", "before", "let normal traffic through",
-             _before, _baseline, lambda v: v is not None and v >= lab.BASELINE_MIN),
-    GoalSpec("Flood limited ≥ 50%", "during", "limit each client per second",
-             _during, _limited, lambda v: v is not None and v >= lab.LIMITED_MIN),
-    GoalSpec("Peak ≤ 1.6x", "during", "use a token bucket",
-             _during, _flood_peak, lambda v: v is not None and v <= lab.PEAK_MAX, doomed=_peak_doomed),
-    GoalSpec("Others served ≥ 99%", "during", "cap clients at a fair share",
-             _during, _others, lambda v: v is not None and v >= lab.OTHERS_MIN, settle_extra=1.0),
-    GoalSpec("Served ≥ 99%", "after", "stop limiting once calm",
-             _after, _after_served, lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=1.0),
+    GoalSpec("", "before", "", _before, _baseline,
+             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "during", "", _during, _limited,
+             lambda v: v is not None and v >= lab.LIMITED_MIN, key="limited"),
+    GoalSpec("", "during", "", _during, _flood_peak,
+             lambda v: v is not None and v <= lab.PEAK_MAX, doomed=_peak_doomed, key="peak"),
+    GoalSpec("", "during", "", _during, _others,
+             lambda v: v is not None and v >= lab.OTHERS_MIN, settle_extra=1.0, key="others"),
+    GoalSpec("", "after", "", _after, _after_served,
+             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=1.0, key="served"),
 ]
 
 
 class RateLimitWorld(World):
     id = "rate_limit"
-    title = "Rate limiting"
-    files = ("labs/rate_limit/main.py",)
     view = "lanes"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA2, EXTRA1, BLUE))]
+    stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "normal"), (EXTRA2, "flooding"), (EXTRA3, "limited"),
               (RED, "failed"), (GREEN, "served"), (LIMIT, "limit", "┄"), (FLOOD_KEY, "flood", "█")]
-    incident_name = "Flood"
-    incident_verbs = ("FLOOD", "CALM")
+    incident_verbs = ("flood", "calm")
     tables = {"requests": Table(sort=REQ_START, times=(REQ_START, REQ_END))}
     goals = GOALS
     chart_top = 450.0
@@ -160,16 +157,15 @@ class RateLimitWorld(World):
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1) + 1):
             if run.series("failed_s", s, s + 1)[0]:
-                return [(s + 1.0, "backend returns 503s")]
+                return [(s + 1.0, self.s("warn_503"))]
         return []
 
-    def incident_title(self, inc: Incident) -> str:
-        return f"Flood #{inc.index + 1}"
-
     def incident_text(self, inc: Incident, start: bool) -> str:
+        if not start:
+            return self.s("calm_again")
         n = int(inc.severity)
-        who = "1 client" if n == 1 else f"{n} clients"
-        return f"is flooded by {who}: {inc.cause}" if start else "is calm again"
+        who = self.s("who_one") if n == 1 else self.s("who_many", n=n)
+        return self.s("flooded", who=who, cause=self.cause(inc))
 
     def incident_at(self, variant: str, t: float) -> Incident | None:
         run = self.runs.get(variant)
@@ -219,10 +215,11 @@ class RateLimitWorld(World):
             return v, peak_state(v)
 
         tiles = [
-            Tile("Load", f"{sent}/s", f"≤{lab.CAPACITY:.0f}", load_state(sent, failing),
+            Tile(self.s("tile_load"), f"{sent}/s", f"≤{lab.CAPACITY:.0f}", load_state(sent, failing),
                  history(run, t, load_s)),
-            Tile("Others", f"{others:.0%}", "≥99%", others_state(others), history(run, t, others_s)),
-            Tile("Peak", f"{peak:.1f}x", "≤1.6x", peak_state(peak), history(run, t, peak_s)),
+            Tile(self.s("tile_others"), f"{others:.0%}", "≥99%", others_state(others),
+                 history(run, t, others_s)),
+            Tile(self.s("tile_peak"), f"{peak:.1f}x", "≤1.6x", peak_state(peak), history(run, t, peak_s)),
         ]
         ask_n = sum(1 for r in last if not r[REQ_FLOOD])
         ask_f = len(last) - ask_n
@@ -230,19 +227,19 @@ class RateLimitWorld(World):
         ok_f = sum(1 for r in last if r[REQ_FLOOD] and r[REQ_OUTCOME] == SERVED)
         bad = sum(1 for r in last if r[REQ_OUTCOME] == FAILED)
         bars = [
-            Bar("Clients", [(ask_n, WHITE), (ask_f, EXTRA2)]),
-            Bar("Backend", [(ok_n, WHITE), (ok_f, EXTRA2), (bad, RED)]),
+            Bar(self.s("bar_clients"), [(ask_n, WHITE), (ask_f, EXTRA2)]),
+            Bar(self.s("bar_backend"), [(ok_n, WHITE), (ok_f, EXTRA2), (bad, RED)]),
         ]
         headline, colour = self._headline(variant, t, sent)
-        return Traffic(tiles, bars, lab.CAPACITY, f"limit {lab.CAPACITY:.0f}/s", headline, colour,
-                       title="Requests", top=450.0)
+        return Traffic(tiles, bars, lab.CAPACITY, self.s("limit", limit=lab.CAPACITY), headline, colour,
+                       title=self.s("requests"), top=450.0)
 
     def _headline(self, variant: str, t: float, sent: int):
         inc = self.incident_at(variant, t)
         if inc is not None:
-            n = int(inc.severity)
-            return f"{n} flooding: backend gets {sent}/s", RED if sent > lab.CAPACITY else BLUE
-        return f"Backend: {sent}/s of {lab.CAPACITY:.0f}/s", MUTED
+            colour = RED if sent > lab.CAPACITY else BLUE
+            return self.s("head_flood", n=int(inc.severity), sent=sent), colour
+        return self.s("head_calm", sent=sent, capacity=lab.CAPACITY), MUTED
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
@@ -255,13 +252,14 @@ class RateLimitWorld(World):
         waiting = self.backend_at(run, t)
         waits = [r[REQ_END] - r[REQ_START] for r in run.rows("requests", t - 5 - span, t)
                  if t - 5 <= r[REQ_END] < t and r[REQ_OUTCOME] == SERVED]
+        words = self.screen.STATS
         return [
-            ("served", fmt_int(served), GREEN),
-            ("limited", fmt_int(limited), EXTRA3 if limited else MUTED),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), EXTRA2 if waiting > 15 else WHITE),
-            ("p50", fmt_ms(percentile(waits, 50)), WHITE),
-            ("p99", fmt_ms(percentile(waits, 99)), WHITE),
+            (words["served"], fmt_int(served), GREEN),
+            (self.s("stat_limited"), fmt_int(limited), EXTRA3 if limited else MUTED),
+            (words["failed"], fmt_int(failed), RED if failed else MUTED),
+            (words["waiting"], fmt_int(waiting), EXTRA2 if waiting > 15 else WHITE),
+            (words["p50"], fmt_ms(percentile(waits, 50)), WHITE),
+            (words["p99"], fmt_ms(percentile(waits, 99)), WHITE),
         ]
 
     def stacks(self, variant: str):
@@ -273,7 +271,7 @@ class RateLimitWorld(World):
         return lab.CAPACITY, f"{lab.CAPACITY:.0f}/s"
 
     def legend_notes(self) -> list[str]:
-        return ["The chart: requests that reach the backend, per second."]
+        return [self.s("note_chart")]
 
 
 WORLD = RateLimitWorld
