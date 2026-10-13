@@ -1,17 +1,22 @@
-"""World for lab broadcast (Fly.io Gossip Glomers #3)."""
+"""World for lab broadcast (Fly.io Gossip Glomers #3). Its words are in labs/broadcast/text/<lang>.py."""
 
 from __future__ import annotations
 
+from core.i18n import lab_text
 from labs.broadcast import lab
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, LIMIT, MUTED, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
+    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
 )
 
 OP_START, OP_KIND, OP_NODE, OP_VALUE, OP_END, OP_OK = range(6)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 INF = float("inf")
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("broadcast").STRINGS[key].format(**values)
 
 
 def _sent(run: Run) -> dict[int, float]:
@@ -81,9 +86,9 @@ def _latency(run: Run, inc: Incident, upto: float):
         return None, "–"
     p50, top = percentile(lat, 50), max(lat)
     if p50 == INF:
-        text = "lost"
+        text = _s("lost")
     else:
-        text = f"{p50 * 1000:.0f}/{'lost' if top == INF else f'{top * 1000:.0f}ms'}"
+        text = f"{p50 * 1000:.0f}/{_s('lost') if top == INF else f'{top * 1000:.0f}ms'}"
     return (p50, top), text
 
 
@@ -97,35 +102,31 @@ def _before(inc: Incident) -> tuple[float, float]:
     return _window(inc)
 
 
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Reaches all", "before", "send new numbers on",
-             _before, _reached, lambda v: v is not None and v >= lab.REACH_MIN, settle_extra=lab.BEFORE[1]),
-    GoalSpec("Survives split", "after", "re-send until acked",
-             lambda i: (i.t0, i.t1 + lab.AFTER), _survived,
-             lambda v: v is not None and v >= lab.REACH_MIN, settle_extra=1.0),
-    GoalSpec("Msgs/op < 30", "before", "send fewer messages",
-             _before, _msgs, lambda v: v is not None and v < lab.EFFICIENT_MSGS, settle_extra=lab.BEFORE[1]),
-    GoalSpec("Fast 400/600ms", "before", "fewer hops per number",
-             _before, _latency, _fast((lab.EFFICIENT_P50, lab.EFFICIENT_MAX)), settle_extra=lab.BEFORE[1]),
-    GoalSpec("Msgs/op < 20", "before", "batch the numbers",
-             _before, _msgs, lambda v: v is not None and v < lab.BATCHED_MSGS, settle_extra=lab.BEFORE[1]),
-    GoalSpec("Fast 1s/2s", "before", "batch more often",
-             _before, _latency, _fast((lab.BATCHED_P50, lab.BATCHED_MAX)), settle_extra=lab.BEFORE[1]),
+    GoalSpec("", "before", "", _before, _reached, lambda v: v is not None and v >= lab.REACH_MIN,
+             settle_extra=lab.BEFORE[1], key="reach"),
+    GoalSpec("", "after", "", lambda i: (i.t0, i.t1 + lab.AFTER), _survived,
+             lambda v: v is not None and v >= lab.REACH_MIN, settle_extra=1.0, key="survive"),
+    GoalSpec("", "before", "", _before, _msgs, lambda v: v is not None and v < lab.EFFICIENT_MSGS,
+             settle_extra=lab.BEFORE[1], key="msgs30"),
+    GoalSpec("", "before", "", _before, _latency, _fast((lab.EFFICIENT_P50, lab.EFFICIENT_MAX)),
+             settle_extra=lab.BEFORE[1], key="fast"),
+    GoalSpec("", "before", "", _before, _msgs, lambda v: v is not None and v < lab.BATCHED_MSGS,
+             settle_extra=lab.BEFORE[1], key="msgs20"),
+    GoalSpec("", "before", "", _before, _latency, _fast((lab.BATCHED_P50, lab.BATCHED_MAX)),
+             settle_extra=lab.BEFORE[1], key="batched"),
 ]
 
 
 class BroadcastWorld(World):
     id = "broadcast"
-    title = "Broadcast (Gossip Glomers #3)"
-    files = ("labs/broadcast/main.py",)
     view = "cluster"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA3, EXTRA2, EXTRA1, BLUE))]
-    legend = [(BLUE, "has every number", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "missing some", "◉"),
-              (WHITE, "client request"), (BLUE, "message"), (RED, "dropped"),
+    stage_colours = (RED, EXTRA3, EXTRA2, EXTRA1, BLUE)
+    legend = [(BLUE, "complete", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "missing", "◉"),
+              (WHITE, "request"), (BLUE, "message"), (RED, "dropped"),
               (RED, "partition", "┆"), (LIMIT, "limit", "┄")]
-    incident_name = "Partition"
-    incident_verbs = ("SPLIT", "HEAL")
+    incident_verbs = ("split", "heal")
     tables = {
         "ops": Table(sort=OP_START, times=(OP_START, OP_END)),
         "msgs": Table(sort=MSG_SENT, times=(MSG_SENT, MSG_ARRIVED)),
@@ -159,20 +160,16 @@ class BroadcastWorld(World):
     def judge_stage(self, run: Run, first: list[Settled]) -> int:
         return lab.stage_of(*(r.ok for r in first))
 
-    def incident_title(self, inc: Incident) -> str:
-        return f"Partition #{inc.index + 1}"
-
     def incident_text(self, inc: Incident, start: bool) -> str:
         if not start:
-            return "the network is whole again"
-        what = "one node is cut off" if inc.kind == "isolate" else "the cluster is split in two"
-        return f"{what}: {inc.cause}"
+            return self.s("whole")
+        return self.s("cut_off" if inc.kind == "isolate" else "split", cause=self.cause(inc))
 
     def warnings(self, run: Run, inc: Incident):
         sent, reach = _sent(run), _reach(run)
         stuck = [v for v in _values(run, inc.t0, inc.t1) if not ((r := reach.get(v)) and r[1] and r[0] <= inc.t1)]
         if stuck:
-            return [(inc.t1, f"{len(stuck)} numbers stuck on one side")]
+            return [(inc.t1, self.s("warn_stuck", n=len(stuck)))]
         return []
 
     def groups_at(self, variant: str, t: float) -> list[int] | None:
@@ -230,54 +227,41 @@ class BroadcastWorld(World):
             return float(n), "bad" if late else "warn" if n > 10 else "ok"
 
         tiles = [
-            Tile("Msgs/op", "–" if mpo is None else f"{mpo:.0f}", "<30", msgs_state(mpo), history(run, t, msgs_s)),
-            Tile("p50", fmt_ms(p50), "<400ms", lat_state(p50), history(run, t, lat_s)),
-            Tile("Behind", str(behind), "→0", "bad" if old else "warn" if behind > 10 else "ok",
+            Tile(self.s("tile_msgs"), "–" if mpo is None else f"{mpo:.0f}", "<30", msgs_state(mpo),
+                 history(run, t, msgs_s)),
+            Tile(self.s("tile_p50"), fmt_ms(p50), "<400ms", lat_state(p50), history(run, t, lat_s)),
+            Tile(self.s("tile_behind"), str(behind), "→0", "bad" if old else "warn" if behind > 10 else "ok",
                  history(run, t, behind_s)),
         ]
         last = run.rows("msgs", t - 1, t)
         dropped = sum(1 for m in last if m[MSG_ARRIVED] is None)
         ops = run.count("ops", t - 1, t)
         limit = lab.EFFICIENT_MSGS * self.rate
-        bars = [Bar("Clients", [(float(ops), WHITE)]),
-                Bar("Nodes", [(float(len(last) - dropped), BLUE), (float(dropped), RED)])]
+        bars = [Bar(self.s("bar_clients"), [(float(ops), WHITE)]),
+                Bar(self.s("bar_nodes"), [(float(len(last) - dropped), BLUE), (float(dropped), RED)])]
         groups = self.groups_at(variant, t)
         if groups is not None:
             sizes = sorted((groups.count(g) for g in set(groups)), reverse=True)
-            headline, colour = f"Split {' | '.join(map(str, sizes))}: {behind} numbers wait", RED
+            headline, colour = self.s("head_split", sizes=" | ".join(map(str, sizes)), n=behind), RED
         elif behind:
-            headline, colour = f"{behind} numbers not on every node yet", EXTRA2
+            headline, colour = self.s("head_behind", n=behind), EXTRA2
         else:
-            headline, colour = f"Every number on every node (p50 {fmt_ms(p50)})", MUTED
-        return Traffic(tiles, bars, limit, "30 msgs/op", headline, colour, title="Messages",
+            headline, colour = self.s("head_ok", p50=fmt_ms(p50)), MUTED
+        return Traffic(tiles, bars, limit, self.s("limit"), headline, colour, title=self.s("messages"),
                        top=max(limit * 1.5, (len(last) + ops) * 1.05))
 
     def user_stats(self, variant: str, t: float):
-        run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("ops", 0.0)
-        partial = [o for o in run.rows("ops", s - span - 1, t) if s <= o[OP_END] < t]
-        served = run.total("served", t) + sum(1 for o in partial if o[OP_OK])
-        failed = run.total("failed", t) + sum(1 for o in partial if not o[OP_OK])
-        waiting = len(run.active("ops", t, OP_END))
-        recent = [o[OP_END] - o[OP_START] for o in run.rows("ops", t - 5 - span, t) if t - 5 <= o[OP_END] < t]
-        return [
-            ("served", fmt_int(served), GREEN),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), WHITE),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
-        ]
+        return self.request_stats(self.runs[variant], "ops", OP_START, OP_END, OP_OK, t)
 
     def stacks(self, variant: str):
         run = self.runs[variant]
         return [(BLUE, run.hist.get("delivered", [])), (RED, run.hist.get("dropped", []))]
 
     def chart_limit(self):
-        return lab.EFFICIENT_MSGS * self.rate, "30/op"
+        return lab.EFFICIENT_MSGS * self.rate, self.s("chart_limit")
 
     def legend_notes(self) -> list[str]:
-        return ["Chart: messages between nodes per second."]
+        return [self.s("note_chart")]
 
 
 WORLD = BroadcastWorld

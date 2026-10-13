@@ -1,5 +1,7 @@
 # Lab: broadcast (Fly.io Gossip Glomers #3)
 
+*[Leer en español](es/README.md)*
+
 [Gossip Glomers](https://fly.io/dist-sys/) challenge #3, in Python, on a simulated network:
 25 nodes, ~100 ms per message. Clients send each node `broadcast` (a new number) and `read`
 (which numbers do you have?). Every number must reach every node. Network partitions come at
@@ -10,6 +12,9 @@ uv run python -m live broadcast            # watch it; edit main.py and save
 uv run python -m live broadcast --lesson   # the concept, links and a checklist
 uv run pytest labs/broadcast               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | Challenge | In `main.py` | What you see |
 |---|---|---|---|

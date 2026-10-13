@@ -20,6 +20,7 @@ import random
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.net import Client, Network, Topology
 from core.vtime import VirtualRun, now
@@ -33,18 +34,13 @@ PROBE = 0.02  # how often the checker looks at every node
 LAG_EVERY = 0.1  # how often each node's backlog is recorded for the picture
 CLIENT_TIMEOUT = 1.0
 GIVE_UP = 30.0  # a number not everywhere after this long is recorded as lost
-FIRST = Planned(20.0, 30.0, "split", 0.5, "a top-of-rack switch failed")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "split", 0.5, "tor_switch")
 KINDS = [
     Kind("split", 0.6, median=10.0, shortest=5.0, longest=25.0, severity=(0.3, 0.5), causes=(
-        "a top-of-rack switch failed",
-        "a cloud zone lost its link to the others",
-        "a BGP route flapped between the data centres",
-    )),
+        "tor_switch", "zone_link", "bgp_flap")),
     Kind("isolate", 0.4, median=8.0, shortest=4.0, longest=20.0, causes=(
-        "a firewall rule blocked the cluster port on one node",
-        "one node's network card started dropping packets",
-        "a misconfigured security group cut one node off",
-    )),
+        "firewall_rule", "bad_nic", "security_group")),
 ]
 MEAN_GAP = 30.0
 QUIET = 27.0  # calm before the next one: 15 s measured before it, 7 s to judge the last
@@ -95,7 +91,7 @@ class _Sim:
         for n in self.ids:
             node = self.code.BroadcastNode(n, self.ids)
             if not hasattr(node, "messages"):
-                raise AttributeError("BroadcastNode must keep the numbers it has in self.messages")
+                raise AttributeError(lab_text(LAB).STRINGS["no_messages"])
             self.net.join(node)
             self.nodes.append(node)
         for n in self.ids:  # like Maelstrom: tell every node its neighbours first
