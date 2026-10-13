@@ -245,7 +245,7 @@ class World:
         names = getattr(text, "LEGEND", {})
         self.legend = [(item[0], names.get(item[1], item[1]), *item[2:]) for item in type(self).legend]
 
-    def s(self, key: str, **values: Any) -> str:
+    def s(self, key: str, /, **values: Any) -> str:
         """One of the lab's STRINGS, formatted: self.s("down", load=3.9)."""
         return self.text.STRINGS[key].format(**values) if self.text else key
 
