@@ -1,16 +1,12 @@
-"""World for lab txn (Fly.io Gossip Glomers #6)."""
+"""World for lab txn (Fly.io Gossip Glomers #6). Its words are in labs/txn/text/<lang>.py."""
 
 from __future__ import annotations
 
+from core.i18n import lab_text
 from labs.txn import lab
-from labs.txn.scenario import (
-    TXN_END, TXN_OK, TXN_START,
-)
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, RED, WHITE
-from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
-)
+from labs.txn.scenario import TXN_END, TXN_OK, TXN_START
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, MUTED, RED, WHITE
+from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
 
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 ANOM_T, ANOM_NODE, ANOM_KEY, ANOM_VALUE = range(4)
@@ -22,6 +18,11 @@ def fresh(run: Run, a: float, b: float) -> float | None:
     if not rows:
         return None
     return 1 - sum(sum(r[1]) for r in rows) / (len(rows) * lab.NODES * lab.KEYS)
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("txn").STRINGS[key].format(**values)
 
 
 # ---------------------------------------------------------------- goals
@@ -62,20 +63,24 @@ def _around(inc: Incident) -> tuple[float, float]:
 def _g1b(run: Run, inc: Incident, upto: float):
     a, b = _around(inc)
     n = run.count("anomalies", a, min(b, upto))
-    return float(n), "none" if n == 0 else f"{n} seen"
+    return float(n), _s("none") if n == 0 else _s("seen", n=n)
 
 
+def _during(inc: Incident) -> tuple[float, float]:
+    return inc.t0, inc.t1
+
+
+# The rule and fix of each goal are text.GOALS[key]. Intermediate reads are counted from 15 s
+# before to 5 s after the partition, and judged after it.
 GOALS = [
-    GoalSpec("Fresh ≥ 95%", "before", "replicate every write",
-             _before, _fresh, lambda v: v is not None and v >= lab.FRESH_MIN, settle_extra=lab.BEFORE[1]),
-    GoalSpec("Answered ≥ 99%", "during", "never wait for a peer",
-             lambda i: (i.t0, i.t1), _available, lambda v: v is not None and v >= lab.AVAILABLE_MIN,
-             settle_extra=2.0),
-    GoalSpec("Caught up ≥ 99%", "after", "re-send until acked",
-             _after, _caught_up, lambda v: v is not None and v >= lab.CAUGHT_UP_MIN),
-    GoalSpec("No G1b reads", "around", "replicate whole txns",
-             _around, _g1b, lambda v: v is not None and v <= lab.G1B_MAX,
-             doomed=lambda run, inc, upto: _g1b(run, inc, upto)[0] > lab.G1B_MAX),
+    GoalSpec("", "before", "", _before, _fresh,
+             lambda v: v is not None and v >= lab.FRESH_MIN, settle_extra=lab.BEFORE[1], key="fresh"),
+    GoalSpec("", "during", "", _during, _available,
+             lambda v: v is not None and v >= lab.AVAILABLE_MIN, settle_extra=2.0, key="answered"),
+    GoalSpec("", "after", "", _after, _caught_up,
+             lambda v: v is not None and v >= lab.CAUGHT_UP_MIN, key="caught_up"),
+    GoalSpec("", "after", "", _around, _g1b, lambda v: v is not None and v <= lab.G1B_MAX,
+             doomed=lambda run, inc, upto: _g1b(run, inc, upto)[0] > lab.G1B_MAX, key="g1b"),
 ]
 
 
@@ -87,15 +92,11 @@ def _stale_colour(stale: int) -> tuple[int, int, int]:
 
 class TxnWorld(World):
     id = "txn"
-    title = "Transactions (Gossip Glomers #6)"
-    files = ("labs/txn/main.py",)
     view = "cluster"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA2, EXTRA1, BLUE))]
-    legend = [(BLUE, "up to date", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "G1b read", "◉"),
+    stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
+    legend = [(BLUE, "up_to_date", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "g1b_read", "◉"),
               (WHITE, "transaction"), (BLUE, "replication"), (RED, "dropped"), (RED, "partition", "┆")]
-    incident_name = "Partition"
-    incident_verbs = ("SPLIT", "HEAL")
+    incident_verbs = ("split", "heal")
     tables = {
         "txns": Table(sort=TXN_START, times=(TXN_START, TXN_END)),
         "msgs": Table(sort=MSG_SENT, times=(MSG_SENT, MSG_ARRIVED)),
@@ -120,13 +121,13 @@ class TxnWorld(World):
         return lab.stage_of(*(r.ok for r in first))
 
     def incident_text(self, inc: Incident, start: bool) -> str:
-        return f"a node is cut off: {inc.cause}" if start else "the network is whole again"
+        return self.s("cut_off", cause=self.cause(inc)) if start else self.s("whole_again")
 
     def warnings(self, run: Run, inc: Incident):
         first = run.rows("anomalies", inc.t0 - lab.AROUND[0], inc.t1 + lab.AROUND[1])
         if first:
             a = first[0]
-            return [(a[ANOM_T], f"n{a[ANOM_NODE]} showed an intermediate value of key {a[ANOM_KEY]}")]
+            return [(a[ANOM_T], self.s("warn_g1b", node=a[ANOM_NODE], which=a[ANOM_KEY]))]
         return []
 
     def cut_at(self, variant: str, t: float) -> int | None:
@@ -178,45 +179,31 @@ class TxnWorld(World):
             return (v or 0.0), answered_state(v)
 
         tiles = [
-            Tile("Fresh", "–" if now_fresh is None else f"{now_fresh:.0%}", "≥95%", fresh_state(now_fresh),
-                 history(run, t, fresh_s)),
-            Tile("G1b", str(g1b), "0", "bad" if g1b else "ok", history(run, t, g1b_s)),
-            Tile("Answers", "–" if answered is None else f"{answered:.0%}", "≥99%", answered_state(answered),
-                 history(run, t, answered_s)),
+            Tile(self.s("tile_fresh"), "–" if now_fresh is None else f"{now_fresh:.0%}", "≥95%",
+                 fresh_state(now_fresh), history(run, t, fresh_s)),
+            Tile(self.s("tile_g1b"), str(g1b), "0", "bad" if g1b else "ok", history(run, t, g1b_s)),
+            Tile(self.s("tile_answers"), "–" if answered is None else f"{answered:.0%}", "≥99%",
+                 answered_state(answered), history(run, t, answered_s)),
         ]
         last = run.rows("msgs", t - 1, t)
         dropped = sum(1 for m in last if m[MSG_ARRIVED] is None)
         txns = run.count("txns", t - 1, t)
-        bars = [Bar("Clients", [(float(txns), WHITE)]),
-                Bar("Nodes", [(float(len(last) - dropped), BLUE), (float(dropped), RED)])]
+        bars = [Bar(self.s("bar_clients"), [(float(txns), WHITE)]),
+                Bar(self.s("bar_nodes"), [(float(len(last) - dropped), BLUE), (float(dropped), RED)])]
         cut = self.cut_at(variant, t)
         if run.count("anomalies", t - 2, t):
-            headline, colour = "G1b: a reader saw an overwritten value", RED
+            headline, colour = self.s("head_g1b"), RED
         elif cut is not None:
-            headline, colour = f"n{cut} is cut off: replication waits", RED
+            headline, colour = self.s("head_cut", node=cut), RED
         elif now_fresh is not None and now_fresh < 0.999:
-            headline, colour = f"Some nodes are behind ({now_fresh:.1%} fresh)", EXTRA2
+            headline, colour = self.s("head_behind", fresh=now_fresh), EXTRA2
         else:
-            headline, colour = "Every node is up to date", MUTED
-        return Traffic(tiles, bars, 0.0, "", headline, colour, title="Messages",
+            headline, colour = self.s("head_ok"), MUTED
+        return Traffic(tiles, bars, 0.0, "", headline, colour, title=self.s("messages"),
                        top=max(1.0, (len(last) + txns) * 1.1))
 
     def user_stats(self, variant: str, t: float):
-        run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("txns", 0.0)
-        partial = [r for r in run.rows("txns", s - span - 1, t) if s <= r[TXN_END] < t]
-        served = run.total("served", t) + sum(1 for r in partial if r[TXN_OK])
-        failed = run.total("failed", t) + sum(1 for r in partial if not r[TXN_OK])
-        waiting = len(run.active("txns", t, TXN_END))
-        recent = [r[TXN_END] - r[TXN_START] for r in run.rows("txns", t - 5 - span, t) if t - 5 <= r[TXN_END] < t]
-        return [
-            ("answered", fmt_int(served), GREEN),
-            ("unanswered", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), WHITE),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
-        ]
+        return self.request_stats(self.runs[variant], "txns", TXN_START, TXN_END, TXN_OK, t)
 
     def stacks(self, variant: str):
         run = self.runs[variant]
@@ -226,7 +213,7 @@ class TxnWorld(World):
         return None
 
     def legend_notes(self) -> list[str]:
-        return ["Chart: replication messages per second."]
+        return [self.s("note_chart")]
 
 
 WORLD = TxnWorld

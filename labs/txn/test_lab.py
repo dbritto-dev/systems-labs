@@ -91,24 +91,24 @@ def test_a_single_node_per_store_never_catches_up():
     world = build_world("txn", SINGLE, 2)
     res = results(world, SINGLE)
     assert res and all(not r[0] for r in res)
-    assert world.stage(SINGLE).label == "Single node"
+    assert world.stage_index(SINGLE) == 0  # Single node
 
 
 def test_stage_variants_land_on_their_stage_on_every_partition():
-    for v, stage, expected in ((FIRE, "Replicated", [True, True, False]),
-                               (PER_WRITE, "Read uncommitted", [True, True, True, False])):
+    for v, stage, expected in ((FIRE, 1, [True, True, False]),  # Replicated
+                               (PER_WRITE, 2, [True, True, True, False])):  # Read uncommitted
         world = build_world("txn", v, 3)
         res = results(world, v)
         assert len(res) >= 3, res
         assert all(r[:len(expected)] == expected for r in res), (v.__name__, res)
-        assert world.stage(v).label == stage
+        assert world.stage_index(v) == stage
 
 
 def test_reference_passes_every_goal():
     world = build_world("txn", "reference", 4)
     res = results(world, "reference")
     assert len(res) >= 4 and all(all(r) for r in res)
-    assert world.stage("reference").label == "Read committed"
+    assert world.stage_index("reference") == 3  # Read committed
 
 
 def test_partitions_are_random_but_the_first_cuts_a_node_off_at_twenty_seconds():

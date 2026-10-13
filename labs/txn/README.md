@@ -1,5 +1,7 @@
 # Lab: txn (Fly.io Gossip Glomers #6)
 
+*[Leer en español](es/README.md)*
+
 [Gossip Glomers](https://fly.io/dist-sys/) challenge #6 (totally-available transactions), in
 Python, on a simulated network: 3 nodes, ~100 ms per message. Clients send any node a `txn`,
 a list of micro-operations (`["r", key, null]`, `["w", key, value]`); the node answers
@@ -15,6 +17,9 @@ uv run python -m live txn            # watch it; edit main.py and save
 uv run python -m live txn --lesson   # the concept, links and a checklist
 uv run pytest labs/txn               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | Challenge | In `main.py` | What you see |
 |---|---|---|---|

@@ -1,4 +1,71 @@
+"""Lab txn, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Transactions (Gossip Glomers #6)"
+SUMMARY = "Gossip Glomers #6: a replicated key/value store with transactions, totally available."
+PARAMS = {"rate": "client transactions per second"}
+
+INCIDENT = IncidentText("Partition", "the partition", "the next partition")
+VERBS = {"split": "SPLIT", "heal": "HEAL"}
+CAUSES = {
+    "tor_switch": "a top-of-rack switch failed under one node",
+    "firewall_port": "a firewall rule blocked the replication port on one node",
+    "nic_drops": "one node's network card started dropping packets",
+    "zone_link": "a cloud zone lost its link to the other two",
+}
+
+STAGES = [
+    StageText("Single node",
+              "Challenge: writes stay on the node that got them. Send them to the other nodes.",
+              "Stage 1 (6b): replicate every write to the other nodes"),
+    StageText("Replicated",
+              "Challenge: writes made during a partition are lost for good. Re-send until acked.",
+              "Stage 2 (6b): re-send until acked; the newest stamp wins"),
+    StageText("Read uncommitted",
+              "Challenge: readers see values a transaction overwrote itself. Replicate whole txns.",
+              "Stage 3 (6c): replicate final values per txn, applied at once"),
+    StageText("Read committed",
+              "Solved: every node catches up through partitions, and no one sees intermediate values.",
+              "All stages done"),
+]
+
+GOALS = {
+    "fresh": GoalText("Fresh ≥ 95%", "replicate every write"),
+    "answered": GoalText("Answered ≥ 99%", "never wait for a peer"),
+    "caught_up": GoalText("Caught up ≥ 99%", "re-send until acked"),
+    "g1b": GoalText("No G1b reads", "replicate whole txns"),
+}
+
+LEGEND = {"up_to_date": "up to date", "behind": "behind", "g1b_read": "G1b read", "transaction": "transaction",
+          "replication": "replication", "dropped": "dropped", "partition": "partition"}
+
+STRINGS = {
+    # incidents
+    "cut_off": "a node is cut off: {cause}",
+    "whole_again": "the network is whole again",
+    "warn_g1b": "n{node} showed an intermediate value of key {which}",
+    # goal values
+    "none": "none",
+    "seen": "{n} seen",
+    # the panel
+    "tile_fresh": "Fresh",
+    "tile_g1b": "G1b",
+    "tile_answers": "Answers",
+    "messages": "Messages",
+    "bar_clients": "Clients",
+    "bar_nodes": "Nodes",
+    "head_g1b": "G1b: a reader saw an overwritten value",
+    "head_cut": "n{node} is cut off: replication waits",
+    "head_behind": "Some nodes are behind ({fresh:.1%} fresh)",
+    "head_ok": "Every node is up to date",
+    "note_chart": "Chart: replication messages/s.",
+    # the picture
+    "state_cut": "n{node} cut off",
+    # errors in your code
+    "no_store": "TxnNode must keep its key/value store in self.store (a dict)",
+}
 
 LESSON = Lesson(
     title="Transactions (Gossip Glomers #6)",
