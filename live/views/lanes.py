@@ -1,7 +1,7 @@
 """The **lanes** view: the users as a grid of circles on the left (○ idle, ● waiting, coloured by how much extra
 work they cost), one dotted line with requests in flight to the door in front of the server (a gateway, a cache,
 a queue), and the server as a rectangle with three drive bays and a gauge on the right. It draws a `LaneFrame`;
-a `LaneAdapter` per lab (live/adapters.py) makes one from that lab's World.
+a `LaneAdapter` per lab (live/adapters/<lab>.py) makes one from that lab's World.
 """
 
 from __future__ import annotations

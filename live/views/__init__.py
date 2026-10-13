@@ -9,7 +9,7 @@ _adapters: dict[int, Adapter] = {}
 
 
 def adapter_for(world) -> Adapter:
-    import live.adapters  # noqa: F401  (registers the lab adapters)
+    import live.adapters  # noqa: F401  (imports every live/adapters/<lab>.py, which registers them)
 
     a = _adapters.get(id(world))
     if a is None or a.world is not world:

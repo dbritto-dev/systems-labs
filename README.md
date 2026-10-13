@@ -111,7 +111,7 @@ core/   vtime.py (virtual-time asyncio)  services.py (fakeable downstreams)
 labs/   <lab>/ main.py  reference.py  scenario.py  lab.py  lesson.py  test_lab.py  README.md
 live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child processes, Feed)
         frame.py (header, chart, footer)  panel.py (dashboard)  views/ (View, Adapter, lanes)
-        adapters.py (one LaneAdapter per lab)  worlds/ (one World per lab)  __main__.py
+        adapters/ (one LaneAdapter per lab)  worlds/ (one World per lab)  __main__.py
 ```
 
 ## Adding a lab
@@ -146,7 +146,7 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
 
    The base class gives you `goal_lines`, `goal_title`, `next_check`, `timeline`,
    `stage(variant)`, the endless-run storage and settled-goal caching.
-3. **A LaneAdapter** in `live/adapters.py`:
+3. **A LaneAdapter** in `live/adapters/<lab>.py` (every module there is imported):
    ```python
    @adapts("my_lab", "lanes")
    class MyLanes(LaneAdapter):
