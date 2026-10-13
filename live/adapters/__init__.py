@@ -11,5 +11,6 @@ import importlib
 import pkgutil
 
 for _info in pkgutil.iter_modules(__path__):
-    if _info.name != "common":
+    # Only real module names: skip "common" and copies like "cache 2.py" (Finder, iCloud).
+    if _info.name != "common" and _info.name.isidentifier():
         importlib.import_module(f"{__name__}.{_info.name}")
