@@ -33,6 +33,7 @@ STATUS = {"ok": ("●", "OK", GREEN), "alert": ("●", "ALERT", RED), "wait": ("
 EVENT_STYLE: dict[str, tuple[str, RGB]] = {
     "DOWN": ("▼", (226, 60, 76)), "FLUSH": ("▼", (226, 60, 76)), "UP": ("▲", (52, 168, 100)),
     "ALERT": ("✖", (226, 60, 76)), "OK": ("✔", (52, 168, 100)), "WARN": ("▲", (226, 150, 40)),
+    "SPLIT": ("▼", (226, 60, 76)), "HEAL": ("▲", (52, 168, 100)),
 }
 
 
@@ -190,9 +191,9 @@ def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) 
         icon, col = EVENT_STYLE.get(e.verb, ("●", (100, 150, 230)))
         c = FADED if dim else col
         head = p("▌", FADED_BAR if dim else col) + p(f"{clock(e.t):>4} ", DD_TITLE) + p(icon + " ", c)
-        head += style.bold(p(f"{e.verb:<6}", c))
+        head += style.bold(p(f"{e.verb:<6}"[:6], c))
         room = inner - 13
-        if e.verb in ("DOWN", "FLUSH") and len(e.text) > room:  # what went wrong: up to 3 lines, so the cause shows
+        if e.verb == world.incident_verbs[0] and len(e.text) > room:  # what went wrong: up to 3 lines
             first, *rest = textwrap.wrap(e.text, room, max_lines=3, placeholder="…")
             return [head + p(first, INK)] + [p("▌", col) + " " * 12 + p(more, INK) for more in rest]
         return [head + p(e.text[:room], DD_TITLE if dim else INK)]

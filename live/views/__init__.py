@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from live.views.base import ADAPTERS, VIEWS, Adapter, View, adapts, register  # noqa: F401
-from live.views import lanes  # noqa: F401  (registers the lanes view)
+from live.views import cluster, lanes  # noqa: F401  (registers the views)
 
 _adapters: dict[int, Adapter] = {}
 

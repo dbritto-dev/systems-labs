@@ -54,3 +54,28 @@ def test_slot_spreads_neighbours():
     spots = [slot(i, n) for i in range(10)]
     assert len(set(spots)) >= 9
     assert sum(abs(a - b) > 3 for a, b in zip(spots, spots[1:])) >= 7
+
+
+def test_the_cluster_view_draws_nodes_messages_and_a_partition_cut():
+    from live.canvas import BLUE, RED
+    from live.views.cluster import ClusterAdapter, ClusterFrame
+
+    class Net(World):
+        id, title, view = "toynet", "Toy net", "cluster"
+
+        def __init__(self):
+            super().__init__()
+            self.start("main")
+
+    @adapts("toynet", "cluster")
+    class NetPicture(ClusterAdapter):
+        def frame(self, variant, t):
+            return ClusterFrame(nodes=[BLUE] * 9, groups=[0, 0, 1] * 3, flights=[(0, 4, 0.5, BLUE)],
+                                drops=[(1, 2, 0.1)], state=("PARTITIONED  6 | 3", RED))
+
+    cv = Canvas(60, 20)
+    render(Net(), cv, "main", 1.0)
+    text = "\n".join(cv.plain())
+    assert text.count("◉") == 9 and "PARTITIONED  6 | 3" in text
+    assert any(cv.cell(r, c)[1] == RED and cv.cell(r, c)[0] not in " ◉" for r in range(20) for c in range(60))
+    del ADAPTERS[("toynet", "cluster")]
