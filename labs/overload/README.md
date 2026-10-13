@@ -1,5 +1,7 @@
 # Lab: overload & queues
 
+*[Leer en español](es/README.md)*
+
 A server works through a queue at 100 requests/s (10 ms each). Users send ~75
 requests/s (drifting slowly). A user waits 1 s for a reply, then gives up on that
 try and sends it again (at most 2 retries); the try they gave up on stays in the
@@ -15,6 +17,9 @@ uv run python -m live overload            # watch it; edit main.py and save
 uv run python -m live overload --lesson   # the concept, links and a checklist
 uv run pytest labs/overload               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` (`Policy`) | What you see |
 |---|---|---|
