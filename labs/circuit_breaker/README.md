@@ -1,5 +1,7 @@
 # Lab: circuit breaker
 
+*[Leer en español](es/README.md)*
+
 Our service takes ~100 requests/s with a pool of 24 workers. Each request holds a
 worker while it calls ONE dependency through your `Client`: "payments" (60%) or
 "recs" (40%). At random times, like in production, one dependency gets very slow:
@@ -12,6 +14,9 @@ uv run python -m live circuit_breaker            # watch it; edit main.py and sa
 uv run python -m live circuit_breaker --lesson   # the concept, links and a checklist
 uv run pytest labs/circuit_breaker               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` | What you see |
 |---|---|---|

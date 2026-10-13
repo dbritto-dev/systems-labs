@@ -66,7 +66,7 @@ def test_starting_code_lets_one_slow_dependency_take_every_worker():
     world = build_world("circuit_breaker", "main", 2)
     results = statuses(world, "main")
     assert results and all(r[:4] == [True, False, False, False] for r in results)
-    assert world.stage("main").label == "No protection"
+    assert world.stage_index("main") == 0  # No protection
 
 
 def test_timeouts_alone_still_fill_the_pool():
@@ -74,7 +74,7 @@ def test_timeouts_alone_still_fill_the_pool():
     results = statuses(world, TIMEOUTS)
     assert len(results) >= 4
     assert all(r[:4] == [True, True, False, False] for r in results)
-    assert world.stage(TIMEOUTS).label == "Timeouts"
+    assert world.stage_index(TIMEOUTS) == 1  # Timeouts
 
 
 def test_a_bulkhead_saves_the_healthy_dependency_but_users_still_wait():
@@ -82,7 +82,7 @@ def test_a_bulkhead_saves_the_healthy_dependency_but_users_still_wait():
     results = statuses(world, BULKHEADS)
     assert len(results) >= 4
     assert all(r == [True, True, True, False, True] for r in results)
-    assert world.stage(BULKHEADS).label == "Timeouts + bulkhead"
+    assert world.stage_index(BULKHEADS) == 2  # + bulkhead
 
 
 def test_reference_passes_every_goal_on_the_first_incidents():
@@ -91,7 +91,7 @@ def test_reference_passes_every_goal_on_the_first_incidents():
     kinds = {i.kind for i in world.runs["reference"].incidents}
     assert len(results) >= 5 and kinds == {"payments", "recs"}
     assert all(all(r) for r in results)
-    assert world.stage("reference").label == "Timeouts + bulkhead + breaker"
+    assert world.stage_index("reference") == 3  # + breaker
 
 
 def test_pieces_join_and_the_first_incident_is_fixed():
