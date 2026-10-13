@@ -1,4 +1,80 @@
+"""Lab kafka_log, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Kafka log (Gossip Glomers #5)"
+SUMMARY = "Gossip Glomers #5: a replicated Kafka-style log on two nodes; correct first, then cheap."
+PARAMS = {"rate": "client operations per second"}
+
+INCIDENT = IncidentText("Incident", "the incident", "the next incident")
+VERBS = {"burst": "BURST", "calm": "CALM", "slow": "SLOW", "fast": "FAST"}
+CAUSES = {
+    "replay": "a producer replayed a day of events into one topic",
+    "flash_sale": "a flash sale sent every order to one topic",
+    "retry_storm": "a retry storm upstream hammered one topic",
+    "compaction": "lin-kv is compacting its storage",
+    "noisy_disk": "a noisy neighbour is starving lin-kv's disk",
+    "lost_replica": "lin-kv lost a replica and is catching up",
+}
+
+STAGES = [
+    StageText("Single node",
+              "Challenge: each node hands out its own offsets, so two messages share one. Agree on them.",
+              "Stage 1 (5b): keep offsets and messages in lin-kv"),
+    StageText("Multi-node",
+              "Challenge: correct, but every send costs ~10 messages and stalls on one hot key.",
+              "Stage 2 (5c): fewer round trips, e.g. an owner per key"),
+    StageText("Efficient",
+              "Solved: offsets are unique, nothing is lost, and a send costs about one message.",
+              "All stages done"),
+]
+
+GOALS = {
+    "unique": GoalText("Offsets unique", "agree on offsets"),
+    "lost_writes": GoalText("No lost writes", "never skip an offset"),
+    "commits": GoalText("Commits kept", "share committed offsets"),
+    "msgs": GoalText("Msgs/op < 3", "fewer lin-kv round trips"),
+    "p99": GoalText("p99 send < 100ms", "an owner per key"),
+}
+
+LEGEND = {"node": "node", "lin_kv": "lin-kv", "anomaly": "anomaly", "client_request": "client request",
+          "node_message": "node message", "kv_message": "lin-kv message", "limit": "limit"}
+
+STRINGS = {
+    # incidents
+    "title_burst": "Hot key",
+    "title_slowkv": "Slow lin-kv",
+    "burst_start": "{severity:.1f}x traffic, mostly sends to one key: {cause}",
+    "burst_end": "traffic is back to normal",
+    "slow_start": "lin-kv answers {severity:.0f}x slower: {cause}",
+    "slow_end": "lin-kv is fast again",
+    "warn_slow": "sends take over 300 ms",
+    "one_key": "one key",
+    # anomalies
+    "duplicate": "duplicate offset",
+    "lost_write": "lost write",
+    "lost_commit": "lost commit",
+    # goal values
+    "failed": "failed",
+    # the panel
+    "tile_msgs": "Msgs/op",
+    "tile_p99": "p99",
+    "tile_anomalies": "Anomalies",
+    "traffic": "Traffic",
+    "bar_clients": "Clients",
+    "bar_messages": "Messages",
+    "limit": "{limit:.0f} msgs/op",
+    "chart_limit": "{limit:.0f}/op",
+    "head_anomaly": "{what} on {k}!",
+    "head_hot": "Hot {k}: p99 send {p99}",
+    "head_slow": "lin-kv is slow: p99 send {p99}",
+    "head_ok": "Log ok: {mpo} msgs per operation",
+    "note_dots": "Dots slowed down to be seen (cosmetic).",
+    # the picture
+    "state_hot": "HOT KEY {k}",
+    "state_kv_slow": "LIN-KV SLOW",
+}
 
 LESSON = Lesson(
     title="Kafka log (Gossip Glomers #5)",

@@ -1,13 +1,13 @@
-"""World for lab kafka_log (Fly.io Gossip Glomers #5)."""
+"""World for lab kafka_log (Fly.io Gossip Glomers #5). Its words are in labs/kafka_log/text/<lang>.py."""
 
 from __future__ import annotations
 
+from core.i18n import lab_text
 from labs.kafka_log import lab
 from labs.kafka_log.scenario import DUPLICATE, LOST_COMMIT, LOST_WRITE, SEND
-from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, LIMIT, MUTED, PURPLE, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PURPLE, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
+    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
 )
 
 OP_START, OP_KIND, OP_NODE, OP_KEY, OP_END, OP_OK, OP_BAD = range(7)
@@ -15,7 +15,12 @@ MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 AN_T, AN_KIND, AN_NODE, AN_KEY = range(4)
 KV = lab.NODES  # lin-kv's index in the picture and the message table
 INF = float("inf")
-ANOMALY_NAMES = {DUPLICATE: "duplicate offset", LOST_WRITE: "lost write", LOST_COMMIT: "lost commit"}
+ANOMALY_KEYS = {DUPLICATE: "duplicate", LOST_WRITE: "lost_write", LOST_COMMIT: "lost_commit"}  # STRINGS keys
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("kafka_log").STRINGS[key].format(**values)
 
 
 def _count(run: Run, kind: int, a: float, b: float) -> int:
@@ -43,7 +48,7 @@ def _send_times(run: Run, a: float, b: float, upto: float) -> list[float]:
 # ---------------------------------------------------------------- goals
 
 
-def _anomalies(kind: int, rule: str, phase: str, fix: str, extra: float = 0.0) -> GoalSpec:
+def _anomalies(kind: int, key: str, phase: str, extra: float = 0.0) -> GoalSpec:
     """A goal that no anomaly of `kind` happens in its window (it alerts at the first one)."""
 
     def measure(run: Run, inc: Incident, upto: float):
@@ -51,8 +56,8 @@ def _anomalies(kind: int, rule: str, phase: str, fix: str, extra: float = 0.0) -
         n = _count(run, kind, a, min(b, upto))
         return n, str(n)
 
-    return GoalSpec(rule, phase, fix, WINDOWS[kind], measure, lambda v: v == 0,
-                    doomed=lambda run, inc, upto: measure(run, inc, upto)[0] > 0, settle_extra=extra)
+    return GoalSpec("", phase, "", WINDOWS[kind], measure, lambda v: v == 0,
+                    doomed=lambda run, inc, upto: measure(run, inc, upto)[0] > 0, settle_extra=extra, key=key)
 
 
 WINDOWS = {
@@ -69,30 +74,27 @@ def _msgs(run: Run, inc: Incident, upto: float):
 
 def _p99(run: Run, inc: Incident, upto: float):
     v = percentile(_send_times(run, inc.t0, inc.t1, upto), 99)
-    return v, "–" if v is None else "failed" if v == INF else fmt_ms(v)
+    return v, "–" if v is None else _s("failed") if v == INF else fmt_ms(v)
 
 
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    _anomalies(DUPLICATE, "Offsets unique", "before", "agree on offsets"),
-    _anomalies(LOST_WRITE, "No lost writes", "during", "never skip an offset", 1.5),
-    _anomalies(LOST_COMMIT, "Commits kept", "after", "share committed offsets", 1.5),
-    GoalSpec("Msgs/op < 3", "before", "fewer lin-kv round trips",
-             lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs, lambda v: v is not None and v < lab.MSGS_MAX),
-    GoalSpec("p99 send < 100ms", "during", "an owner per key",
-             lambda i: (i.t0, i.t1), _p99, lambda v: v is not None and v < lab.P99_MAX, settle_extra=1.5),
+    _anomalies(DUPLICATE, "unique", "before"),
+    _anomalies(LOST_WRITE, "lost_writes", "during", 1.5),
+    _anomalies(LOST_COMMIT, "commits", "after", 1.5),
+    GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs,
+             lambda v: v is not None and v < lab.MSGS_MAX, key="msgs"),
+    GoalSpec("", "during", "", lambda i: (i.t0, i.t1), _p99,
+             lambda v: v is not None and v < lab.P99_MAX, settle_extra=1.5, key="p99"),
 ]
 
 
 class KafkaLogWorld(World):
     id = "kafka_log"
-    title = "Kafka log (Gossip Glomers #5)"
-    files = ("labs/kafka_log/main.py",)
     view = "cluster"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA2, BLUE))]
-    legend = [(BLUE, "node", "◉"), (PURPLE, "lin-kv", "◉"), (RED, "anomaly", "◉"), (WHITE, "client request"),
-              (BLUE, "node message"), (EXTRA1, "lin-kv message"), (LIMIT, "limit", "┄")]
-    incident_name = "Incident"
+    stage_colours = (RED, EXTRA2, BLUE)
+    legend = [(BLUE, "node", "◉"), (PURPLE, "lin_kv", "◉"), (RED, "anomaly", "◉"), (WHITE, "client_request"),
+              (BLUE, "node_message"), (EXTRA1, "kv_message"), (LIMIT, "limit", "┄")]
     tables = {
         "ops": Table(sort=OP_START, times=(OP_START, OP_END)),
         "msgs": Table(sort=MSG_SENT, times=(MSG_SENT, MSG_ARRIVED)),
@@ -121,28 +123,33 @@ class KafkaLogWorld(World):
         return lab.stage_of(*(r.ok for r in first))
 
     def incident_title(self, inc: Incident) -> str:
-        return f"{'Hot key' if inc.kind == 'burst' else 'Slow lin-kv'} #{inc.index + 1}"
+        name = self.s("title_burst" if inc.kind == "burst" else "title_slowkv")
+        return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         if inc.kind == "burst":
-            return "BURST" if start else "CALM"
-        return "SLOW" if start else "FAST"
+            return self.word("burst" if start else "calm")
+        return self.word("slow" if start else "fast")
 
     def hot_key(self, run: Run, inc: Incident) -> str:
         k = run.data.get("hot", {}).get(inc.t0)
-        return "one key" if k is None else f"k{k}"
+        return self.s("one_key") if k is None else f"k{k}"
+
+    def anomaly(self, kind: int) -> str:
+        """An anomaly's name in words, e.g. "duplicate offset"."""
+        return self.s(ANOMALY_KEYS[kind])
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         if not start:
-            return "traffic is back to normal" if inc.kind == "burst" else "lin-kv is fast again"
+            return self.s("burst_end" if inc.kind == "burst" else "slow_end")
         if inc.kind == "burst":
-            return f"{inc.severity:.1f}x traffic, mostly sends to one key: {inc.cause}"
-        return f"lin-kv answers {inc.severity:.0f}x slower: {inc.cause}"
+            return self.s("burst_start", severity=inc.severity, cause=self.cause(inc))
+        return self.s("slow_start", severity=inc.severity, cause=self.cause(inc))
 
     def warnings(self, run: Run, inc: Incident):
         slow = next((o[OP_START] for o in run.rows("ops", inc.t0, inc.t1)
                      if o[OP_KIND] == SEND and (not o[OP_OK] or o[OP_END] - o[OP_START] > 3 * lab.P99_MAX)), None)
-        return [] if slow is None else [(slow + 0.3, "sends take over 300 ms")]
+        return [] if slow is None else [(slow + 0.3, self.s("warn_slow"))]
 
     def incident_at(self, variant: str, t: float) -> Incident | None:
         run = self.runs.get(variant)
@@ -179,57 +186,45 @@ class KafkaLogWorld(World):
             return n, "bad" if n else "ok"
 
         tiles = [
-            Tile("Msgs/op", "–" if mpo is None else f"{mpo:.1f}", "<3", msgs_state(mpo), history(run, t, msgs_s)),
-            Tile("p99", "failed" if p99 == INF else fmt_ms(p99), "<100ms", p99_state(p99),
+            Tile(self.s("tile_msgs"), "–" if mpo is None else f"{mpo:.1f}", "<3", msgs_state(mpo),
+                 history(run, t, msgs_s)),
+            Tile(self.s("tile_p99"), self.s("failed") if p99 == INF else fmt_ms(p99), "<100ms", p99_state(p99),
                  history(run, t, p99_s)),
-            Tile("Anomalies", str(bad), "0", "bad" if bad else "ok", history(run, t, bad_s)),
+            Tile(self.s("tile_anomalies"), str(bad), "0", "bad" if bad else "ok", history(run, t, bad_s)),
         ]
         last = run.rows("msgs", t - 1, t)
         kv = sum(1 for m in last if KV in (m[MSG_SRC], m[MSG_DEST]))
         ops = run.count("ops", t - 1, t)
         limit = lab.MSGS_MAX * self.rate
-        bars = [Bar("Clients", [(float(ops), WHITE)]),
-                Bar("Messages", [(float(len(last) - kv), BLUE), (float(kv), EXTRA1)])]
+        bars = [Bar(self.s("bar_clients"), [(float(ops), WHITE)]),
+                Bar(self.s("bar_messages"), [(float(len(last) - kv), BLUE), (float(kv), EXTRA1)])]
         recent = run.rows("anomalies", t - 5, t)
         inc = self.incident_at(variant, t)
         if recent:
             x = recent[-1]
-            headline, colour = f"{ANOMALY_NAMES[x[AN_KIND]].capitalize()} on k{x[AN_KEY]}!", RED
+            what = self.anomaly(x[AN_KIND])
+            headline, colour = self.s("head_anomaly", what=what[:1].upper() + what[1:], k=f"k{x[AN_KEY]}"), RED
         elif inc is not None and inc.kind == "burst":
-            headline, colour = f"Hot {self.hot_key(run, inc)}: p99 send {fmt_ms(p99)}", EXTRA2
+            headline, colour = self.s("head_hot", k=self.hot_key(run, inc), p99=fmt_ms(p99)), EXTRA2
         elif inc is not None:
-            headline, colour = f"lin-kv is slow: p99 send {fmt_ms(p99)}", EXTRA2
+            headline, colour = self.s("head_slow", p99=fmt_ms(p99)), EXTRA2
         else:
-            headline, colour = f"Log ok: {'–' if mpo is None else f'{mpo:.1f}'} msgs per operation", MUTED
-        return Traffic(tiles, bars, limit, "3 msgs/op", headline, colour, title="Traffic",
-                       top=max(limit * 1.5, (len(last) + ops) * 1.05))
+            headline, colour = self.s("head_ok", mpo="–" if mpo is None else f"{mpo:.1f}"), MUTED
+        return Traffic(tiles, bars, limit, self.s("limit", limit=lab.MSGS_MAX), headline, colour,
+                       title=self.s("traffic"), top=max(limit * 1.5, (len(last) + ops) * 1.05))
 
     def user_stats(self, variant: str, t: float):
-        run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("ops", 0.0)
-        partial = [o for o in run.rows("ops", s - span - 1, t) if s <= o[OP_END] < t]
-        served = run.total("served", t) + sum(1 for o in partial if o[OP_OK])
-        failed = run.total("failed", t) + sum(1 for o in partial if not o[OP_OK])
-        waiting = len(run.active("ops", t, OP_END))
-        recent = [o[OP_END] - o[OP_START] for o in run.rows("ops", t - 5 - span, t) if t - 5 <= o[OP_END] < t]
-        return [
-            ("served", fmt_int(served), GREEN),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), WHITE),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
-        ]
+        return self.request_stats(self.runs[variant], "ops", OP_START, OP_END, OP_OK, t, busy=10**9)
 
     def stacks(self, variant: str):
         run = self.runs[variant]
         return [(BLUE, run.hist.get("peer", [])), (EXTRA1, run.hist.get("kv", []))]
 
     def chart_limit(self):
-        return lab.MSGS_MAX * self.rate, "3/op"
+        return lab.MSGS_MAX * self.rate, self.s("chart_limit", limit=lab.MSGS_MAX)
 
     def legend_notes(self) -> list[str]:
-        return ["Dots slowed down to be seen (cosmetic)."]
+        return [self.s("note_dots")]
 
 
 WORLD = KafkaLogWorld

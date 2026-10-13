@@ -88,14 +88,14 @@ def test_a_log_per_node_hands_out_the_same_offsets_twice():
     world = build_world("kafka_log", "main", 2)
     res = results(world, "main")
     assert len(res) >= 2 and all(r[:3] == [False, False, False] for r in res)
-    assert world.stage("main").label == "Single node"
+    assert world.stage_index("main") == 0  # Single node
 
 
 def test_lin_kv_is_correct_but_slow_and_chatty_on_every_incident():
     world = build_world("kafka_log", LINKV, 3)
     res = results(world, LINKV)
     assert len(res) >= 2 and all(r == [True, True, True, False, False] for r in res)
-    assert world.stage(LINKV).label == "Multi-node"
+    assert world.stage_index(LINKV) == 1  # Multi-node
 
 
 def test_reference_passes_every_goal():
@@ -103,7 +103,7 @@ def test_reference_passes_every_goal():
     res = results(world, "reference")
     kinds = {i.kind for i in world.runs["reference"].incidents}
     assert len(res) >= 3 and kinds == {"burst", "slowkv"} and all(all(r) for r in res)
-    assert world.stage("reference").label == "Efficient"
+    assert world.stage_index("reference") == 2  # Efficient
 
 
 def test_incidents_are_random_but_the_first_is_a_burst_at_twenty_seconds():
