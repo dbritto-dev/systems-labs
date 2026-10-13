@@ -79,16 +79,15 @@ def results(world, v):
 
 def test_the_starting_node_answers_nothing():
     world = build_world("unique_ids", "main", 1)
-    assert world.stage("main").label == "Nothing yet"
+    assert world.stage_index("main") == 0  # Nothing yet
 
 
 def test_stage_variants_land_on_their_stage_every_time():
-    expect = {Echo: "Echo", Counter: "Echo", Leader: "Echo", NodeCounter: "Unique IDs",
-              IntCounter: "Unique IDs", NaiveSnowflake: "Unique IDs"}
+    expect = {Echo: 1, Counter: 1, Leader: 1, NodeCounter: 2, IntCounter: 2, NaiveSnowflake: 2}  # 1 Echo, 2 Unique IDs
     for cls, stage in expect.items():
         v = module(cls)
         world = build_world("unique_ids", v, 2)
-        assert world.stage(v).label == stage, cls.__name__
+        assert world.stage_index(v) == stage, cls.__name__
 
 
 def test_why_each_wrong_answer_fails():
@@ -107,7 +106,7 @@ def test_reference_passes_every_goal():
     world = build_world("unique_ids", "reference", 4)
     res = results(world, "reference")
     assert len(res) >= 4 and all(all(r) for r in res)
-    assert world.stage("reference").label == "Snowflake IDs"
+    assert world.stage_index("reference") == 3  # Snowflake IDs
 
 
 def test_incidents_are_random_but_the_first_is_a_migration_at_twenty_seconds():

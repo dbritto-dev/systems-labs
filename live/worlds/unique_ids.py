@@ -1,14 +1,19 @@
-"""World for lab unique_ids (Fly.io Gossip Glomers #1 and #2)."""
+"""World for lab unique_ids (Fly.io Gossip Glomers #1 and #2). Its words are in
+labs/unique_ids/text/<lang>.py."""
 
 from __future__ import annotations
 
+from core.i18n import lab_text
 from labs.unique_ids import lab
 from labs.unique_ids.scenario import ECHO, GENERATE
-from live.canvas import BLUE, EXTRA2, GREEN, MUTED, RED, WHITE
-from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
-)
+from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
+from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, history
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("unique_ids").STRINGS[key].format(**values)
+
 
 OP_START, OP_KIND, OP_NODE, OP_END, OP_OK, OP_ID, OP_DUP, OP_COMPACT = range(8)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
@@ -62,9 +67,9 @@ def _echo(run: Run, inc: Incident, upto: float):
 def _unique(run: Run, inc: Incident, upto: float):
     rows = _gen(run, inc.t0 - lab.BEFORE, inc.t1, upto)
     if not any(o[OP_OK] for o in rows):
-        return None, "none"
+        return None, _s("none")
     dups = sum(o[OP_DUP] for o in rows)
-    return dups, f"{dups} dups"
+    return dups, _s("dups", n=dups)
 
 
 def _available(run: Run, inc: Incident, upto: float):
@@ -98,36 +103,41 @@ def _monotonic(run: Run, inc: Incident, upto: float):
         return None, "–"
     judged = sum(1 for o in rows if o[OP_OK])
     back = round((1 - v) * judged)
-    return back, f"{back} back"
+    return back, _s("back", n=back)
 
 
+def _during(inc: Incident) -> tuple[float, float]:
+    return inc.t0, inc.t1
+
+
+def _calm_and_during(inc: Incident) -> tuple[float, float]:
+    return inc.t0 - lab.BEFORE, inc.t1
+
+
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Echo works", "before", "reply echo_ok", _before, _echo,
-             lambda v: v is not None and v >= lab.ECHO_MIN),
-    GoalSpec("Unique", "during", "add the node to the id",
-             lambda i: (i.t0 - lab.BEFORE, i.t1), _unique, lambda v: v == 0, settle_extra=2.0),
-    GoalSpec("Available ≥ 99%", "during", "don't ask other nodes",
-             lambda i: (i.t0, i.t1), _available, lambda v: v is not None and v >= lab.AVAILABLE_MIN,
-             settle_extra=2.0),
-    GoalSpec("64-bit ints", "before", "pack the id in an int", _before, _compact,
-             lambda v: v is not None and v >= lab.COMPACT_MIN),
-    GoalSpec("Time-ordered", "before", "put milliseconds first", _before, _ordered,
-             lambda v: v is not None and v >= lab.ORDERED_MIN),
-    GoalSpec("Never backwards", "during", "keep the last timestamp",
-             lambda i: (i.t0, i.t1), _monotonic, lambda v: v == 0, settle_extra=2.0),
+    GoalSpec("", "before", "", _before, _echo, lambda v: v is not None and v >= lab.ECHO_MIN, key="echo"),
+    GoalSpec("", "during", "", _calm_and_during, _unique, lambda v: v == 0, settle_extra=2.0, key="unique"),
+    GoalSpec("", "during", "", _during, _available, lambda v: v is not None and v >= lab.AVAILABLE_MIN,
+             settle_extra=2.0, key="available"),
+    GoalSpec("", "before", "", _before, _compact, lambda v: v is not None and v >= lab.COMPACT_MIN,
+             key="compact"),
+    GoalSpec("", "before", "", _before, _ordered, lambda v: v is not None and v >= lab.ORDERED_MIN,
+             key="ordered"),
+    GoalSpec("", "during", "", _during, _monotonic, lambda v: v == 0, settle_extra=2.0, key="monotonic"),
 ]
+
+
+# The event verbs (text.VERBS keys) for each kind of incident: (starting, ending).
+VERB_KEYS = {"split": ("split", "heal"), "clock": ("clock", "sync"), "migrate": ("move", "back")}
 
 
 class UniqueIdsWorld(World):
     id = "unique_ids"
-    title = "Unique IDs (Gossip Glomers #1-2)"
-    files = ("labs/unique_ids/main.py",)
     view = "cluster"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA2, (250, 190, 135), BLUE))]
-    legend = [(BLUE, "node", "◉"), (EXTRA2, "clock stepped back", "◉"), (RED, "gave a duplicate", "◉"),
+    stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
+    legend = [(BLUE, "node", "◉"), (EXTRA2, "clock_back", "◉"), (RED, "duplicate", "◉"),
               (WHITE, "request"), (GREEN, "reply"), (RED, "partition", "┆")]
-    incident_name = "Incident"
     tables = {
         "ops": Table(sort=OP_START, times=(OP_START, OP_END)),
         "msgs": Table(sort=MSG_SENT, times=(MSG_SENT, MSG_ARRIVED)),
@@ -140,9 +150,9 @@ class UniqueIdsWorld(World):
         for o in tables["ops"]:
             run.add("ops", o[OP_START])
             if o[OP_KIND] == GENERATE:
-                name = "failed" if not o[OP_OK] else "dup" if o[OP_DUP] else "unique"
+                name = "gen_failed" if not o[OP_OK] else "dup" if o[OP_DUP] else "unique"
                 run.add(name, o[OP_END])
-            run.add("served" if o[OP_OK] else "bad", o[OP_END])
+            run.add("served" if o[OP_OK] else "failed", o[OP_END])
         for m in tables["msgs"]:
             run.add("msgs", m[MSG_SENT])
         run.data.setdefault("groups", {}).update(piece.get("groups", {}))
@@ -152,21 +162,15 @@ class UniqueIdsWorld(World):
         return lab.stage_of(*(r.ok for r in first))
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
-        return {"split": ("SPLIT", "HEAL"), "clock": ("CLOCK", "SYNC"), "migrate": ("MOVE", "BACK")}[
-            inc.kind][0 if start else 1]
+        return self.word(VERB_KEYS[inc.kind][0 if start else 1])
 
     def incident_title(self, inc: Incident) -> str:
-        name = {"split": "Partition", "clock": "Clock jump", "migrate": "Migration"}[inc.kind]
-        return f"{name} #{inc.index + 1}"
+        return self.screen.INCIDENT_TITLE.format(name=self.s(f"title_{inc.kind}"), n=inc.index + 1)
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         if not start:
-            return {"split": "the network is whole again", "clock": "the clock is right again",
-                    "migrate": "the node is back, its clock right"}[inc.kind]
-        what = {"split": "the nodes are split in two",
-                "clock": f"a clock jumped back {inc.severity:.1f} s",
-                "migrate": f"a node is cut off, clock back {inc.severity:.1f} s"}[inc.kind]
-        return f"{what}: {inc.cause}"
+            return self.s(f"end_{inc.kind}")
+        return self.s(f"start_{inc.kind}", seconds=inc.severity, cause=self.cause(inc))
 
     def active(self, variant: str, t: float) -> Incident | None:
         run = self.runs.get(variant)
@@ -210,7 +214,7 @@ class UniqueIdsWorld(World):
 
         def ans_s(s: int):
             ok = run.series("unique", s, s + 1)[0] + run.series("dup", s, s + 1)[0]
-            bad = run.series("failed", s, s + 1)[0]
+            bad = run.series("gen_failed", s, s + 1)[0]
             v = ok / (ok + bad) if ok + bad else None
             return (v or 0.0), ans_state(v)
 
@@ -224,54 +228,46 @@ class UniqueIdsWorld(World):
             return (v or 0.0), ord_state(v)
 
         tiles = [
-            Tile("Dups", str(dups), "=0", "bad" if dups else "ok", history(run, t, dups_s)),
-            Tile("Answers", "–" if answered is None else f"{answered:.0%}", "≥99%", ans_state(answered),
-                 history(run, t, ans_s)),
-            Tile("Ordered", "–" if ordered is None else f"{ordered:.0%}", "≥99%", ord_state(ordered),
-                 history(run, t, ord_s)),
+            Tile(self.s("tile_dups"), str(dups), "=0", "bad" if dups else "ok", history(run, t, dups_s)),
+            Tile(self.s("tile_answers"), "–" if answered is None else f"{answered:.0%}", "≥99%",
+                 ans_state(answered), history(run, t, ans_s)),
+            Tile(self.s("tile_ordered"), "–" if ordered is None else f"{ordered:.0%}", "≥99%",
+                 ord_state(ordered), history(run, t, ord_s)),
         ]
         last = _gen(run, t - 1, t, t)
         asked = len([o for o in run.rows("ops", t - 1, t)])
-        bars = [Bar("Clients", [(float(asked), WHITE)]),
-                Bar("Ids", [(float(sum(o[OP_OK] and not o[OP_DUP] for o in last)), GREEN),
-                            (float(sum(o[OP_DUP] for o in last)), RED)])]
+        bars = [Bar(self.s("bar_clients"), [(float(asked), WHITE)]),
+                Bar(self.s("bar_ids"), [(float(sum(o[OP_OK] and not o[OP_DUP] for o in last)), GREEN),
+                                        (float(sum(o[OP_DUP] for o in last)), RED)])]
         inc = self.active(variant, t)
         skew = self.skewed_at(variant, t)
         if dups:
-            headline, colour = f"{dups} duplicate ids in the last 30 s", RED
+            headline, colour = self.s("head_dups", n=dups), RED
         elif inc is not None and skew is not None:
-            headline, colour = f"n{skew[0]}'s clock is {skew[1]:.1f} s behind", EXTRA2
+            headline, colour = self.s("head_skew", node=skew[0], seconds=skew[1]), EXTRA2
         elif inc is not None:
-            headline, colour = "The nodes cannot talk: ids must not need to", RED
+            headline, colour = self.s("head_split"), RED
         else:
-            headline, colour = f"Every id unique ({len(last)} ids/s)", MUTED
-        return Traffic(tiles, bars, 0.0, "", headline, colour, title="Requests",
+            headline, colour = self.s("head_ok", n=len(last)), MUTED
+        return Traffic(tiles, bars, 0.0, "", headline, colour, title=self.s("requests"),
                        top=max(1.0, asked * 1.4))
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
+        stats = self.request_stats(run, "ops", OP_START, OP_END, OP_OK, t)
         s = int(t)
-        span = run.max_dur.get("ops", 0.0)
-        partial = [o for o in run.rows("ops", s - span - 1, t) if s <= o[OP_END] < t]
-        served = run.total("served", t) + sum(1 for o in partial if o[OP_OK])
-        failed = run.total("bad", t) + sum(1 for o in partial if not o[OP_OK])
+        partial = [o for o in run.rows("ops", s - run.max_dur.get("ops", 0.0) - 1, t) if s <= o[OP_END] < t]
         dups = run.total("dup", t) + sum(1 for o in partial if o[OP_DUP])
-        recent = [o[OP_END] - o[OP_START] for o in run.rows("ops", t - 5 - span, t) if t - 5 <= o[OP_END] < t]
-        return [
-            ("served", fmt_int(served), GREEN),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("dups", fmt_int(dups), RED if dups else MUTED),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
-        ]
+        stats[2] = (self.s("stat_dups"), fmt_int(dups), RED if dups else MUTED)  # dups instead of waiting
+        return stats
 
     def stacks(self, variant: str):
         run = self.runs[variant]
         return [(BLUE, run.hist.get("unique", [])), (RED, run.hist.get("dup", [])),
-                (EXTRA2, run.hist.get("failed", []))]
+                (EXTRA2, run.hist.get("gen_failed", []))]
 
     def legend_notes(self) -> list[str]:
-        return ["Chart: ids per second: unique, duplicate, failed."]
+        return [self.s("note_chart")]
 
 
 WORLD = UniqueIdsWorld
