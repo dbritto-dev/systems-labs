@@ -1,4 +1,83 @@
+"""Lab unique_ids, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Unique IDs (Gossip Glomers #1-2)"
+SUMMARY = "Gossip Glomers #1-2: echo, then IDs unique across 5 nodes, through partitions and clock jumps."
+PARAMS = {"rate": "client requests per second (20% echo, 80% generate)"}
+
+INCIDENT = IncidentText("Incident", "the incident", "the next incident")
+VERBS = {"split": "SPLIT", "heal": "HEAL", "clock": "CLOCK", "sync": "SYNC", "move": "MOVE", "back": "BACK"}
+CAUSES = {
+    "switch_failed": "a top-of-rack switch failed",
+    "zone_link": "a cloud zone lost its link to the others",
+    "firewall": "a firewall rule change blocked traffic between the nodes",
+    "ntp_step": "NTP stepped the clock back after the host drifted ahead",
+    "leap_smear": "a leap-second smear was configured on one host only",
+    "hypervisor_resync": "the hypervisor resynced the guest clock after a pause",
+    "live_migration": "a VM live migration paused a node; NTP then stepped its clock back",
+    "host_drained": "a host was drained for maintenance and the VM moved",
+}
+
+STAGES = [
+    StageText("Nothing yet",
+              "Challenge: the nodes answer nothing. Start with echo: send the message back.",
+              "Stage 1 (#1): reply echo_ok with the same echo"),
+    StageText("Echo",
+              "Challenge: now hand out ids that no other request ever got, from any node.",
+              "Stage 2 (#2): unique ids, no coordination"),
+    StageText("Unique IDs",
+              "Challenge: unique, but not a sortable 64-bit key. Build them from the clock (Snowflake).",
+              "Stage 3: ms | node | sequence, never going back"),
+    StageText("Snowflake IDs",
+              "Solved: echo works, and ids are unique, 64-bit, time-ordered and never go backwards.",
+              "All stages done"),
+]
+
+GOALS = {
+    "echo": GoalText("Echo works", "reply echo_ok"),
+    "unique": GoalText("Unique", "add the node to the id"),
+    "available": GoalText("Available ≥ 99%", "don't ask other nodes"),
+    "compact": GoalText("64-bit ints", "pack the id in an int"),
+    "ordered": GoalText("Time-ordered", "put milliseconds first"),
+    "monotonic": GoalText("Never backwards", "keep the last timestamp"),
+}
+
+LEGEND = {"node": "node", "clock_back": "clock stepped back", "duplicate": "gave a duplicate",
+          "request": "request", "reply": "reply", "partition": "partition"}
+
+STRINGS = {
+    # incidents
+    "title_split": "Partition",
+    "title_clock": "Clock jump",
+    "title_migrate": "Migration",
+    "start_split": "the nodes are split in two: {cause}",
+    "start_clock": "a clock jumped back {seconds:.1f} s: {cause}",
+    "start_migrate": "a node is cut off, clock back {seconds:.1f} s: {cause}",
+    "end_split": "the network is whole again",
+    "end_clock": "the clock is right again",
+    "end_migrate": "the node is back, its clock right",
+    # goal values
+    "none": "none",
+    "dups": "{n} dups",
+    "back": "{n} back",
+    # the panel
+    "tile_dups": "Dups",
+    "tile_answers": "Answers",
+    "tile_ordered": "Ordered",
+    "bar_clients": "Clients",
+    "bar_ids": "Ids",
+    "requests": "Requests",
+    "stat_dups": "dups",
+    "head_dups": "{n} duplicate ids in the last 30 s",
+    "head_skew": "n{node}'s clock is {seconds:.1f} s behind",
+    "head_split": "The nodes cannot talk: ids must not need to",
+    "head_ok": "Every id unique ({n} ids/s)",
+    "note_chart": "Chart: ids per second: unique, duplicate, failed.",
+    # the picture
+    "state_clock": "n{node} CLOCK -{seconds:.1f}s",
+}
 
 LESSON = Lesson(
     title="Unique IDs (Gossip Glomers #1-2)",

@@ -1,14 +1,11 @@
-"""Lab unique_ids: the numbers, the goals and the stages (Fly.io Gossip Glomers #1 and #2)."""
+"""Lab unique_ids (Fly.io Gossip Glomers #1 and #2): the numbers and how the stage is judged.
+The words are in text/<lang>.py."""
 
 from core.contract import Param
 
 META = {
     "id": "unique_ids",
-    "title": "Unique IDs",
-    "summary": "Gossip Glomers #1-2: echo, then IDs unique across 5 nodes, through partitions and clock jumps.",
-    "params": {
-        "rate": Param(30.0, "client requests per second (20% echo, 80% generate)"),
-    },
+    "params": {"rate": Param(30.0)},
 }
 
 NODES = 5
@@ -20,25 +17,11 @@ ORDERED_MIN = 0.99  # ids larger than every id handed out at least 1 s before
 ORDER_GAP = 1.0  # seconds: "roughly ordered by time"
 REPLY_JITTER = 0.05  # replies from one node this close together may arrive swapped
 
-STAGES = [
-    ("Nothing yet",
-     "Challenge: the nodes answer nothing. Start with echo: send the message back.",
-     "Stage 1 (#1): reply echo_ok with the same echo"),
-    ("Echo",
-     "Challenge: now hand out ids that no other request ever got, from any node.",
-     "Stage 2 (#2): unique ids, no coordination"),
-    ("Unique IDs",
-     "Challenge: unique, but not a sortable 64-bit key. Build them from the clock (Snowflake).",
-     "Stage 3: ms | node | sequence, never going back"),
-    ("Snowflake IDs",
-     "Solved: echo works, and ids are unique, 64-bit, time-ordered and never go backwards.",
-     "All stages done"),
-]
-
 
 def stage_of(echo_ok: bool, unique_ok: bool, available_ok: bool, compact_ok: bool, ordered_ok: bool,
              monotonic_ok: bool) -> int:
-    """Judge the stage from what the first incident (and the calm before it) showed."""
+    """Judge the stage from what the first incident (and the calm before it) showed:
+    0 nothing yet, 1 echo, 2 unique ids, 3 Snowflake ids."""
     if not echo_ok:
         return 0
     if not (unique_ok and available_ok):

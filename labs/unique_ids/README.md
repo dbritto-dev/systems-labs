@@ -1,5 +1,7 @@
 # Lab: unique IDs (Fly.io Gossip Glomers #1-2)
 
+*[Leer en español](es/README.md)*
+
 [Gossip Glomers](https://fly.io/dist-sys/) challenges #1 (Echo) and #2 (Unique ID Generation),
 in Python, on a simulated network: 5 nodes, ~100 ms per message. Clients send `echo` and
 `generate` to random nodes. Incidents come at random, like in production: the network between
@@ -11,6 +13,9 @@ uv run python -m live unique_ids            # watch it; edit main.py and save
 uv run python -m live unique_ids --lesson   # the concept, links and a checklist
 uv run pytest labs/unique_ids               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` | What you see |
 |---|---|---|

@@ -45,12 +45,14 @@ class UniqueIdsCluster(ClusterAdapter):
                 p = (t - m[MSG_SENT]) / max(1e-6, m[MSG_ARRIVED] - m[MSG_SENT])
                 flights.append((m[MSG_SRC], m[MSG_DEST], p, BLUE))
         groups = w.groups_at(variant, t)
+        states = w.screen.STATES
         parts = []
         if groups is not None:
             sizes = sorted((groups.count(g) for g in set(groups)), reverse=True)
-            parts.append(f"PARTITIONED {' | '.join(map(str, sizes))}")
+            parts.append(f"{states['partitioned']} {' | '.join(map(str, sizes))}")
         if skew is not None:
-            parts.append(f"n{skew[0]} CLOCK -{skew[1]:.1f}s")
-        state = ("  ".join(parts), RED if groups is not None else EXTRA2) if parts else ("CONNECTED", GREEN)
+            parts.append(w.s("state_clock", node=skew[0], seconds=skew[1]))
+        state = (("  ".join(parts), RED if groups is not None else EXTRA2) if parts
+                 else (states["connected"], GREEN))
         return ClusterFrame(nodes=nodes, groups=groups, flights=every(flights, 80), drops=every(drops, 30),
                             state=state)

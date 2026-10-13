@@ -33,22 +33,15 @@ NODES = 5
 CLIENT_TIMEOUT = 1.0
 ECHO_SHARE = 0.2
 EPOCH_MS = 1_767_225_600_000  # 2026-01-01 00:00 UTC: the wall clock reads this at 0:00
-FIRST = Planned(20.0, 30.0, "migrate", 2.0, "a VM live migration paused a node; NTP then stepped its clock back")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "migrate", 2.0, "live_migration")
 KINDS = [
     Kind("split", 0.4, median=9.0, shortest=5.0, longest=20.0, causes=(
-        "a top-of-rack switch failed",
-        "a cloud zone lost its link to the others",
-        "a firewall rule change blocked traffic between the nodes",
-    )),
+        "switch_failed", "zone_link", "firewall")),
     Kind("clock", 0.35, median=8.0, shortest=5.0, longest=15.0, severity=(1.5, 3.0), causes=(
-        "NTP stepped the clock back after the host drifted ahead",
-        "a leap-second smear was configured on one host only",
-        "the hypervisor resynced the guest clock after a pause",
-    )),
+        "ntp_step", "leap_smear", "hypervisor_resync")),
     Kind("migrate", 0.25, median=10.0, shortest=6.0, longest=18.0, severity=(1.5, 3.0), causes=(
-        "a VM live migration paused a node; NTP then stepped its clock back",
-        "a host was drained for maintenance and the VM moved",
-    )),
+        "live_migration", "host_drained")),
 ]
 MEAN_GAP = 30.0
 QUIET = 22.0
@@ -62,7 +55,7 @@ def incidents(seed: int) -> Iterator[Planned]:
 
 def victim(inc: Planned, seed: int) -> int:
     """The node the incident hits (cut off, and/or its clock stepped back)."""
-    return random.Random(hash((seed, inc.t0, "victim")) & 0xFFFFFFFF).randrange(NODES)
+    return random.Random(f"{seed}:{inc.t0}:victim").randrange(NODES)  # a str seed is stable across runs
 
 
 def groups_for(inc: Planned, seed: int) -> list[list[int]] | None:
@@ -72,7 +65,7 @@ def groups_for(inc: Planned, seed: int) -> list[list[int]] | None:
     v = victim(inc, seed)
     if inc.kind == "migrate":
         return [[v], [i for i in range(NODES) if i != v]]
-    rng = random.Random(hash((seed, inc.t0, "split")) & 0xFFFFFFFF)
+    rng = random.Random(f"{seed}:{inc.t0}:split")
     small = sorted(rng.sample(range(NODES), 2))
     return [small, [i for i in range(NODES) if i not in small]]
 
