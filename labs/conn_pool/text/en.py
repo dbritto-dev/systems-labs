@@ -1,4 +1,83 @@
+"""Lab conn_pool, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Connection pool"
+SUMMARY = "Every request opens a database connection. Pool them, cap the pool, fail fast."
+PARAMS = {"rate": "user requests per second"}
+
+INCIDENT = IncidentText("Incident", "the incident", "the next incident")
+VERBS = {"slow": "SLOW", "fast": "FAST", "spike": "SPIKE", "calm": "CALM"}
+CAUSES = {
+    "autovacuum": "autovacuum is rewriting the orders table",
+    "report_locks": "a long report holds locks on the orders table",
+    "backup_disks": "a backup saturates the disks",
+    "dropped_index": "a deploy dropped an index, queries scan the table",
+    "marketing_email": "a marketing email went out",
+    "cron_fanout": "a cron job fans out to every user",
+    "mobile_release": "a mobile release made every app refresh at once",
+}
+
+STAGES = [
+    StageText("New connection",
+              "Challenge: every request opens and closes its own connection. Reuse them in a pool.",
+              "Stage 1: keep released connections and hand them out again"),
+    StageText("Pool",
+              "Challenge: when the database slows down, the pool grows past its 50 connections. Cap it.",
+              "Stage 2: never open more than max_size; wait for a release"),
+    StageText("Bounded pool",
+              "Challenge: capped, but requests queue for a connection for seconds. Give up sooner.",
+              "Stage 3: raise PoolTimeout after timeout seconds"),
+    StageText("Bounded pool + timeout",
+              "Solved: connections are reused, capped below the limit, and waits stay short.",
+              "All stages done"),
+]
+
+GOALS = {
+    "baseline": GoalText("Baseline ok", "the pool must hand out conns"),
+    "reuse": GoalText("Reuse ≥ 90%", "keep released connections"),
+    "errors": GoalText("Conn errors = 0", "cap the pool at max_size"),
+    "wait": GoalText("p99 wait < 1s", "raise PoolTimeout sooner"),
+    "recovered": GoalText("Recovered ≥ 95%", "hand conns to waiters"),
+}
+
+LEGEND = {"idle": "idle", "query": "query", "waits": "waits for a conn", "opens": "opens a conn",
+          "failed": "failed", "served": "served", "idle_conn": "idle conn", "limit": "limit",
+          "incident": "incident"}
+
+STRINGS = {
+    # incidents
+    "slowdown": "Slowdown",
+    "spike": "Spike",
+    "is_slow": "is slow: {cause}",
+    "fast_again": "is fast again",
+    "gets_traffic": "gets {times:.0f}x traffic: {cause}",
+    "traffic_normal": "traffic is back to normal",
+    "warn_refused": "too many connections: {n:.0f} refused",
+    "warn_wait": "requests wait over 1 s for a conn",
+    # the panel
+    "tile_reuse": "Reuse",
+    "tile_conns": "Conns",
+    "tile_wait": "p99 wait",
+    "toplist": "Requests",
+    "bar_ask": "Users ask",
+    "bar_served": "Served",
+    "bar_failed": "Failed",
+    "head_refused": "Too many connections: {n} refused",
+    "head_fail_fast": "Failing fast: {n} gave up waiting",
+    "head_waiting": "{n} requests wait for a connection",
+    "head_slow_ok": "The database is slow; the pool holds up",
+    "head_spike_ok": "Traffic spike; the pool holds up",
+    "head_pool": "Pool: {n} connections open",
+    "limit_max": "{n} max",
+    "note_chart": "The chart: open connections (busy, idle).",
+    # errors in your code
+    "closed": "query on a closed connection",
+    "too_many": "too many connections ({n} open)",
+    "stuck": "a request has waited for a connection for over {seconds:.0f} s: "
+             "does release() wake up the requests waiting in acquire()?",
+}
 
 LESSON = Lesson(
     title="Connection pool",

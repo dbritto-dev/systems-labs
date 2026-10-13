@@ -20,6 +20,7 @@ import random
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.services import current_request
 from core.vtime import VirtualRun, now
@@ -36,25 +37,24 @@ CORES = 20  # past this many connections working at once, everything slows down
 CONNECT_TIME = 0.040
 QUERY_TIME = 0.008
 
-FIRST = Planned(20.0, 32.0, "slowdown", 45.0, "autovacuum is rewriting the orders table")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 32.0, "slowdown", 45.0, "autovacuum")
 KINDS = [
     Kind("slowdown", 0.55, median=10.0, shortest=8.0, longest=14.0, severity=(35.0, 55.0), causes=(
-        "autovacuum is rewriting the orders table",
-        "a long report holds locks on the orders table",
-        "a backup saturates the disks",
-        "a deploy dropped an index, queries scan the table",
-    )),
+        "autovacuum", "report_locks", "backup_disks", "dropped_index")),
     Kind("spike", 0.45, median=11.0, shortest=8.0, longest=15.0, severity=(5.0, 7.0), causes=(
-        "a marketing email went out",
-        "a cron job fans out to every user",
-        "a mobile release made every app refresh at once",
-    )),
+        "marketing_email", "cron_fanout", "mobile_release")),
 ]
 MEAN_GAP = 30.0
 QUIET = 22.0  # at least this calm after an incident: a 15 s baseline + time to judge it
 
 # Why a request failed.
 OK, TOO_MANY, TIMED_OUT = 0, 1, 2
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (errors your code may see)."""
+    return lab_text(LAB).STRINGS[key].format(**values)
 
 
 def incidents(seed: int) -> Iterator[Planned]:
@@ -74,7 +74,7 @@ class Connection:
 
     async def query(self) -> None:
         if self.closed:
-            raise RuntimeError("query on a closed connection")
+            raise RuntimeError(_s("closed"))
         await self.db._work(QUERY_TIME * self.db.slow)
 
     def close(self) -> None:
@@ -109,7 +109,7 @@ class Database:
     async def connect(self) -> Connection:
         if self.open >= self.max_connections:
             await asyncio.sleep(0.002)
-            raise TooManyConnections(f"too many connections ({self.max_connections} open)")
+            raise TooManyConnections(_s("too_many", n=self.max_connections))
         self.open += 1
         self.connected.add(current_request.get())
         try:
@@ -216,8 +216,7 @@ def stream(variant="main", seed: int = 1, rate: float = 100.0) -> Iterator[dict]
             if s.bugs:
                 raise s.bugs[0]
             if any(t < b + DRAIN - STUCK for t in s.open.values()):
-                raise RuntimeError(f"a request has waited for a connection for over {STUCK:.0f} s: "
-                                   "does release() wake up the requests waiting in acquire()?")
+                raise RuntimeError(_s("stuck", seconds=STUCK))
             yield {
                 "lab": LAB,
                 "start": a,

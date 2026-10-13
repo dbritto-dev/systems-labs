@@ -1,5 +1,7 @@
 # Lab: connection pool
 
+*[Leer en español](es/README.md)*
+
 Users send ~100 requests/s (drifting slowly). Each request asks your `Pool` for a
 database connection, runs one query, and gives the connection back. Opening a
 connection costs ~40 ms (TLS, auth, a new backend process); a query ~8 ms. The
@@ -16,6 +18,9 @@ uv run python -m live conn_pool            # watch it; edit main.py and save
 uv run python -m live conn_pool --lesson   # the concept, links and a checklist
 uv run pytest labs/conn_pool               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` | What you see |
 |---|---|---|
