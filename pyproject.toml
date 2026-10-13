@@ -1,0 +1,31 @@
+[project]
+name = "systems-labs"
+version = "0.1.0"
+description = "Labs about how backend systems behave: reproduce a problem, fix it, watch it live in the terminal."
+readme = "README.md"
+authors = [
+    { name = "dbritto-dev", email = "dbritto.dev@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = true
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["core", "labs", "live"]
+
+[tool.pytest.ini_options]
+testpaths = ["core", "labs", "live"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
