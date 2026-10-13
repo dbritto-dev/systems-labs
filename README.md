@@ -114,6 +114,7 @@ simulated network with partitions (the **cluster** picture: nodes and the messag
 
 | Lab | Challenge | Stages |
 |---|---|---|
+| `unique_ids` | #1 Echo, #2 Unique IDs | echo → unique ids → Snowflake ids (64-bit, time-ordered, survive clock steps) |
 | `broadcast` | #3 Broadcast | multi-node → fault tolerant → efficient → batched (3b–3e) |
 
 ## Layout
