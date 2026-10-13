@@ -18,6 +18,7 @@ import random
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.services import DatabaseBusy, SlowDatabase, current_request
 from core.vtime import VirtualRun, now
@@ -34,23 +35,15 @@ QUEUE = 15  # requests that may wait for a worker; more are rejected (503)
 BURST_RATE = 200.0  # requests/s while a flooding client is in a burst
 BURST_LENGTH = 0.3  # seconds per burst
 BURST_EVERY = (0.6, 1.4)  # seconds between bursts
-FIRST = Planned(20.0, 35.0, "batch", 5, "a batch job on 5 accounts sends its work in chunks")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 35.0, "batch", 5, "batch_first")
 KINDS = [
     Kind("batch", 0.4, median=14.0, shortest=8.0, longest=30.0, severity=(3, 6), causes=(
-        "a batch job on several accounts sends its work in chunks",
-        "a nightly export runs early on several accounts",
-        "a partner's sync job restarted with no backoff",
-    )),
+        "batch_chunks", "nightly_export", "partner_sync")),
     Kind("scraper", 0.3, median=12.0, shortest=6.0, longest=25.0, severity=(1, 1), causes=(
-        "a scraper times its bursts to the window reset",
-        "a load test aimed at production by mistake",
-        "a client's retry loop with no delay",
-    )),
+        "scraper_reset", "load_test", "retry_loop")),
     Kind("sdk", 0.3, median=16.0, shortest=8.0, longest=30.0, severity=(4, 7), causes=(
-        "an SDK release with a retry bug",
-        "a mobile app update polls in bursts",
-        "a misconfigured webhook replays its queue",
-    )),
+        "sdk_retry_bug", "mobile_polls", "webhook_replay")),
 ]
 MEAN_GAP = 30.0
 QUIET = 22.0  # at least this calm after an incident: 15 s baseline + 7 s to judge
@@ -152,8 +145,7 @@ def stream(variant="main", seed: int = 1, rate: float = 100.0) -> Iterator[dict]
             if s.bugs:
                 raise s.bugs[0]
             if any(t < b + DRAIN - STUCK for t in s.open.values()):
-                raise RuntimeError(f"a request has been running for over {STUCK:.0f} s: "
-                                   "does RateLimiter.allow wait for something?")
+                raise RuntimeError(lab_text(LAB).STRINGS["stuck"].format(seconds=STUCK))
             s.backend.events.clear()  # not needed, and an endless run must stay small
             yield {
                 "lab": LAB,

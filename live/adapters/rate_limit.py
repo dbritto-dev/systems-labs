@@ -36,12 +36,13 @@ class RateLimitLanes(LaneAdapter):
         rejecting = bool(last) and limited / len(last) > 0.3  # turning a flood away
         at_backend = w.backend_at(run, t)
         overloaded = any(r[REQ_OUTCOME] == FAILED for r in last)
+        words = w.screen.STATES
         if overloaded:
-            state, gauge, outline = ("OVERLOADED", RED), RED, RED
+            state, gauge, outline = (words["overloaded"], RED), RED, RED
         elif at_backend > WORKERS:
-            state, gauge, outline = ("BUSY", EXTRA2), EXTRA2, EXTRA2
+            state, gauge, outline = (words["busy"], EXTRA2), EXTRA2, EXTRA2
         else:
-            state, gauge, outline = ("HEALTHY", GREEN), BLUE, OUTLINE
+            state, gauge, outline = (words["healthy"], GREEN), BLUE, OUTLINE
         return LaneFrame(
             users=found, flights=flights, outcomes=outcomes, closed=rejecting,
             door_color=EXTRA3 if rejecting else None,

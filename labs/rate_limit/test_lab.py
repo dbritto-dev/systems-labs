@@ -68,12 +68,12 @@ def test_the_first_flood_is_always_five_clients_at_twenty_seconds():
 
 
 def test_each_stage_fails_exactly_its_goals_on_every_big_flood():
-    expected = {NO_LIMIT: ("No limit", [True, False, False, False]),
-                FIXED: ("Fixed window", [True, True, False, False]),
-                BUCKET: ("Token bucket", [True, True, True, False])}
+    expected = {NO_LIMIT: (0, [True, False, False, False]),  # No limit
+                FIXED: (1, [True, True, False, False]),  # Fixed window
+                BUCKET: (2, [True, True, True, False])}  # Token bucket
     for module, (label, goals) in expected.items():
         world = build_world("rate_limit", module, 4)
-        assert world.stage(module).label == label
+        assert world.stage_index(module) == label
         run = world.runs[module]
         floods = [i for i in sorted(run.settled) if int(run.incidents[i].severity) >= 3]
         assert len(floods) >= 3
@@ -85,7 +85,7 @@ def test_reference_passes_every_goal_on_every_flood():
     world = build_world("rate_limit", "reference", 6)
     results = statuses(world, "reference")
     assert len(results) >= 5 and all(all(r) for r in results)
-    assert world.stage("reference").label == "Bucket + fair share"
+    assert world.stage_index("reference") == 3  # Bucket + fair share
 
 
 def test_pieces_join_in_order_and_totals_survive_forgetting():

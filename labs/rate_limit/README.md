@@ -1,5 +1,7 @@
 # Lab: rate limiting
 
+*[Leer en español](es/README.md)*
+
 20 clients call an API through your `RateLimiter`. The backend does 15 requests at a
 time, 100 ms each (150 requests/s); beyond that requests wait in a short queue, and a
 full queue turns them away (503). Normally the clients send ~100 requests/s together.
@@ -14,6 +16,9 @@ uv run python -m live rate_limit            # watch it; edit main.py and save
 uv run python -m live rate_limit --lesson   # the concept, links and a checklist
 uv run pytest labs/rate_limit               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` (`RateLimiter.allow`) | What you see |
 |---|---|---|
