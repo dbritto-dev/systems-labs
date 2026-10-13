@@ -50,7 +50,7 @@ def test_no_cache_fails_the_p99_goal():
     world = build_world("cache", "main", 1)
     first = world.runs["main"].settled[0]
     assert [r.ok for r in first] == [False, False, False]
-    assert world.stage("main").label == "No cache"
+    assert world.stage_index("main") == 0  # No cache
 
 
 def test_cache_aside_fails_the_database_goal_on_every_flush():
@@ -66,7 +66,7 @@ def test_reference_passes_every_goal():
     results = statuses(world, "reference")
     assert len(results) >= 4
     assert all(all(r) for r in results)
-    assert world.stage("reference").label == "Stampede-safe"
+    assert world.stage_index("reference") == 2  # Stampede-safe
 
 
 def test_flushes_come_at_random_but_the_first_is_at_twenty_seconds():

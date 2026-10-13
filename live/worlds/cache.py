@@ -1,16 +1,21 @@
-"""World for lab cache."""
+"""World for lab cache. Its words are in labs/cache/text/<lang>.py."""
 
 from __future__ import annotations
 
+from core.i18n import lab_text
 from labs.cache import lab
 from labs.cache.scenario import DUP, FAILED, HIT, MISS, SHARED
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, RGB, WHITE
+from live.worlds.base import (
+    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+)
 
 FLUSH_KEY = (110, 44, 56)  # the legend swatch for the shaded seconds after a flush
-from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
-)
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("cache").STRINGS[key].format(**values)
 
 PAGE_ID, PAGE_START, PAGE_END, PAGE_OK, PAGE_KIND = range(5)
 READ_START, READ_PAGE, READ_KEY, READ_END, READ_OK, READ_KIND = range(6)
@@ -71,31 +76,28 @@ def _p99(run: Run, inc: Incident, upto: float):
     v = percentile(times, 99)
     if v is None:
         return None, "–"
-    return v, "failed" if v == INF else fmt_ms(v)
+    return v, _s("failed") if v == INF else fmt_ms(v)
 
 
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Hit ratio ≥ 80%", "before", "add cache-aside with a TTL",
-             _before, _hit_ratio, lambda v: v is not None and v >= lab.HIT_MIN),
-    GoalSpec("Dup loads < 5%", "during", "single-flight loads in get()",
-             _during, _dups, lambda v: v is not None and v < lab.DUP_MAX, settle_extra=0.5),
-    GoalSpec("p99 < 100ms", "after", "load each key once",
-             _after, _p99, lambda v: v is not None and v < lab.P99_MAX, settle_extra=2.0),
+    GoalSpec("", "before", "", _before, _hit_ratio,
+             lambda v: v is not None and v >= lab.HIT_MIN, key="hits"),
+    GoalSpec("", "during", "", _during, _dups,
+             lambda v: v is not None and v < lab.DUP_MAX, settle_extra=0.5, key="dups"),
+    GoalSpec("", "after", "", _after, _p99,
+             lambda v: v is not None and v < lab.P99_MAX, settle_extra=2.0, key="p99"),
 ]
 
 
 class CacheWorld(World):
     id = "cache"
-    title = "Cache stampede"
-    files = ("labs/cache/main.py",)
     view = "lanes"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA2, BLUE))]
-    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "hit"), (EXTRA1, "waits on a load"), (EXTRA2, "first load"),
-              (EXTRA3, "duplicate load"), (RED, "rejected"), (LIMIT, "limit", "┄"), (FLUSH_KEY, "after a flush", "█")]
+    stage_colours = (RED, EXTRA2, BLUE)
+    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "hit"), (EXTRA1, "shared"), (EXTRA2, "first"),
+              (EXTRA3, "dup"), (RED, "rejected"), (LIMIT, "limit", "┄"), (FLUSH_KEY, "flush", "█")]
     chart_top = 600.0
-    incident_name = "Flush"
-    incident_verbs = ("FLUSH", "")
+    incident_verbs = ("flush", "end")
     tables = {
         "pages": Table(sort=PAGE_START, times=(PAGE_START, PAGE_END)),
         "reads": Table(sort=READ_START, times=(READ_START, READ_END)),
@@ -125,11 +127,11 @@ class CacheWorld(World):
         for s in _seconds(*_during(inc)):
             n = run.count("db", s, s + 1)
             if base and n / base >= 3:
-                return [(s + 1.0, f"database reads {n / base:.1f}x normal")]
+                return [(s + 1.0, self.s("warn_db", ratio=n / base))]
         return []
 
     def incident_text(self, inc: Incident, start: bool) -> str:
-        return f"is empty: {inc.cause}"
+        return self.s("flushed", cause=self.cause(inc))
 
     def bands(self, variant: str, t: float):
         run = self.runs.get(variant)
@@ -188,9 +190,9 @@ class CacheWorld(World):
             return (min(v, 1.0) if v is not None else 0.0), p99_state(v)
 
         tiles = [
-            Tile("Hits", f"{hits:.0%}", "≥80%", hit_state(hits), history(run, t, hit_s)),
-            Tile("Dups", f"{dups:.0%}", "<5%", dup_state(dups), history(run, t, dup_s)),
-            Tile("p99", "failed" if p99 == INF else fmt_ms(p99), "<100ms", p99_state(p99),
+            Tile(self.s("tile_hits"), f"{hits:.0%}", "≥80%", hit_state(hits), history(run, t, hit_s)),
+            Tile(self.s("tile_dups"), f"{dups:.0%}", "<5%", dup_state(dups), history(run, t, dup_s)),
+            Tile(self.s("tile_p99"), self.s("failed") if p99 == INF else fmt_ms(p99), "<100ms", p99_state(p99),
                  history(run, t, p99_s)),
         ]
         last = run.rows("db", t - 1, t)
@@ -198,12 +200,12 @@ class CacheWorld(World):
         dup = sum(1 for d in last if d[DB_OK] and d[DB_DUP])
         rejected = sum(1 for d in last if not d[DB_OK])
         bars = [
-            Bar("Users", [(run.count("reads", t - 1, t), WHITE)]),
-            Bar("Database", [(first, EXTRA2), (dup, EXTRA3), (rejected, RED)]),
+            Bar(self.s("bar_users"), [(run.count("reads", t - 1, t), WHITE)]),
+            Bar(self.s("bar_db"), [(first, EXTRA2), (dup, EXTRA3), (rejected, RED)]),
         ]
         headline, colour = self._headline(variant, run, t, hits)
-        return Traffic(tiles, bars, lab.DB_LIMIT, f"limit {lab.DB_LIMIT:.0f}/s", headline, colour,
-                       title="Reads", top=1000.0)
+        return Traffic(tiles, bars, lab.DB_LIMIT, self.s("limit", limit=lab.DB_LIMIT), headline, colour,
+                       title=self.s("toplist"), top=1000.0)
 
     def _headline(self, variant: str, run: Run, t: float, hits: float):
         inc = self.current_incident(variant, t)
@@ -211,11 +213,11 @@ class CacheWorld(World):
             base = run.count("db", *_before(inc)) / lab.BASELINE_WINDOW
             now = run.count("db", t - 1, t)
             if base and now / base >= 1.5:
-                return f"Flush: {now / base:.0f}x reads hit the database", EXTRA2
-            return "Flush: the cache is refilling", MUTED
+                return self.s("head_hit_db", ratio=now / base), EXTRA2
+            return self.s("head_refilling"), MUTED
         if hits < 0.05:
-            return "No cache: every read goes to the database", RED
-        return f"Cache: {hits:.0%} of reads from memory", MUTED
+            return self.s("head_no_cache"), RED
+        return self.s("head_cache", share=hits), MUTED
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
@@ -228,12 +230,14 @@ class CacheWorld(World):
         rspan = run.max_dur.get("reads", 0.0)
         recent = [_read_time(r) for r in run.rows("reads", t - 5 - rspan, t) if t - 5 <= r[READ_END] < t]
         p50, p99 = percentile(recent, 50), percentile(recent, 99)
+        # Not request_stats(): the waits here are per read (a page reads 3 keys), and may be "failed".
+        words = self.screen.STATS
         return [
-            ("served", fmt_int(served), GREEN),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), EXTRA2 if waiting > 20 else WHITE),
-            ("p50", "failed" if p50 == INF else fmt_ms(p50), WHITE),
-            ("p99", "failed" if p99 == INF else fmt_ms(p99), WHITE),
+            (words["served"], fmt_int(served), GREEN),
+            (words["failed"], fmt_int(failed), RED if failed else MUTED),
+            (words["waiting"], fmt_int(waiting), EXTRA2 if waiting > 20 else WHITE),
+            (words["p50"], self.s("failed") if p50 == INF else fmt_ms(p50), WHITE),
+            (words["p99"], self.s("failed") if p99 == INF else fmt_ms(p99), WHITE),
         ]
 
     def stacks(self, variant: str):
@@ -245,7 +249,7 @@ class CacheWorld(World):
         return lab.DB_LIMIT, f"{lab.DB_LIMIT:.0f}/s"
 
     def legend_notes(self) -> list[str]:
-        return ["Dots are a sample of reads, slowed down (cosmetic).", "The chart: database reads per second."]
+        return [self.s("note_dots"), self.s("note_chart")]
 
 
 WORLD = CacheWorld

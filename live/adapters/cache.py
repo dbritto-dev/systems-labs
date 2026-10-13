@@ -35,12 +35,13 @@ class CacheLanes(LaneAdapter):
 
         inflight, queued = w.db_state(run, t)
         rejected = any(not d[5] for d in run.rows("db", t - 1, t))
+        words = w.screen.STATES
         if queued >= 40 or rejected:
-            state, gauge, outline = ("OVERLOADED", RED), RED, RED
+            state, gauge, outline = (words["overloaded"], RED), RED, RED
         elif queued > 0:
-            state, gauge, outline = ("BUSY", EXTRA2), EXTRA2, EXTRA2
+            state, gauge, outline = (words["busy"], EXTRA2), EXTRA2, EXTRA2
         else:
-            state, gauge, outline = ("HEALTHY", GREEN), BLUE, OUTLINE
+            state, gauge, outline = (words["healthy"], GREEN), BLUE, OUTLINE
         return LaneFrame(
             users=found, flights=flights, outcomes=outcomes,
             door_color=EXTRA2 if w.flushed_recently(variant, t) else None,  # the cache is empty
