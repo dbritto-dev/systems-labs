@@ -1,5 +1,7 @@
 # systems-labs
 
+*[Leer en español](README.es.md)*
+
 Learn how backend systems behave by doing. Each **lab** is one problem (retries,
 caching, and later queues, databases, concurrency and distributed systems). You
 reproduce the problem, fix it in your own file, and **watch it live in the
@@ -14,21 +16,46 @@ Pure Python: the standard library only, no runtime dependencies. Python 3.13+.
 uv sync                                   # Python 3.13 + pytest
 uv run python -m live                     # list the labs
 uv run python -m live retry_storm         # watch one; edit its main.py and save
+uv run python -m live retry_storm --lang es   # in Spanish: edit its es/main.py
 uv run python -m live cache --lesson      # the concept, links and a checklist
 uv run python -m live cache --at 90 --size 110x44 --color   # print one frame
 uv run pytest                             # x = your code is not there yet, X = done
 LABS_REFERENCE=1 uv run pytest            # check the reference solutions
+LABS_LANG=es uv run pytest                # your Spanish files (es/main.py)
 ```
 
 More options: `--set name=value` changes a lab parameter (`--set rate=150`),
 `--variant reference` watches the solution, `--variant path/to/file.py` watches any
-file with the same names, `--seed N` picks other incident times.
+file with the same names, `--seed N` picks other incident times, `--view NAME` opens
+another picture of the lab (key `v` switches while it runs).
+
+## Languages
+
+Every lab runs in **English** or **Spanish**: `--lang es`, or `LABS_LANG=es` for
+everything (the viewer, `--lesson`, the tests). Everything is translated, including the
+file you edit: in Spanish you work in `labs/<lab>/es/main.py` (the same code and names,
+with Spanish comments and hints; `es/reference.py` and `es/README.md` too).
+
+The words live in catalogs, one per language, with the same names in each:
+
+```
+live/text/en.py, es.py           the screen: menus, panel titles, the loading screen…
+core/text/en.py, es.py           messages from core/ (loading your code, --set)
+labs/<lab>/text/en.py, es.py     one lab: title, stages, goals, incident causes, lesson…
+```
+
+A test (`core/test_i18n.py`) checks that every language has every name, key and
+`{placeholder}`, and that the words fit the screen. The simulation never depends on the
+language: a trace holds keys (a cause is `"bad_deploy"`), and only the screen turns them
+into words. Adding a language: copy every `en.py` to `<code>.py`, translate, copy each
+lab's `es/` folder to `<code>/`, and add the code to `core.i18n.LANGS`.
 
 ## How a lab works
 
-- **Your file** is `labs/<lab>/main.py`. It works at stage 0 and has docstring
-  contracts, hints, and `NotImplementedError("TODO …")` stubs for the 2–3 stages
-  you build, in order, in that one file. `reference.py` has the same names, working.
+- **Your file** is `labs/<lab>/main.py` (`labs/<lab>/es/main.py` in Spanish). It works
+  at stage 0 and has docstring contracts, hints, and `NotImplementedError("TODO …")`
+  stubs for the stages you build, in order, in that one file. `reference.py` has the
+  same names, working.
 - **Virtual time.** A lab is `asyncio` code on a virtual clock
   (`core.vtime.VirtualRun`): when nothing is ready, the clock jumps to the next
   timer. A minute of traffic runs in about a second, and always the same way.
@@ -93,8 +120,8 @@ Colours: white = first tries and normal requests; light, mid and deep orange =
 extra work (a retry round, a cache miss, a duplicate load); red = failed; green =
 served; blue = healthy/fixed.
 
-Keys: `space` pause/resume, `0` restart from 0:00, `r` rerun, `q` quit, `← →` seek 5 s,
-`↑ ↓` speed. The screen needs at least 92x27 (else a one-line message), uses up to 124 columns, and looks best from 110x44 up.
+Keys: `space` pause/resume, `0` restart from 0:00, `r` rerun, `v` the next picture (when
+a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed. The screen needs at least 92x27 (else a one-line message), uses up to 124 columns, and looks best from 110x44 up.
 
 ## Labs
 
@@ -126,58 +153,73 @@ simulated network with partitions (the **cluster** picture: nodes and the messag
 core/   vtime.py (virtual-time asyncio)  services.py (fakeable downstreams)
         net.py (a Maelstrom-like network: nodes, RPC, latency, partitions, seq-kv/lin-kv)
         incidents.py (random incidents, drifting traffic)  contract.py (load lab code,
-        discover labs, --set)  lessons.py  testing.py
-labs/   <lab>/ main.py  reference.py  scenario.py  lab.py  lesson.py  test_lab.py  README.md
+        discover labs, --set)  i18n.py (languages, catalogs)  text/ (core's words)
+        lessons.py  testing.py
+labs/   <lab>/ main.py  reference.py  README.md     your files, in English
+               es/ main.py  reference.py  README.md  the same, in Spanish
+               text/ en.py  es.py                    every word the lab shows
+               scenario.py  lab.py (numbers, stage_of)  test_lab.py
 live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child processes, Feed)
-        frame.py (header, chart, footer)  panel.py (dashboard)  views/ (View, Adapter,
-        lanes, cluster)  adapters/ (one adapter per lab)  worlds/ (one World per lab)  __main__.py
+        frame.py (header, chart, footer)  panel.py (dashboard)  text/ (the screen's words)
+        views/ (View, Adapter: lanes, cluster)  adapters/ (one module per lab)
+        worlds/ (one World per lab)  __main__.py
 ```
 
 ## Adding a lab
 
 1. **`labs/<lab>/`** with:
    - `main.py`: stage 0 working, the rest as contracts and `NotImplementedError` stubs;
-   - `reference.py`: the same names, working;
+     `reference.py`: the same names, working; `README.md`;
+   - `es/main.py`, `es/reference.py`, `es/README.md`: the same code and names, with
+     Spanish comments and hints (a test checks the names match);
+   - `text/en.py` and `text/es.py`: every word the lab shows: `TITLE`, `SUMMARY`,
+     `PARAMS`, `INCIDENT` (an `IncidentText`), `VERBS`, `CAUSES`, `STAGES` (`StageText`),
+     `GOALS` (`GoalText`), `LEGEND`, `STRINGS` (the rest, with `{placeholders}`) and
+     `LESSON` (with links you have checked);
    - `scenario.py`: `stream(variant, seed=s, **params)` yields minute after minute of
      one endless run: `{"start": a, "end": b, "incidents": [(t0, t1, kind, severity,
-     cause)], "tables": {name: [tuples]}}`, rows that started in [a, b), absolute
-     times and ids. Use `core.vtime.VirtualRun`, `core.services`, and
+     cause_key)], "tables": {name: [tuples]}}`, rows that started in [a, b), absolute
+     times and ids. Use `core.vtime.VirtualRun`, `core.services` or `core.net`, and
      `core.incidents.schedule` (random incidents with a fixed first one);
-   - `lab.py`: `META` (id, title, summary, params), the numbers, the goals' limits, the stages;
-   - `lesson.py`: a `Lesson` with links you have checked;
+   - `lab.py`: `META` (`id`, `params`: `{name: Param(default)}`), the numbers, `stage_of`;
    - `test_lab.py`: given behaviour passes; your-code tests use `@your_code(stage, …)`;
-   - `README.md`.
-2. **A World** in `live/worlds/<lab>.py` (exported as `WORLD`) with these hooks:
+     compare stage indices (`world.stage_index(v)`), never words, so they pass in every
+     language.
+2. **A World** in `live/worlds/<lab>.py` (exported as `WORLD`) with these hooks. Its
+   words come from the catalog: `self.s("key", ...)` (STRINGS), `self.word(key)`
+   (VERBS), `self.cause(inc)` (CAUSES), `self.screen` (the screen's words):
 
    | Hook | Returns |
    |---|---|
    | `tables` | `{name: Table(sort, times)}`: the sort column and the time columns |
    | `ingest(run, tables, piece)` | adds per-second history (`run.add(name, t)`) |
-   | `goals` | `[GoalSpec(rule, phase, fix, window, measure, ok, doomed=None)]` |
-   | `stages`, `judge_stage(run, first)` | the stages, and which one the first incident shows |
+   | `goals` | `[GoalSpec("", phase, "", window, measure, ok, doomed=None, key=...)]`: words from `GOALS[key]` |
+   | `stage_colours`, `judge_stage(run, first)` | a colour per stage, and which stage the first incident shows |
    | `traffic(variant, t)` | `Traffic(tiles, bars, limit, limit_label, headline)` |
-   | `user_stats(variant, t)` | `[(label, value, colour)]` |
+   | `user_stats(variant, t)` | `[(label, value, colour)]`; `self.request_stats(...)` does the usual one |
    | `stacks(variant)`, `chart_limit()` | per-second chart stacks, and the dashed limit |
    | `bands(variant, t)` | shaded spans (default: incidents that have started) |
    | `warnings(run, inc)`, `incident_text(inc, start)` | extra timeline events |
-   | `legend`, `legend_notes()` | one legend for the picture and the chart |
-   | `incident_name`, `incident_title(inc)`, `incident_verb(inc, start)`, `files`, `view` | names on screen; `view = "lanes"` or `"cluster"` |
+   | `legend` (with `LEGEND` keys), `legend_notes()` | one legend for the picture and the chart |
+   | `incident_title(inc)`, `incident_verbs` (`VERBS` keys), `view` | names on screen; the picture it opens with (`"lanes"` unless you say otherwise) |
 
    The base class gives you `goal_lines`, `goal_title`, `next_check`, `timeline`,
    `stage(variant)`, the endless-run storage and settled-goal caching.
-3. **An adapter** in `live/adapters/<lab>.py` (every module there is imported), for the
-   picture your World names in `view`:
+3. **An adapter per picture** in `live/adapters/<lab>.py` (every module there is
+   imported). A lab can have several: each `@adapts(lab, view)` adds a picture the
+   viewer can switch to with `v`; `World.view` is the one it opens with.
    ```python
    @adapts("my_lab", "lanes")              # users, a door, a server
    class MyLanes(LaneAdapter):
        def frame(self, variant, t, users) -> LaneFrame: ...
 
-   @adapts("my_dist_lab", "cluster")       # nodes, messages, partitions
+   @adapts("my_lab", "cluster")            # nodes, messages, partitions
    class MyCluster(ClusterAdapter):
        def frame(self, variant, t) -> ClusterFrame: ...
    ```
-   A distributed lab's nodes are `core.net.Node` subclasses with `on_<type>` handlers;
-   copy `labs/broadcast` to start one.
+   Words in the picture (the state under the server) come from `self.world.screen.STATES`
+   or the lab's `STRINGS`. A distributed lab's nodes are `core.net.Node` subclasses with
+   `on_<type>` handlers; copy `labs/broadcast` to start one.
 4. **A View** in `live/views/` only for a new kind of picture: subclass `View`, set
    `name`, implement `draw(cv, adapter, variant, t)`, and decorate it with `@register`.
 
