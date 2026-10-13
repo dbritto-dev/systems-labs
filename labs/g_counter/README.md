@@ -1,5 +1,7 @@
 # Lab: g_counter (Fly.io Gossip Glomers #4)
 
+*[Leer en español](es/README.md)*
+
 [Gossip Glomers](https://fly.io/dist-sys/4/) challenge #4, in Python, on a simulated network:
 3 stateless nodes on a LAN (20 ms per message) and Maelstrom's `seq-kv` service, a key/value
 store that is *sequentially consistent*: a read may return a value up to 0.5 s old, though
@@ -13,6 +15,9 @@ uv run python -m live g_counter            # watch it; edit main.py and save
 uv run python -m live g_counter --lesson   # the concept, links and a checklist
 uv run pytest labs/g_counter               # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` | What you see |
 |---|---|---|

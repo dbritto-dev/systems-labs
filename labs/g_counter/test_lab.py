@@ -89,13 +89,13 @@ def test_starting_code_keeps_the_count_in_memory():
 
 
 def test_stage_variants_land_on_their_stage_on_every_incident():
-    expected = {SHARED: ("Shared key", [True, False, True, True, False]),
-                CAS: ("Compare-and-swap", [True, True, False, False, True]),
-                PER_NODE: ("Key per node", [True] * 5)}
+    expected = {SHARED: (1, [True, False, True, True, False]),  # Shared key
+                CAS: (2, [True, True, False, False, True]),  # Compare-and-swap
+                PER_NODE: (3, [True] * 5)}  # Key per node
     for v, (stage, pattern) in expected.items():
         world = build_world("g_counter", v, 3)
         res = results(world, v)
-        assert world.stage(v).label == stage, (v.__name__, res)
+        assert world.stage_index(v) == stage, (v.__name__, res)
         assert len(res) >= 2
         # The goals that decide each stage fail (or pass) on every incident.
         for r in res:
@@ -106,7 +106,7 @@ def test_reference_passes_every_goal():
     world = build_world("g_counter", "reference", 4)
     res = results(world, "reference")
     assert len(res) >= 4 and all(all(r) for r in res)
-    assert world.stage("reference").label == "Key per node"
+    assert world.stage_index("reference") == 3  # Key per node
 
 
 def test_incidents_are_random_but_the_first_is_a_burst_at_twenty_seconds():

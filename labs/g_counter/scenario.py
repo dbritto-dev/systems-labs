@@ -23,6 +23,7 @@ from collections.abc import Iterator
 from itertools import accumulate
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.net import Client, KVService, Message, Network
 from core.vtime import VirtualRun, now
@@ -37,18 +38,13 @@ LAG = STALE + 1.0  # a read must show every add acknowledged this long before it
 CLIENT_TIMEOUT = 1.0
 ADD_SHARE = 0.6  # of client operations
 LATENCY = 0.02  # a LAN: 20 ms per message
-FIRST = Planned(20.0, 30.0, "burst", 3.0, "a flash sale started")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "burst", 3.0, "flash_sale")
 KINDS = [
     Kind("burst", 0.6, median=10.0, shortest=5.0, longest=20.0, severity=(2.5, 3.5), causes=(
-        "a flash sale started",
-        "a client retried every add in a loop",
-        "a batch import replayed a day of events",
-    )),
+        "flash_sale", "retry_loop", "batch_import")),
     Kind("slow", 0.4, median=10.0, shortest=5.0, longest=20.0, severity=(2.5, 4.0), causes=(
-        "a congested link between racks",
-        "a noisy neighbour saturated the host's network",
-        "a misconfigured MTU fragmented every packet",
-    )),
+        "congested_link", "noisy_neighbour", "bad_mtu")),
 ]
 MEAN_GAP = 30.0
 QUIET = 25.0  # calm before the next one: 15 s measured before it, and time to judge the last
@@ -233,7 +229,7 @@ def stream(variant="main", seed: int = 1, rate: float = 20.0) -> Iterator[dict]:
             if s.net.bugs:
                 raise s.net.bugs[0]
             if any(t < b + DRAIN - 30.0 for t in s.open.values()):
-                raise RuntimeError("a client request has waited over 30 s: does a handler never reply?")
+                raise RuntimeError(lab_text(LAB).STRINGS["stuck"].format(seconds=30.0))
             s.ops.extend(s.banded(b))
             cas = [(t, s.index[n], ok) for t, n, ok in s.kv.cas_log if t < b]
             s.kv.cas_log[:] = [c for c in s.kv.cas_log if c[0] >= b]
