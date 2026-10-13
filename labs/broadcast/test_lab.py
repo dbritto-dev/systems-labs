@@ -95,9 +95,10 @@ def test_a_single_node_keeps_numbers_to_itself():
 
 
 def test_stage_variants_land_on_their_stage():
-    for v, stage in ((FLOOD, "Multi-node"), (FLOOD_RETRY, "Fault tolerant"), (DIRECT, "Efficient")):
+    # 1 multi-node, 2 fault tolerant, 3 efficient
+    for v, stage in ((FLOOD, 1), (FLOOD_RETRY, 2), (DIRECT, 3)):
         world = build_world("broadcast", v, 2)
-        assert world.stage(v).label == stage, (v.__name__, results(world, v))
+        assert world.stage_index(v) == stage, (v.__name__, results(world, v))
 
 
 def test_flooding_loses_numbers_in_every_partition():
@@ -110,7 +111,7 @@ def test_reference_passes_every_goal():
     world = build_world("broadcast", "reference", 4)
     res = results(world, "reference")
     assert len(res) >= 4 and all(all(r) for r in res)
-    assert world.stage("reference").label == "Batched"
+    assert world.stage_index("reference") == 4  # batched
 
 
 def test_partitions_are_random_but_the_first_splits_the_cluster_at_twenty_seconds():

@@ -1,4 +1,77 @@
+"""Lab broadcast, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Broadcast (Gossip Glomers #3)"
+SUMMARY = "Gossip Glomers #3: get every number to all 25 nodes, through partitions, with few messages."
+PARAMS = {"rate": "client operations per second (half broadcast, half read)"}
+
+INCIDENT = IncidentText("Partition", "the partition", "the next partition")
+VERBS = {"split": "SPLIT", "heal": "HEAL"}
+CAUSES = {
+    "tor_switch": "a top-of-rack switch failed",
+    "zone_link": "a cloud zone lost its link to the others",
+    "bgp_flap": "a BGP route flapped between the data centres",
+    "firewall_rule": "a firewall rule blocked the cluster port on one node",
+    "bad_nic": "one node's network card started dropping packets",
+    "security_group": "a misconfigured security group cut one node off",
+}
+
+STAGES = [
+    StageText("Single node",
+              "Challenge: each node only knows the numbers sent to it. Tell the other nodes.",
+              "Stage 1 (3b): send new numbers to your neighbours"),
+    StageText("Multi-node",
+              "Challenge: numbers sent during a partition never reach the other side. Retry them.",
+              "Stage 2 (3c): re-send until the other node acknowledges"),
+    StageText("Fault tolerant",
+              "Challenge: it works, but costs too many messages and is too slow. Make it efficient.",
+              "Stage 3 (3d): under 30 msgs/op, p50 < 400 ms, max < 600 ms"),
+    StageText("Efficient",
+              "Challenge: under 30 messages per operation. Now under 20: send numbers in batches.",
+              "Stage 4 (3e): under 20 msgs/op (p50 < 1 s, max < 2 s)"),
+    StageText("Batched",
+              "Solved: every number reaches every node, through partitions, fast and in few messages.",
+              "All stages done"),
+]
+
+GOALS = {
+    "reach": GoalText("Reaches all", "send new numbers on"),
+    "survive": GoalText("Survives split", "re-send until acked"),
+    "msgs30": GoalText("Msgs/op < 30", "send fewer messages"),
+    "fast": GoalText("Fast 400/600ms", "fewer hops per number"),
+    "msgs20": GoalText("Msgs/op < 20", "batch the numbers"),
+    "batched": GoalText("Fast 1s/2s", "batch more often"),
+}
+
+LEGEND = {"complete": "has every number", "missing": "missing some", "request": "client request",
+          "message": "message", "dropped": "dropped", "partition": "partition", "limit": "limit"}
+
+STRINGS = {
+    # incidents
+    "cut_off": "one node is cut off: {cause}",
+    "split": "the cluster is split in two: {cause}",
+    "whole": "the network is whole again",
+    "warn_stuck": "{n} numbers stuck on one side",
+    # goal values
+    "lost": "lost",
+    # the panel
+    "tile_msgs": "Msgs/op",
+    "tile_p50": "p50",
+    "tile_behind": "Behind",
+    "bar_clients": "Clients",
+    "bar_nodes": "Nodes",
+    "limit": "30 msgs/op",
+    "chart_limit": "30/op",
+    "messages": "Messages",
+    "head_split": "Split {sizes}: {n} numbers wait",
+    "head_behind": "{n} numbers not on every node yet",
+    "head_ok": "Every number on every node (p50 {p50})",
+    "note_chart": "Chart: messages between nodes per second.",
+    # errors in your code
+    "no_messages": "BroadcastNode must keep the numbers it has in self.messages",
+}
 
 LESSON = Lesson(
     title="Broadcast (Gossip Glomers #3)",

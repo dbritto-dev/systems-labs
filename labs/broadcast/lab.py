@@ -1,14 +1,12 @@
-"""Lab broadcast: the numbers, the goals and the stages (Fly.io Gossip Glomers #3a-3e)."""
+"""Lab broadcast (Fly.io Gossip Glomers #3a-3e): the numbers and how the stage is judged.
+
+The words are in text/<lang>.py."""
 
 from core.contract import Param
 
 META = {
     "id": "broadcast",
-    "title": "Broadcast",
-    "summary": "Gossip Glomers #3: get every number to all 25 nodes, through partitions, with few messages.",
-    "params": {
-        "rate": Param(20.0, "client operations per second (half broadcast, half read)"),
-    },
+    "params": {"rate": Param(20.0)},
 }
 
 NODES = 25
@@ -21,28 +19,11 @@ EFFICIENT_P50, EFFICIENT_MAX = 0.4, 0.6  # 3d: seconds until every node has a nu
 BATCHED_MSGS = 20.0  # 3e
 BATCHED_P50, BATCHED_MAX = 1.0, 2.0  # 3e
 
-STAGES = [
-    ("Single node",
-     "Challenge: each node only knows the numbers sent to it. Tell the other nodes.",
-     "Stage 1 (3b): send new numbers to your neighbours"),
-    ("Multi-node",
-     "Challenge: numbers sent during a partition never reach the other side. Retry them.",
-     "Stage 2 (3c): re-send until the other node acknowledges"),
-    ("Fault tolerant",
-     "Challenge: it works, but costs too many messages and is too slow. Make it efficient.",
-     "Stage 3 (3d): under 30 msgs/op, p50 < 400 ms, max < 600 ms"),
-    ("Efficient",
-     "Challenge: under 30 messages per operation. Now under 20: send numbers in batches.",
-     "Stage 4 (3e): under 20 msgs/op (p50 < 1 s, max < 2 s)"),
-    ("Batched",
-     "Solved: every number reaches every node, through partitions, fast and in few messages.",
-     "All stages done"),
-]
-
 
 def stage_of(reach_ok: bool, partition_ok: bool, msgs30_ok: bool, fast_ok: bool, msgs20_ok: bool,
              batched_ok: bool) -> int:
-    """Judge the stage from what the first partition (and the calm before it) showed."""
+    """Judge the stage from what the first partition (and the calm before it) showed:
+    0 single node, 1 multi-node, 2 fault tolerant, 3 efficient, 4 batched."""
     if not reach_ok:
         return 0
     if not partition_ok:

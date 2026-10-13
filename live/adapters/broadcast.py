@@ -38,10 +38,11 @@ class BroadcastCluster(ClusterAdapter):
         for o in run.rows("ops", t - 0.12, t + 1e-9):  # client requests on their way (~100 ms)
             flights.append((-1, o[OP_NODE], min(1.0, (t - o[OP_START]) / 0.1), WHITE))
         groups = w.groups_at(variant, t)
+        words = w.screen.STATES
         if groups is not None:
             sizes = sorted((groups.count(g) for g in set(groups)), reverse=True)
-            state = (f"PARTITIONED  {' | '.join(map(str, sizes))}", RED)
+            state = (f"{words['partitioned']}  {' | '.join(map(str, sizes))}", RED)
         else:
-            state = ("CONNECTED", GREEN)
+            state = (words["connected"], GREEN)
         return ClusterFrame(nodes=nodes, groups=groups, flights=every(flights, MAX_FLIGHTS),
                             drops=every(drops, 30), state=state)
