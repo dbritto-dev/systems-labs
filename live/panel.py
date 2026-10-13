@@ -196,11 +196,11 @@ def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) 
         icon, col = EVENT_STYLE.get(e.kind, OTHER_STYLE)
         c = FADED if dim else col
         head = p("▌", FADED_BAR if dim else col) + p(f"{clock(e.t):>4} ", DD_TITLE) + p(icon + " ", c)
-        head += style.bold(p(f"{e.verb:<6}"[:6], c))
-        room = inner - 13
+        head += style.bold(p(f"{e.verb[:6]:<7}", c))  # up to 6 letters and a space
+        room = inner - 14
         if e.start and len(e.text) > room:  # what went wrong: up to 3 lines, so the cause shows
             first, *rest = textwrap.wrap(e.text, room, max_lines=3, placeholder="…")
-            return [head + p(first, INK)] + [p("▌", col) + " " * 12 + p(more, INK) for more in rest]
+            return [head + p(first, INK)] + [p("▌", col) + " " * 13 + p(more, INK) for more in rest]
         return [head + p(e.text[:room], DD_TITLE if dim else INK)]
 
     out: list[str] = []
@@ -214,8 +214,8 @@ def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) 
     nxt = world.next_check(v, t)
     out = out[:rows - 1] if nxt and len(out) >= rows else out[:rows]
     if len(out) < rows and nxt:
-        out.append(p("▌", FADED_BAR) + p("     ○ ", FADED) + style.bold(p(f"{sc.NEXT:<6}"[:6], FADED))
-                   + p(nxt[:inner - 13], DD_TITLE))
+        out.append(p("▌", FADED_BAR) + p("     ○ ", FADED) + style.bold(p(f"{sc.NEXT[:6]:<7}", FADED))
+                   + p(nxt[:inner - 14], DD_TITLE))
     right = p(sc.SO_FAR.format(n=len(seen)) if seen else sc.NONE_YET, DD_TITLE)
     return right, out
 

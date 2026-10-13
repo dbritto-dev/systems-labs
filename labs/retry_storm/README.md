@@ -1,5 +1,7 @@
 # Lab: retry storm
 
+*[Leer en español](es/README.md)*
+
 Users send ~100 requests/s (drifting slowly) through your `Client` to a service.
 At random times, like in production, the service has a full outage (every call
 fails fast: a bad deploy, a crashed node, an expired certificate…) or a partial
@@ -12,6 +14,9 @@ uv run python -m live retry_storm          # watch it; edit main.py and save
 uv run python -m live retry_storm --lesson # the concept, links and a checklist
 uv run pytest labs/retry_storm             # x = not yet, X = done
 ```
+
+In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
+Spanish comments and hints.
 
 | Stage | In `main.py` | What you see |
 |---|---|---|

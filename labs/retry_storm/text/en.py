@@ -1,8 +1,88 @@
+"""Lab retry_storm, in English: every word it shows. es.py has the same names and keys."""
+
+from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
+
+TITLE = "Retry storm"
+SUMMARY = "The service goes down at random. Retry the failed calls without piling on load."
+PARAMS = {"rate": "user requests per second"}
+
+INCIDENT = IncidentText("Outage", "the outage", "the next outage")
+VERBS = {"down": "DOWN", "up": "UP"}
+CAUSES = {
+    "bad_deploy": "bad deploy, every call gets a 503",
+    "node_crashed": "the node crashed, connections refused",
+    "expired_cert": "an expired TLS certificate, every handshake fails",
+    "config_push": "a config push broke routing",
+    "pool_exhausted": "its database connection pool is exhausted",
+    "replica_died": "a database replica died",
+    "out_of_memory": "one of three nodes is out of memory",
+    "noisy_neighbour": "a noisy neighbour is starving the CPU",
+    "slow_dependency": "a slow dependency is timing out",
+    "bad_canary": "a canary deploy with a bug",
+}
+
+STAGES = [
+    StageText("No retry",
+              "Challenge: the service goes down at random, and users fail. Retry the failed calls.",
+              "Stage 1: retry failed calls in Client"),
+    StageText("Retry",
+              "Challenge: retries come straight back and hammer the service. Wait longer each time.",
+              "Stage 2: sleep backoff_delay(attempt) between retries (exponential)"),
+    StageText("Retry + backoff",
+              "Challenge: every user backs off by the same amount, so retries come in waves. Add jitter.",
+              "Stage 3: add full jitter to backoff_delay"),
+    StageText("Retry + backoff + jitter",
+              "Challenge: jitter spreads the retries, but they still pile 4x the load on. Cap them.",
+              "Stage 4: spend a RetryBudget on every retry"),
+    StageText("Retry + backoff + jitter + budget",
+              "Solved: retries back off with jitter and spend a budget, so the load stays flat.",
+              "All stages done"),
+]
+
+GOALS = {
+    "baseline": GoalText("Baseline ok", "Client must return results"),
+    "retries": GoalText("Retries ≥ 3%", "retry ServiceError in Client"),
+    "backoff": GoalText("Backoff ≥ 1.5x", "sleep backoff_delay(attempt)"),
+    "jitter": GoalText("Jitter ≥ 25%", "add jitter to backoff_delay"),
+    "load": GoalText("Load < 1.5x", "spend a RetryBudget token"),
+    "served": GoalText("Served ≥ 90%", "retry once it is back"),
+}
+
+LEGEND = {"idle": "idle", "first_try": "first try", "retries": "retry 1,2,3", "failed": "failed",
+          "served": "served", "limit": "limit", "incident": "incident"}
+
+STRINGS = {
+    # incidents
+    "partial_outage": "Partial outage",
+    "down": "is down: {cause}",
+    "back_up": "is back up",
+    "failing": "is failing {share:.0%} of calls: {cause}",
+    "healthy_again": "is healthy again",
+    "warn_load": "load {load:.1f}x what users ask",
+    # goal values
+    "avg": "avg {value:.1f}x",
+    "few": "few",
+    # the panel
+    "tile_load": "Load",
+    "tile_retries": "Retries",
+    "tile_served": "Served",
+    "bar_ask": "Users ask",
+    "bar_get": "We get",
+    "limit": "limit {limit:.0f}/s",
+    "head_down": "Down: we get {load:.1f}x what users ask",
+    "head_failing": "Failing {share:.0%}: we get {load:.1f}x what users ask",
+    "head_recovered": "Recovered {seconds:.0f} s after the outage",
+    "head_draining": "Back up; retries still draining",
+    "head_load": "Load: {load:.1f}x what users ask",
+    "note_dots": "Dots are a sample of calls, slowed down (cosmetic).",
+    # errors in your code
+    "stuck": "a request has been running for over {seconds:.0f} s: does Client.call retry forever?",
+}
 
 LESSON = Lesson(
     title="Retry storm",
-    one_liner="Our service goes down for a few seconds. Callers that retry at once turn 100 calls/s into ~400.",
+    one_liner="The service goes down for a few seconds. Callers that retry at once turn 100 calls/s into ~400.",
     learn=(
         "When a service fails, every caller sees errors and tries again straight away. With 3 quick "
         "retries, one user request becomes up to 4 calls, so the service gets ~4x its normal traffic "

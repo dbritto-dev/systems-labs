@@ -1,15 +1,18 @@
-"""World for lab retry_storm."""
+"""World for lab retry_storm. Its words are in labs/retry_storm/text/<lang>.py."""
 
 from __future__ import annotations
 
+from core.i18n import lab_text
 from labs.retry_storm import lab
 from live.canvas import BLUE, EXTRA, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
+from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
-from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Stage, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
-)
+
+
+def _s(key: str, **values) -> str:
+    """One of the lab's STRINGS in the language in use (for the goal measures below)."""
+    return lab_text("retry_storm").STRINGS[key].format(**values)
 
 REQ_ID, REQ_START, REQ_END, REQ_OK, REQ_CALLS = range(5)
 CALL_START, CALL_REQ, CALL_ATTEMPT, CALL_OK, CALL_END = range(5)
@@ -69,7 +72,7 @@ def _backoff(run: Run, inc: Incident, upto: float):
             return None, "–"
         # Retries, but too few reach a second round to compare (a budget holding them back):
         # nothing piles up in waves, so it passes.
-        return lab.BACKOFF_MIN, "few"
+        return lab.BACKOFF_MIN, _s("few")
     v = sum(growth) / len(growth)
     return v, f"{v:.1f}x"
 
@@ -113,7 +116,7 @@ def _load(run: Run, inc: Incident, upto: float):
         return None, "–"
     base = _base_rate(run, inc)
     v = _ratio(run.count("calls", inc.t0, b) / (b - inc.t0), base)
-    return v, "–" if v is None else f"avg {v:.1f}x"
+    return v, "–" if v is None else _s("avg", value=v)
 
 
 def _load_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -136,36 +139,35 @@ def _served(run: Run, inc: Incident, upto: float):
     return v, f"{v:.0%}"
 
 
+def _during(inc: Incident) -> tuple[float, float]:
+    return inc.t0, inc.t1
+
+
+# The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("Baseline ok", "before", "Client must return results",
-             _baseline_window, _baseline, lambda v: v is not None and v >= lab.BASELINE_MIN),
-    GoalSpec("Retries ≥ 3%", "during", "retry ServiceError in Client",
-             lambda i: (i.t0, i.t1), _retries, lambda v: v is not None and v >= lab.RETRIES_MIN),
-    GoalSpec("Backoff ≥ 1.5x", "during", "sleep backoff_delay(attempt)",
-             lambda i: (i.t0, i.t1), _backoff, lambda v: v is not None and v >= lab.BACKOFF_MIN),
-    GoalSpec("Jitter ≥ 25%", "during", "add jitter to backoff_delay",
-             lambda i: (i.t0, i.t1), _jitter, lambda v: v is not None and v >= lab.JITTER_MIN),
-    GoalSpec("Load < 1.5x", "during", "spend a RetryBudget token",
-             lambda i: (i.t0, i.t1), _load, lambda v: v is not None and v < lab.LOAD_MAX,
-             doomed=_load_doomed),
-    GoalSpec("Served ≥ 90%", "after", "retry once it is back",
-             _after_window, _served, lambda v: v is not None and v >= lab.SERVED_MIN,
-             settle_extra=6.0),
+    GoalSpec("", "before", "", _baseline_window, _baseline,
+             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "during", "", _during, _retries,
+             lambda v: v is not None and v >= lab.RETRIES_MIN, key="retries"),
+    GoalSpec("", "during", "", _during, _backoff,
+             lambda v: v is not None and v >= lab.BACKOFF_MIN, key="backoff"),
+    GoalSpec("", "during", "", _during, _jitter,
+             lambda v: v is not None and v >= lab.JITTER_MIN, key="jitter"),
+    GoalSpec("", "during", "", _during, _load,
+             lambda v: v is not None and v < lab.LOAD_MAX, doomed=_load_doomed, key="load"),
+    GoalSpec("", "after", "", _after_window, _served,
+             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=6.0, key="served"),
 ]
 
 
 class RetryStormWorld(World):
     id = "retry_storm"
-    title = "Retry storm"
-    files = ("labs/retry_storm/main.py",)
     view = "lanes"
-    stages = [Stage(label, story, colour, nxt) for (label, story, nxt), colour
-              in zip(lab.STAGES, (RED, EXTRA3, EXTRA2, EXTRA1, BLUE))]
-    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first try"), ([EXTRA1, EXTRA2, EXTRA3], "retry 1,2,3"),
+    stage_colours = (RED, EXTRA3, EXTRA2, EXTRA1, BLUE)
+    legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first_try"), ([EXTRA1, EXTRA2, EXTRA3], "retries"),
               (RED, "failed"), (GREEN, "served"), (LIMIT, "limit", "┄"), (DOWN_KEY, "incident", "█")]
     chart_top = lab.GAUGE_MAX
-    incident_name = "Outage"
-    incident_verbs = ("DOWN", "UP")
+    incident_verbs = ("down", "up")
     tables = {
         "requests": Table(sort=REQ_START, times=(REQ_START, REQ_END)),
         "calls": Table(sort=CALL_START, times=(CALL_START, CALL_END)),
@@ -195,17 +197,17 @@ class RetryStormWorld(World):
         for s in range(int(inc.t0), int(inc.t1)):
             calls = run.series("calls", s, s + 1)[0]
             if base and calls / base >= lab.LOAD_MAX:
-                return [(s + 1.0, f"load {calls / base:.1f}x what users ask")]
+                return [(s + 1.0, self.s("warn_load", load=calls / base))]
         return []
 
     def incident_title(self, inc: Incident) -> str:
-        name = "Partial outage" if inc.kind == "errors" else "Outage"
-        return f"{name} #{inc.index + 1}"
+        name = self.s("partial_outage") if inc.kind == "errors" else self.incident_name
+        return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         if inc.kind == "errors":
-            return f"is failing {inc.severity:.0%} of calls: {inc.cause}" if start else "is healthy again"
-        return f"is down: {inc.cause}" if start else "is back up"
+            return self.s("failing", share=inc.severity, cause=self.cause(inc)) if start else self.s("healthy_again")
+        return self.s("down", cause=self.cause(inc)) if start else self.s("back_up")
 
     def incident_at(self, variant: str, t: float) -> Incident | None:
         run = self.runs.get(variant)
@@ -263,56 +265,41 @@ class RetryStormWorld(World):
             return v, served_state(v)
 
         tiles = [
-            Tile("Load", f"{load:.1f}x", "<1.5x", load_state(load), history(run, t, load_s)),
-            Tile("Retries", f"{retries:.0%}", "≥3%", retry_state(retries, down),
+            Tile(self.s("tile_load"), f"{load:.1f}x", "<1.5x", load_state(load), history(run, t, load_s)),
+            Tile(self.s("tile_retries"), f"{retries:.0%}", "≥3%", retry_state(retries, down),
                  history(run, t, retry_s)),
-            Tile("Served", f"{served:.0%}", "≥90%", served_state(served), history(run, t, served_s)),
+            Tile(self.s("tile_served"), f"{served:.0%}", "≥90%", served_state(served), history(run, t, served_s)),
         ]
         last = run.rows("calls", t - 1, t)
         rounds = [0, 0, 0, 0]
         for r in last:
             rounds[min(r[CALL_ATTEMPT], 3)] += 1
         bars = [
-            Bar("Users ask", [(run.count("requests", t - 1, t), WHITE)]),
-            Bar("We get", [(float(n), EXTRA[k]) for k, n in enumerate(rounds)]),
+            Bar(self.s("bar_ask"), [(run.count("requests", t - 1, t), WHITE)]),
+            Bar(self.s("bar_get"), [(float(n), EXTRA[k]) for k, n in enumerate(rounds)]),
         ]
         headline, colour = self._headline(variant, run, t, load)
-        return Traffic(tiles, bars, lab.LIMIT, f"limit {lab.LIMIT:.0f}/s", headline, colour,
+        return Traffic(tiles, bars, lab.LIMIT, self.s("limit", limit=lab.LIMIT), headline, colour,
                        top=lab.GAUGE_MAX)
 
     def _headline(self, variant: str, run: Run, t: float, load: float):
         inc = self.current_incident(variant, t)
         if inc and inc.t0 <= t < inc.t1:
             colour = RED if load >= lab.LOAD_MAX else BLUE
-            what = f"Failing {inc.severity:.0%}" if inc.kind == "errors" else "Down"
-            return f"{what}: we get {load:.1f}x what users ask", colour
+            if inc.kind == "errors":
+                return self.s("head_failing", share=inc.severity, load=load), colour
+            return self.s("head_down", load=load), colour
         if inc and inc.t1 <= t < inc.t1 + 10:
             for s in range(int(inc.t1), int(t)):
                 a, c = run.series("ask", s, s + 1)[0], run.series("calls", s, s + 1)[0]
                 f = run.series("failed", s, s + 1)[0]
                 if a and c / a < 1.2 and f == 0:
-                    return f"Recovered {max(0, s + 1 - inc.t1):.0f} s after the outage", BLUE
-            return "Back up; retries still draining", MUTED
-        return f"Load: {load:.1f}x what users ask", MUTED
+                    return self.s("head_recovered", seconds=max(0, s + 1 - inc.t1)), BLUE
+            return self.s("head_draining"), MUTED
+        return self.s("head_load", load=load), MUTED
 
     def user_stats(self, variant: str, t: float):
-        run = self.runs[variant]
-        s = int(t)
-        partial = [r for r in run.rows("requests", s - run.max_dur.get("requests", 0) - 1, t)
-                   if s <= r[REQ_END] < t]
-        served = run.total("served", t) + sum(1 for r in partial if r[REQ_OK])
-        failed = run.total("failed", t) + sum(1 for r in partial if not r[REQ_OK])
-        waiting = len(run.active("requests", t, REQ_END))
-        recent = [r[REQ_END] - r[REQ_START]
-                  for r in run.rows("requests", t - 5 - run.max_dur.get("requests", 0), t)
-                  if t - 5 <= r[REQ_END] < t]
-        return [
-            ("served", fmt_int(served), GREEN),
-            ("failed", fmt_int(failed), RED if failed else MUTED),
-            ("waiting", fmt_int(waiting), EXTRA2 if waiting > 20 else WHITE),
-            ("p50", fmt_ms(percentile(recent, 50)), WHITE),
-            ("p99", fmt_ms(percentile(recent, 99)), WHITE),
-        ]
+        return self.request_stats(self.runs[variant], "requests", REQ_START, REQ_END, REQ_OK, t)
 
     def stacks(self, variant: str):
         run = self.runs[variant]
@@ -322,7 +309,7 @@ class RetryStormWorld(World):
         return lab.LIMIT, f"{lab.LIMIT:.0f}/s"
 
     def legend_notes(self) -> list[str]:
-        return ["Dots are a sample of calls, slowed down (cosmetic)."]
+        return [self.s("note_dots")]
 
 
 WORLD = RetryStormWorld

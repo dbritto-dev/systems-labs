@@ -67,7 +67,7 @@ def test_naive_retry_is_in_lockstep_and_fails_the_load_goal_on_every_outage():
     kinds = {i.kind for i in world.runs[NAIVE].incidents}
     assert len(results) >= 6 and kinds == {"outage", "errors"}  # full and partial outages
     assert all(r == [True, True, False, False, False, True] for r in results)  # no backoff, no jitter
-    assert world.stage(NAIVE).label == "Retry"
+    assert world.stage_index(NAIVE) == 1  # Retry
 
 
 def test_backoff_without_jitter_comes_back_in_waves():
@@ -75,7 +75,7 @@ def test_backoff_without_jitter_comes_back_in_waves():
     results = statuses(world, BACKOFF_ONLY)
     assert len(results) >= 3
     assert all(r == [True, True, True, False, False, True] for r in results)
-    assert world.stage(BACKOFF_ONLY).label == "Retry + backoff"
+    assert world.stage_index(BACKOFF_ONLY) == 2  # Retry + backoff
 
 
 def test_jitter_without_a_budget_still_fails_the_load_goal():
@@ -83,7 +83,7 @@ def test_jitter_without_a_budget_still_fails_the_load_goal():
     results = statuses(world, JITTER_ONLY)
     assert len(results) >= 3
     assert all(r == [True, True, True, True, False, True] for r in results)
-    assert world.stage(JITTER_ONLY).label == "Retry + backoff + jitter"
+    assert world.stage_index(JITTER_ONLY) == 3  # + jitter
 
 
 def test_reference_passes_every_goal_on_the_first_eight_outages():
@@ -91,7 +91,7 @@ def test_reference_passes_every_goal_on_the_first_eight_outages():
     results = statuses(world, "reference")
     assert len(results) >= 8
     assert all(all(r) for r in results[:8])
-    assert world.stage("reference").label == "Retry + backoff + jitter + budget"
+    assert world.stage_index("reference") == 4  # + budget
 
 
 def test_pieces_join_in_order_and_totals_survive_forgetting():

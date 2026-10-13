@@ -81,7 +81,7 @@ class IncidentText:
 @dataclass(frozen=True, slots=True)
 class GoalText:
     rule: str  # short: it sits in a 39-column panel
-    fix: str = ""  # at most 28 characters
+    fix: str = ""  # at most 28 characters (verbs in VERBS: at most 6)
 
 
 # ---------------------------------------------------------------- parity between languages

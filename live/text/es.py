@@ -12,6 +12,11 @@ ERROR = "error: {error}"
 MENU = {"pause": "pausa/sigue", "restart": "reinicia", "rerun": "repite", "view": "vista", "quit": "sal"}
 VIEW = "vista: {name}"
 VIEWS = {"lanes": "carriles", "cluster": "clúster"}
+NO_VIEW = "{lab} no tiene la vista {name!r} (tiene: {views})"
+
+# ---- el dibujo: el estado bajo el servidor o el clúster
+STATES = {"healthy": "SANO", "down": "CAÍDO", "degraded": "DEGRADADO", "busy": "OCUPADO",
+          "overloaded": "SATURADO", "connected": "CONECTADO", "partitioned": "PARTICIONADO"}
 
 # ---- carga y errores
 STARTING = "Arrancando {title}"
@@ -37,6 +42,7 @@ RERAN_AT = "{reason} a las {clock}: desde 0:00"
 REASONS = {"reran": "repetido", "restarted": "reiniciado"}
 
 # ---- el panel
+STATS = {"served": "servidos", "failed": "fallidos", "waiting": "esperando", "p50": "p50", "p99": "p99"}
 USERS = "Usuarios"
 WAITS = "esperas: últimos 5 s"
 CALLS = "Llamadas"
@@ -48,7 +54,7 @@ NEXT = "SIG."
 STATUS = {"ok": "OK", "alert": "ALERTA", "wait": "ESPERA"}
 COUNTS = {"ok": "{n} OK", "alert": "{n} ALERTA", "wait": "{n} ESPERA"}
 PHASES = {"before": "antes", "during": "durante", "after": "después"}
-VERBS = {"alert": "ALERT", "ok": "OK", "warn": "AVISO"}  # 5 letras como máximo
+VERBS = {"alert": "ALERTA", "ok": "OK", "warn": "AVISO"}  # 6 letras como máximo
 
 # ---- objetivos e incidentes
 NEXT_FIRST_RUN = "esperando la primera ejecución"

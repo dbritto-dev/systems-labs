@@ -17,6 +17,7 @@ import random
 from collections.abc import Iterator
 
 from core.contract import load
+from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.services import FaultyService, ServiceError, current_request
 from core.vtime import VirtualRun, now
@@ -26,22 +27,13 @@ NAMES = ("Client", "backoff_delay", "RetryBudget")
 PIECE = 60.0
 DRAIN = 20.0  # simulate this far past a minute before handing it out
 STUCK = 30.0  # a request still running after this long is a bug
-FIRST = Planned(20.0, 30.0, "outage", 1.0, "bad deploy, every call gets a 503")
+# Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
+FIRST = Planned(20.0, 30.0, "outage", 1.0, "bad_deploy")
 KINDS = [
     Kind("outage", 0.6, median=9.0, shortest=4.0, longest=30.0, causes=(
-        "bad deploy, every call gets a 503",
-        "the node crashed, connections refused",
-        "an expired TLS certificate, every handshake fails",
-        "a config push broke routing",
-        "its database connection pool is exhausted",
-    )),
+        "bad_deploy", "node_crashed", "expired_cert", "config_push", "pool_exhausted")),
     Kind("errors", 0.4, median=12.0, shortest=5.0, longest=40.0, severity=(0.4, 0.85), causes=(
-        "a database replica died",
-        "one of three nodes is out of memory",
-        "a noisy neighbour is starving the CPU",
-        "a slow dependency is timing out",
-        "a canary deploy with a bug",
-    )),
+        "replica_died", "out_of_memory", "noisy_neighbour", "slow_dependency", "bad_canary")),
 ]
 MEAN_GAP = 30.0  # seconds of calm between incidents, on average, on top of QUIET
 QUIET = 22.0  # at least this calm after an incident: 15 s baseline + 7 s to judge
@@ -131,8 +123,7 @@ def stream(variant="main", seed: int = 1, rate: float = 100.0) -> Iterator[dict]
                 raise s.bugs[0]
             stuck = [t for t in s.open.values() if t < b + DRAIN - STUCK]
             if stuck:
-                raise RuntimeError(f"a request has been running for over {STUCK:.0f} s: "
-                                   "does Client.call retry forever?")
+                raise RuntimeError(lab_text(LAB).STRINGS["stuck"].format(seconds=STUCK))
             s.collect_calls()
             yield {
                 "lab": LAB,

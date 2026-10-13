@@ -1,14 +1,10 @@
-"""Lab retry_storm: the numbers, the goals and the stages."""
+"""Lab retry_storm: the numbers and how the stage is judged. The words are in text/<lang>.py."""
 
 from core.contract import Param
 
 META = {
     "id": "retry_storm",
-    "title": "Retry storm",
-    "summary": "The service goes down at random. Retry the failed calls without piling on load.",
-    "params": {
-        "rate": Param(100.0, "user requests per second"),
-    },
+    "params": {"rate": Param(100.0)},
 }
 
 LIMIT = 150.0  # calls/s our service is sized for
@@ -26,28 +22,10 @@ JITTER_SAMPLES = 5  # retries needed to judge the spread
 LOAD_MAX = 1.5  # calls during the outage vs the baseline
 SERVED_MIN = 0.90  # served share of requests started just after the outage
 
-STAGES = [
-    ("No retry",
-     "Challenge: the service goes down at random, and users fail. Retry the failed calls.",
-     "Stage 1: retry failed calls in Client"),
-    ("Retry",
-     "Challenge: retries come straight back and hammer the service. Wait longer each time.",
-     "Stage 2: sleep backoff_delay(attempt) between retries (exponential)"),
-    ("Retry + backoff",
-     "Challenge: every user backs off by the same amount, so retries come in waves. Add jitter.",
-     "Stage 3: add full jitter to backoff_delay"),
-    ("Retry + backoff + jitter",
-     "Challenge: jitter spreads the retries, but they still pile 4x the load on. Cap them.",
-     "Stage 4: spend a RetryBudget on every retry"),
-    ("Retry + backoff + jitter + budget",
-     "Solved: retries back off with jitter and spend a budget, so the load stays flat.",
-     "All stages done"),
-]
-
 
 def stage_of(baseline_ok: bool, retries_ok: bool, backoff_ok: bool, jitter_ok: bool, load_ok: bool,
              served_ok: bool) -> int:
-    """Judge the stage from what the first outage did."""
+    """Judge the stage from what the first outage did: 0 no retry ... 4 retry + backoff + jitter + budget."""
     for stage, ok in enumerate((retries_ok, backoff_ok, jitter_ok, load_ok)):
         if not ok:
             return stage

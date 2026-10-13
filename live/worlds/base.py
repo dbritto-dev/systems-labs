@@ -123,7 +123,7 @@ class Settled:
 @dataclass(frozen=True, slots=True)
 class TimelineEvent:
     t: float
-    verb: str  # the word shown, up to 5 letters: DOWN, SPIKE, ALERT, AVISO, ...
+    verb: str  # the word shown, up to 6 letters: DOWN, SPIKE, ALERTA, VUELVE, ...
     text: str
     colour: RGB
     incident: int
@@ -361,7 +361,7 @@ class World:
         run.timeline.sort(key=_event_order)
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
-        """The event verb (up to 5 letters) for an incident starting or ending, e.g. SPIKE."""
+        """The event verb (up to 6 letters) for an incident starting or ending, e.g. SPIKE."""
         return self.word(self.incident_verbs[0 if start else 1])
 
     def _add_incident_events(self, run: Run, inc: Incident) -> None:
@@ -488,6 +488,32 @@ class World:
 
     def legend_notes(self) -> list[str]:
         return []
+
+    # ------------------------------------------------------------ helpers for the hooks
+
+    def request_stats(self, run: Run, table: str, start: int, end: int, ok: int, t: float,
+                      busy: int = 20) -> list[tuple[str, str, RGB]]:
+        """The usual Users widget: served and failed so far, waiting now, p50/p99 of the last 5 s.
+
+        `table` holds one row per user request; `start`, `end` and `ok` are its columns.
+        """
+        from live.canvas import EXTRA2, WHITE
+
+        words = self.screen.STATS
+        s = int(t)
+        span = run.max_dur.get(table, 0.0)
+        partial = [r for r in run.rows(table, s - span - 1, t) if s <= r[end] < t]
+        served = run.total("served", t) + sum(1 for r in partial if r[ok])
+        failed = run.total("failed", t) + sum(1 for r in partial if not r[ok])
+        waiting = len(run.active(table, t, end))
+        recent = [r[end] - r[start] for r in run.rows(table, t - 5 - span, t) if t - 5 <= r[end] < t]
+        return [
+            (words["served"], fmt_int(served), GREEN),
+            (words["failed"], fmt_int(failed), RED if failed else MUTED),
+            (words["waiting"], fmt_int(waiting), EXTRA2 if waiting > busy else WHITE),
+            (words["p50"], fmt_ms(percentile(recent, 50)), WHITE),
+            (words["p99"], fmt_ms(percentile(recent, 99)), WHITE),
+        ]
 
 
 def _event_order(e: TimelineEvent) -> tuple[float, int]:

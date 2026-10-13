@@ -30,7 +30,9 @@ def set_view(world, name: str) -> None:
     """Show `name` from now on (it must be one of views_for(world))."""
     choices = views_for(world)
     if name not in choices:
-        raise LookupError(f"{world.id} has no {name!r} view (it has: {', '.join(choices)})")
+        from core.i18n import screen_text
+
+        raise LookupError(screen_text().NO_VIEW.format(lab=world.id, name=name, views=", ".join(choices)))
     world.view = name
 
 

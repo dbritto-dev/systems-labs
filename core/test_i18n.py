@@ -40,7 +40,7 @@ def test_lab_words_fit_the_screen(lab, code):
     for key, g in text.GOALS.items():
         assert len(g.fix) <= 28, (key, g.fix)
     for verb in getattr(text, "VERBS", {}).values():
-        assert len(verb) <= 5, verb
+        assert len(verb) <= 6, verb
 
 
 def public_names(path: Path) -> set[str]:

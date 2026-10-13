@@ -12,6 +12,11 @@ ERROR = "error: {error}"
 MENU = {"pause": "pause/resume", "restart": "restart", "rerun": "rerun", "view": "view", "quit": "quit"}
 VIEW = "view: {name}"  # shown when a lab has more than one picture
 VIEWS = {"lanes": "lanes", "cluster": "cluster"}
+NO_VIEW = "{lab} has no {name!r} view (it has: {views})"
+
+# ---- the picture: the state under the server or the cluster
+STATES = {"healthy": "HEALTHY", "down": "DOWN", "degraded": "DEGRADED", "busy": "BUSY",
+          "overloaded": "OVERLOADED", "connected": "CONNECTED", "partitioned": "PARTITIONED"}
 
 # ---- loading and errors
 STARTING = "Starting {title}"
@@ -37,6 +42,7 @@ RERAN_AT = "{reason} at {clock}: playing from 0:00"
 REASONS = {"reran": "reran", "restarted": "restarted"}
 
 # ---- the panel
+STATS = {"served": "served", "failed": "failed", "waiting": "waiting", "p50": "p50", "p99": "p99"}
 USERS = "Users"
 WAITS = "waits: last 5 s"
 CALLS = "Calls"
@@ -48,7 +54,7 @@ NEXT = "NEXT"
 STATUS = {"ok": "OK", "alert": "ALERT", "wait": "WAIT"}
 COUNTS = {"ok": "{n} OK", "alert": "{n} ALERT", "wait": "{n} WAIT"}
 PHASES = {"before": "before", "during": "during", "after": "after"}
-VERBS = {"alert": "ALERT", "ok": "OK", "warn": "WARN"}  # up to 5 letters
+VERBS = {"alert": "ALERT", "ok": "OK", "warn": "WARN"}  # up to 6 letters
 
 # ---- goals and incidents
 NEXT_FIRST_RUN = "waiting for the first run"
