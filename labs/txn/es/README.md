@@ -27,12 +27,12 @@ un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
 |---|---|---|---|
 | 0 Un solo nodo (dada) | 6a | cada nodo tiene su propio almacén | los nodos siempre van atrasados (~45% al día) |
 | 1 Replicado | 6b | envía cada escritura a los demás nodos | al día, pero tras una partición algunas claves nunca se recuperan (~90-95%) |
-| 2 Lectura no confirmada | 6b + particiones | reenvía hasta el ack; gana el sello más nuevo | todos se ponen al día, pero los lectores ven valores intermedios (G1b) |
-| 3 Lectura confirmada | 6c | replica transacciones enteras (valores finales), aplicadas de una vez | sin lecturas intermedias, y cada nodo se pone al día |
+| 2 Read uncommitted | 6b + particiones | reenvía hasta que confirmen; gana el sello más nuevo | todos se ponen al día, pero los lectores ven valores intermedios (G1b) |
+| 3 Read committed | 6c | replica transacciones enteras (valores finales), aplicadas de una vez | sin lecturas intermedias, y cada nodo se pone al día |
 
 Objetivos, evaluados en cada partición: **al día** ≥ 95% en la calma anterior (la parte de las
 claves, en cada nodo, que está a menos de 1 s del valor más nuevo en cualquier nodo);
-**respuestas** ≥ 99% de las transacciones durante ella; **recuperado** ≥ 99% al día entre 5 y
+**respondidas** ≥ 99% de las transacciones durante ella; **recuperado** ≥ 99% al día entre 5 y
 10 s después de que termine; **sin lecturas G1b** desde 15 s antes hasta 5 s después.
 
 El comprobador mira el `self.store` de cada nodo cada 50 ms, fuera de la red, y revisa cada

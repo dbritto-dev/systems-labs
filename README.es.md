@@ -141,6 +141,9 @@ Sistemas backend (el dibujo de **carriles**: usuarios, una puerta, un servidor):
 | `conn_pool` | la base de datos se ralentiza o llega un pico de tráfico | pool → pool acotado → timeout al pedir conexión |
 | `circuit_breaker` | una dependencia se vuelve muy lenta y arrastra al resto | timeouts → bulkhead → circuit breaker |
 | `overload` | un pico de tráfico; la cola nunca se recupera (metaestable) | cola acotada → saltar peticiones tardías → LIFO adaptativo |
+| `idempotency` | los pagos se reintentan y llegan dos veces | repetir respuestas guardadas → reservar la clave antes de cobrar |
+| `n_plus_one` | una página consulta la base de datos una vez por elemento | N+1 → una consulta IN agrupada → un JOIN |
+| `db_index` | la tabla no deja de crecer; cada consulta la lee entera | índice hash → índice hash + compuesto |
 
 Sistemas distribuidos: los retos [Gossip Glomers](https://fly.io/dist-sys/) de Fly.io sobre
 una red simulada con particiones (el dibujo de **clúster**: nodos y los mensajes entre ellos):
@@ -152,6 +155,17 @@ una red simulada con particiones (el dibujo de **clúster**: nodos y los mensaje
 | `g_counter` | n.º 4 Contador solo creciente | clave compartida → compare-and-swap → una clave por nodo, sobre seq-kv |
 | `kafka_log` | n.º 5 Log al estilo Kafka | un nodo → varios nodos con lin-kv → eficiente: un dueño por clave (5a–5c) |
 | `txn` | n.º 6 Transacciones siempre disponibles | replicado → lectura no confirmada → lectura confirmada (6a–6c) |
+
+Replicación y particionado, sobre la misma red (primero el dibujo de clúster):
+
+| Laboratorio | Problema | Etapas |
+|---|---|---|
+| `replication_lag` | las lecturas van a réplicas que se quedan atrás | lee tus escrituras → lecturas monótonas |
+| `consistent_hashing` | los servidores de caché entran y salen; las claves se mueven | módulo → anillo de hash → anillo + nodos virtuales |
+| `quorum` | cada clave en 3 de 5 nodos; un nodo se cae | una copia → quórums (R + W > N) → quórums + reparación en lectura |
+| `raft` | elegir un líder; no perder nunca un comando confirmado | elección de líder → replicación del log → seguro (términos, votos al día) |
+
+Cada laboratorio tiene además un segundo dibujo: pulsa `v` (carriles ↔ clúster).
 
 ## Estructura
 

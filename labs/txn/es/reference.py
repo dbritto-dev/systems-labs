@@ -1,4 +1,4 @@
-"""Laboratorio txn: una solución que funciona (etapa 3, lectura confirmada). Léela después de
+"""Laboratorio txn: una solución que funciona (etapa 3, read committed). Léela después de
 intentar es/main.py.
 
 Cada transacción recibe un sello (tiempo, rango del nodo, contador): un orden total en el que
@@ -8,8 +8,8 @@ valor *final* de cada clave que escribió la transacción, con su sello. Cada 10
 nodo un lote con lo que ese nodo aún no ha confirmado. Un nodo aplica un lote de una vez, clave
 a clave quedándose con el sello mayor (gana la última escritura), y lo confirma.
 
-- Lectura no confirmada (G0): todos los nodos ordenan las escrituras de una clave con los mismos sellos.
-- Lectura confirmada (G1b): solo salen de un nodo los valores finales, y un lote se aplica de
+- Read uncommitted (G0): todos los nodos ordenan las escrituras de una clave con los mismos sellos.
+- Read committed (G1b): solo salen de un nodo los valores finales, y un lote se aplica de
   una vez, así que nadie ve nunca un valor que una transacción sobrescribió ella misma.
 - Disponibilidad total: un nodo nunca espera a otro para responder a un cliente; una partición
   solo retrasa la replicación, y los lotes se reenvían hasta que los confirman.

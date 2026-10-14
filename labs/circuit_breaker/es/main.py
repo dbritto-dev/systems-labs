@@ -40,7 +40,7 @@ class Client:
     Contrato:
       - `await client.call(dep)` con dep "payments" o "recs" devuelve lo que devuelve
         la dependencia.
-      - Cuando la llamada falla, se agota el tiempo o se rechaza, lanza `ServiceError`.
+      - Cuando la llamada falla, da timeout o se rechaza, lanza `ServiceError`.
         Nunca captures otras excepciones: son bugs y deben verse.
       - `self.deps[dep]` es la dependencia: `await self.deps[dep].call(payload)`.
 
@@ -98,7 +98,7 @@ class CircuitBreaker:
       allow()           ¿puede pasar esta llamada? (closed: sí; open: no, salvo que el
                         cooldown haya terminado: entonces pasa a half-open y deja pasar UNA)
       record_success()  la llamada funcionó
-      record_failure()  la llamada falló o se agotó el tiempo
+      record_failure()  la llamada falló o dio timeout
 
     Usa `now()` (el reloj de la simulación) para el tiempo.
     """

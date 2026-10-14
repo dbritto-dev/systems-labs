@@ -30,7 +30,7 @@ STAGES = [
               "Reto: 2 viajes por página; si la base de datos va lenta, las páginas se arrastran. Únelas.",
               "Etapa 2: un fetch_orders_with_customers por página (JOIN)"),
     StageText("Con JOIN",
-              "Resuelto: una consulta por página; una base lenta cuesta un viaje, no docenas.",
+              "Resuelto: una consulta por página; una BD lenta cuesta un viaje, no docenas.",
               "Todas las etapas hechas"),
 ]
 
@@ -83,7 +83,7 @@ LESSON = Lesson(
         "En producción cada consulta es un viaje de ida y vuelta: la red, una conexión del pool, el "
         "trabajo de la propia base de datos. 30 páginas/s con 20 elementos son 630 consultas/s donde "
         "bastarían 60; cuando la base de datos se ralentiza, cada uno de esos viajes se ralentiza y las "
-        "páginas caducan.",
+        "páginas dan timeout.",
         "Agrupar: junta los ids y pregunta una vez (WHERE id IN (...)): 2 consultas por página, sea cual "
         "sea N. Los ORM lo llaman carga anticipada: prefetch_related en Django, includes en Rails, "
         "selectinload en SQLAlchemy.",

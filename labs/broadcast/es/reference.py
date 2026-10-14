@@ -5,12 +5,12 @@ Un hub (n0) con lotes, y confirmaciones también agrupadas:
 - Un nodo que recibe un número nuevo de un cliente se lo envía al hub enseguida.
 - Cada 50 ms el hub envía un lote, con cada número nuevo desde el lote anterior, a cada
   nodo (también al de origen: recibir su propio número le dice que el hub ya lo tiene).
-- Una vez por segundo cada nodo le dice al hub qué números recibió (un mensaje de ack), y
+- Una vez por segundo cada nodo le dice al hub qué números recibió (un mensaje de confirmación, un ack), y
   le reenvía sus propios números que el hub aún no le ha devuelto. El hub le reenvía a un
   nodo lo que ese nodo no haya confirmado después de un segundo.
 
 Disparar y olvidar en el camino rápido lo mantiene veloz (un salto de ida, hasta 50 ms, un
-salto de vuelta: ~350 ms de mediana); el camino lento (acks y reenvíos) hace que aguante
+salto de vuelta: ~350 ms de mediana); el camino lento (confirmaciones y reenvíos) hace que aguante
 las particiones. Unos 14 mensajes por operación a 20 operaciones/s.
 """
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 from core.net import Message, Node
 
 BATCH = 0.05  # el hub envía un lote así de seguido (solo si tiene algo que enviar)
-SYNC = 1.0  # acks y reenvíos así de seguido
+SYNC = 1.0  # confirmaciones y reenvíos así de seguido
 
 
 class BroadcastNode(Node):
@@ -34,7 +34,7 @@ class BroadcastNode(Node):
             self.every(BATCH, self.send_batches)
         else:
             self.unconfirmed: dict[int, float] = {}  # números de mis clientes que el hub no ha devuelto
-            self.received: set[int] = set()  # recibidos del hub desde mi último ack
+            self.received: set[int] = set()  # recibidos del hub desde mi última confirmación
             self.every(SYNC, self.sync)
 
     # ---- clientes

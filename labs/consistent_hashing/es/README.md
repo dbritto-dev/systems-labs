@@ -24,11 +24,11 @@ LABS_LANG=es uv run pytest labs/consistent_hashing            # x = aún no, X =
 | 1 Anillo de hash | un punto por nodo en un anillo; una clave va al siguiente punto en el sentido de las agujas del reloj | un cambio mueve ~1/N, pero el nodo más cargado tiene 1.9x la media |
 | 2 Anillo + nodos virtuales | 200 puntos por nodo | se mueve ~1/N, el nodo más cargado tiene 1.16x; todos los objetivos OK |
 
-Objetivos, juzgados en cada cambio:
+Objetivos, evaluados en cada cambio:
 
 - **Claves/nodo ≤ 1.4x** (antes): claves del nodo más cargado frente a la media, en el clúster
   tal como estaba justo antes del cambio.
-- **Movidas ≤ 3/N** (durante): de 2.000 claves de muestra, cuántas van a otro nodo después del
+- **Movidas ≤ 3/N** (durante): de 2,000 claves de muestra, cuántas van a otro nodo después del
   cambio, en unidades de 1/N (N es el clúster más grande). Lo ideal es 1/N; con módulo es ~7/N.
   Un anillo con un punto por nodo puede mover hasta ~2.5/N cuando sale un nodo con un arco grande.
 - **Aciertos ≥ 90%** (después): la tasa de aciertos en los 4 s después del cambio frente a los

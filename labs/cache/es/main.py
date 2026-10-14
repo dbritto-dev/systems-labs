@@ -27,7 +27,7 @@ from core.vtime import now
 
 
 class Cache:
-    """Una cache en memoria. El escenario crea una y llama a `clear()` en cada vaciado.
+    """Una caché en memoria. El escenario crea una y llama a `clear()` en cada vaciado.
 
     Contrato:
       - `lookup(key)` devuelve el valor, o None si no está o ya caducó.

@@ -99,7 +99,7 @@ LESSON = Lesson(
         "Elige una sola capa que reintente (biblioteca cliente, malla o gateway) y que las demás fallen rápido.",
     ),
     watch_for=(
-        "Sin reintentos: durante la caída la tarjeta Servidas baja a 0% y los usuarios fallan (rojo).",
+        "Sin reintentos: durante la caída la tarjeta Servido baja a 0% y los usuarios fallan (rojo).",
         "Reintentos: los puntos naranjas son reintentos que vuelven al instante. 'Recibimos' es ~4x 'Piden'.",
         "Reintentos + backoff: las esperas se duplican en cada ronda, pero todos esperan lo mismo: oleadas.",
         "Reintentos + backoff + jitter: los reintentos se reparten, pero la carga sigue ~4x.",

@@ -38,7 +38,7 @@ STAGES = [
 
 GOALS = {
     "reach": GoalText("Llega a todos", "reenvía los números nuevos"),
-    "survive": GoalText("Aguanta corte", "reenvía hasta confirmar"),
+    "survive": GoalText("Aguanta corte", "reenvía hasta que confirmen"),
     "msgs30": GoalText("Msgs/op < 30", "envía menos mensajes"),
     "fast": GoalText("Rápido 400/600ms", "menos saltos por número"),
     "msgs20": GoalText("Msgs/op < 20", "agrupa los números"),
@@ -122,7 +122,7 @@ LESSON = Lesson(
             "El reto original y sus partes 3b a 3e (en inglés)."),
         Ref("Maelstrom: the broadcast workload",
             "https://github.com/jepsen-io/maelstrom/blob/main/doc/workloads.md",
-            "Los mensajes y lo que mira el verificador (en inglés)."),
+            "Los mensajes y lo que mira el comprobador (en inglés)."),
         Ref("Demers et al.: Epidemic algorithms for replicated database maintenance (1987)",
             "https://dl.acm.org/doi/10.1145/41840.41841",
             "De donde vienen el gossip y la anti-entropía (en inglés)."),

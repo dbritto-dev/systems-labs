@@ -14,10 +14,10 @@ a los demás.
 Haz las etapas en orden, en este archivo:
 
   Etapa 1  Replica (6b): envía cada escritura a los demás nodos, para que se pongan al día.
-  Etapa 2  Lectura no confirmada, a través de particiones (6b): reenvía lo que el otro nodo
+  Etapa 2  Read uncommitted, a través de particiones (6b): reenvía lo que el otro nodo
            no ha confirmado; cuando dos escrituras a una clave se cruzan, gana la más nueva en
            todas partes (sella cada transacción con (tiempo, nodo) y quédate con el sello mayor).
-  Etapa 3  Lectura confirmada (6c): que nadie vea nunca un valor que una transacción
+  Etapa 3  Read committed (6c): que nadie vea nunca un valor que una transacción
            sobrescribió ella misma (una "lectura intermedia", G1b): replica transacciones
            enteras, solo con su valor final por clave, y aplica cada una de una vez.
 

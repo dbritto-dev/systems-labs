@@ -25,8 +25,8 @@ LABS_LANG=es uv run pytest labs/idempotency            # x = aún no, X = hecho
 | 1 Repite respuestas | `get` de la clave; si hay recibo devuélvelo, si no cobra y haz `set` | los reintentos tras una respuesta perdida se repiten (100%), pero un reintento que llega mientras el primero sigue cobrando, o dos intentos a la vez, siguen cobrando dos veces |
 | 2 Claves reservadas | reclama la clave con `store.add(key, IN_PROGRESS, ttl)` antes de cobrar; los duplicados esperan el recibo (o lanzan `Conflict`); todo caduca | ningún cobro doble, cada intento recibe el mismo recibo; todos los objetivos OK |
 
-Objetivos, evaluados en cada incidente: base correcta (antes), repetidos ≥ 95% de los
-reintentos que llegan después del primer cobro (durante y 5 s después; "ninguno" cuando no
+Objetivos, evaluados en cada incidente: base correcta (antes), respuestas repetidas ≥ 95% de
+los reintentos que llegan después del primer cobro (durante y 5 s después; "ninguno" cuando no
 llegó ningún reintento tan tarde, y pasa), cobros dobles = 0 (durante), el mismo recibo para
 cada intento de un pago (durante), p99 < 500 ms para los pagos empezados en los 5 s
 siguientes.

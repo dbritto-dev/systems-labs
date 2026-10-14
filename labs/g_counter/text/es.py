@@ -10,7 +10,7 @@ PARAMS = {"rate": "operaciones de clientes por segundo (60% add, 40% read)"}
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
 VERBS = {"burst": "PICO", "calm": "CALMA", "slow": "LENTO", "fast": "RÁPIDO"}
 CAUSES = {
-    "flash_sale": "empezó una venta flash",
+    "flash_sale": "empezó una venta relámpago",
     "retry_loop": "un cliente reintentó cada suma en bucle",
     "batch_import": "una importación por lotes repitió un día de eventos",
     "congested_link": "un enlace congestionado entre racks",
@@ -67,7 +67,7 @@ STRINGS = {
     "head_off": "Las lecturas no cuadran",
     "head_total": "Total {total:,}: lecturas correctas",
     "head_waiting": "Esperando lecturas",
-    "note_chart": "Gráfico: peticiones a seq-kv por segundo.",
+    "note_chart": "Gráfica: peticiones a seq-kv por segundo.",
     # el dibujo
     "state_conflicts": "CONFLICTOS CAS {share:.0%}",
     "state_burst": "PICO x{factor:.1f}",

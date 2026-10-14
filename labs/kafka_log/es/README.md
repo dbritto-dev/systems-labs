@@ -29,11 +29,11 @@ un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
 | 2 Eficiente | 5c | menos viajes de ida y vuelta (p. ej. un nodo dueño por clave) | ~1.3 msgs/op, p99 de send ~47 ms, incluso en avalanchas |
 
 Objetivos, evaluados en cada incidente: offsets únicos (15 s antes), ninguna escritura perdida
-(durante), offsets confirmados conservados (10 s después), mensajes por operación < 3 (antes;
+(durante), offsets con commit conservados (10 s después), mensajes por operación < 3 (antes;
 entre los nodos y lin-kv, divididos por las operaciones de los clientes), y p99 de send < 100 ms
 (durante).
 
 El comprobador mira cada respuesta, como el comprobador kafka de Maelstrom: dos sends confirmados
 con el mismo offset para una clave; un poll que devuelve un offset pero se salta uno anterior ya
-confirmado (o devuelve otro mensaje en él); un offset confirmado listado por debajo de un commit
+confirmado (o devuelve otro mensaje en él); un offset con commit listado por debajo de un commit
 confirmado.

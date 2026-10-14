@@ -5,7 +5,7 @@ from core.lessons import Lesson, Ref
 
 TITLE = "Índices de base de datos"
 SUMMARY = "La tabla no deja de crecer y cada consulta la lee entera. Añade los índices que lo arreglan."
-PARAMS = {"rate": "inicios de sesión por segundo"}
+PARAMS = {"rate": "logins por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
 VERBS = {"import": "CARGA", "report": "RANGOS", "spike": "PICO", "calm": "CALMA"}
@@ -23,7 +23,7 @@ CAUSES = {
 
 STAGES = [
     StageText("Lectura completa",
-              "Reto: cada consulta lee toda la tabla, y no deja de crecer. Indexa los inicios de sesión.",
+              "Reto: cada consulta lee toda la tabla, y no deja de crecer. Indexa los logins.",
               "Etapa 1: un índice hash email -> posición para find_by_email"),
     StageText("Índice hash",
               "Reto: un login lee una fila, pero cada informe por rango sigue leyendo todo.",
@@ -50,7 +50,7 @@ STRINGS = {
     "title_spike": "Pico",
     "start_import": "recibe {rows:,.0f} filas importadas: {cause}",
     "start_report": "lanza {x:.0f}x más consultas por rango: {cause}",
-    "start_spike": "recibe {x:.1f}x inicios de sesión: {cause}",
+    "start_spike": "recibe {x:.1f}x logins: {cause}",
     "end": "vuelve la calma",
     "warn_slow": "las consultas tardan {ms:.0f} ms",
     "warn_timeouts": "los usuarios se cansan de esperar a la base de datos",
@@ -68,7 +68,7 @@ STRINGS = {
     "head_timeouts": "{n} usuarios se cansaron de esperar",
     "head_import": "Carga: la tabla tiene {rows:,} filas",
     "head_report": "Un informe lanza consultas por rango",
-    "head_spike": "{x:.1f}x inicios de sesión",
+    "head_spike": "{x:.1f}x logins",
     "head_calm": "{rows:,} filas; un login lee {read:,.0f}",
     "note_chart": "Gráfica: tiempo ocupado de la BD, % de 4 workers.",
 }
@@ -78,7 +78,7 @@ LESSON = Lesson(
     one_liner="Una consulta que lee todas las filas va más lenta a medida que crece la tabla; un índice lee solo lo que necesita.",
     learn=(
         "Sin índice, una base de datos responde con una lectura completa (full scan): lee cada fila y se "
-        "queda con las que coinciden. Va bien con 1.000 filas y fatal con 10 millones, y la tabla no deja "
+        "queda con las que coinciden. Va bien con 1,000 filas y fatal con 10 millones, y la tabla no deja "
         "de crecer: una consulta rápida el día del lanzamiento se vuelve un poco más lenta cada día.",
         "Un índice hash relaciona un valor con el sitio donde vive su fila (email -> posición). Una "
         "búsqueda por igualdad lee una fila. No sirve para 'entre': un hash no tiene orden.",

@@ -7,3 +7,5 @@ out/
 .DS_Store
 # Copies made by Finder or iCloud Drive ("main 2.py")
 * [0-9].*
+.boost/
+.claude/

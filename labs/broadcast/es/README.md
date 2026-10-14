@@ -31,7 +31,7 @@ cure, mensajes por operación < 30 y < 20, y el tiempo hasta que cada nodo tiene
 (mediana/máximo) < 400/600 ms y < 1/2 s.
 
 Los mensajes por operación cuentan los mensajes entre nodos, divididos por las operaciones de
-los clientes (lecturas incluidas), como el `msgs-per-op` de Maelstrom. El verificador mira el
+los clientes (lecturas incluidas), como el `msgs-per-op` de Maelstrom. El comprobador mira el
 `self.messages` de cada nodo cada 20 ms, fuera de la red, así que nunca añade tráfico.
 
 Cómo habla tu nodo está en `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,

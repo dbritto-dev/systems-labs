@@ -1,7 +1,7 @@
 """Laboratorio db_index: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
 Una tabla `users` que no deja de crecer: ~5 altas/s, y de vez en cuando cargas masivas. Los
-usuarios inician sesión (`find_by_email`, ~30/s) y los paneles preguntan quién se dio de alta
+usuarios hacen login (`find_by_email`, ~30/s) y los paneles preguntan quién se dio de alta
 en un país en un rango de tiempo (`signups_between`). Cada fila que lee la base de datos
 cuesta tiempo, y solo tiene 4 workers. Ahora mismo cada consulta lee la tabla entera (una
 lectura completa), así que va más lenta a medida que la tabla crece.

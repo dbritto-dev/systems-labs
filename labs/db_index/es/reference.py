@@ -1,4 +1,4 @@
-"""Laboratorio db_index: una solución que funciona. Léela después de intentar main.py."""
+"""Laboratorio db_index: una solución que funciona. Léela después de intentar es/main.py."""
 
 from __future__ import annotations
 

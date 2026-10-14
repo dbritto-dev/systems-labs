@@ -22,18 +22,18 @@ LABS_LANG=es uv run pytest labs/conn_pool            # x = aún no, X = hecho
 
 | Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|
-| 0 Conexión nueva (dada) | abre y cierra una conexión por petición | reuso 0%; una lentitud o un pico llega a 50 conexiones y se rechazan peticiones |
-| 1 Pool | guarda las conexiones liberadas y vuelve a darlas | reuso ~100%; una lentitud aún lleva el pool a 50: peticiones rechazadas |
+| 0 Conexión nueva (dada) | abre y cierra una conexión por petición | reúso 0%; una lentitud o un pico llega a 50 conexiones y se rechazan peticiones |
+| 1 Pool | guarda las conexiones liberadas y vuelve a darlas | reúso ~100%; una lentitud aún lleva el pool a 50: peticiones rechazadas |
 | 2 Pool acotado | nunca abras más de `max_size` (20); espera a que se libere una | sin rechazos, pero durante una lentitud las peticiones esperan de 2 a 7 s |
 | 3 Pool acotado + timeout | ríndete tras `timeout` (0.5 s): lanza `PoolTimeout` | las esperas se quedan en 0.5 s; algunas peticiones fallan rápido mientras va lenta |
 
-Objetivos, evaluados en cada incidente: base correcta (antes), reuso ≥ 90% de las
+Objetivos, evaluados en cada incidente: base correcta (antes), reúso ≥ 90% de las
 peticiones servidas (antes), ningún error de "too many connections" (durante), espera p99
 por una conexión < 1 s (durante), ≥ 95% de las peticiones empezadas en los 5 s siguientes
 servidas en menos de 1 s (después).
 
 Una petición que sigue esperando cuando se evalúa un incidente cuenta con el tiempo que lleva
-esperado. Un pool más grande no hace más rápida una base de datos lenta: pasadas ~20
+esperando. Un pool más grande no hace más rápida una base de datos lenta: pasadas ~20
 conexiones trabajando a la vez, cada consulta tarda más.
 
 **Segundo dibujo.** Pulsa `v` (o `--view cluster`) para ver la topología: clientes → pool → base de datos. Las peticiones que esperan conexión se acumulan en el pool; las conexiones rechazadas mueren en rojo camino de la base de datos.

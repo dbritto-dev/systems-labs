@@ -1,4 +1,4 @@
-# Laboratorio: estampida en la cache
+# Laboratorio: estampida en la caché
 
 *[Read in English](../README.md)*
 
@@ -8,10 +8,10 @@ caros que tardan 8 veces más en construirse. La base de datos tarda 20 ms por l
 hace 8 a la vez (~400 lecturas/s); por encima de eso las lecturas hacen cola, y una cola
 llena rechaza lecturas.
 
-El incidente es un **vaciado de la cache**: en momentos al azar, como en producción, un
+El incidente es un **vaciado de la caché**: en momentos al azar, como en producción, un
 despliegue, un reinicio por falta de memoria o una conmutación a una réplica fría dejan la
-cache vacía. El primero siempre es a las 0:20. La ejecución nunca se reinicia, así que la
-cache se vuelve a llenar (o provoca una estampida) por sí sola.
+caché vacía. El primero siempre es a las 0:20. La ejecución nunca se reinicia, así que la
+caché se vuelve a llenar (o provoca una estampida) por sí sola.
 
 ```
 uv run python -m live cache --lang es            # míralo; edita es/main.py y guarda
@@ -29,4 +29,4 @@ Objetivos, evaluados en cada vaciado: aciertos ≥ 80% (15 s antes), cargas dupl
 de las lecturas de la base de datos (primeros 5 s), p99 del tiempo de lectura < 100 ms
 (lecturas empezadas en los 10 s siguientes).
 
-**Dibujos:** `lanes` (carriles, el de siempre) y `cluster`: clientes → la app, que pregunta a la cache (derecha) y lee la base de datos (abajo) si falla; la cache se pone naranja mientras está vacía. Pulsa `v` para cambiar, o empieza con `--view cluster`.
+**Dibujos:** `lanes` (carriles, el de siempre) y `cluster`: clientes → la app, que pregunta a la caché (derecha) y lee la base de datos (abajo) si falla; la caché se pone naranja mientras está vacía. Pulsa `v` para cambiar, o empieza con `--view cluster`.

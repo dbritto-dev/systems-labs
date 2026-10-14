@@ -13,7 +13,7 @@ Las reglas (el comprobador mira cada respuesta):
   - los offsets de una clave son únicos: dos mensajes nunca comparten uno;
   - ninguna escritura se pierde: un poll puede devolver cuantos mensajes quiera desde `from`,
     pero nunca saltarse un offset ya confirmado (ni devolver otro mensaje en él);
-  - los offsets confirmados con commit nunca retroceden: listarlos devuelve al menos el último
+  - los offsets con commit nunca retroceden: listarlos devuelve al menos el último
     commit confirmado.
 
 Ahora mismo cada nodo guarda su propio log: correcto con un nodo (reto 5a), incorrecto con dos.

@@ -1,9 +1,9 @@
 """Laboratorio replication_lag: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
-Una base de datos primaria y 4 réplicas de lectura (r1..r4). Cada escritura se confirma en el
+Una base de datos primaria y 4 réplicas de lectura (r1..r4). Cada escritura se consolida en el
 primario y llega a cada réplica 50-200 ms después; a veces mucho después (una réplica se
 retrasa, se reinicia o llega un pico de escrituras). Tu `Router` decide adónde va cada lectura.
-Ahora mismo manda cada lectura a cualquier réplica que esté arriba, así que los usuarios no ven
+Ahora mismo manda cada lectura a cualquier réplica que esté en marcha, así que los usuarios no ven
 sus propios cambios justo después de hacerlos, y las páginas retroceden en el tiempo cuando una
 lectura cae en una réplica retrasada.
 
@@ -27,7 +27,7 @@ import random
 class Router:
     """Decide adónde va cada lectura. El escenario llama a:
 
-      wrote(session, lsn)               la escritura de una sesión se confirmó en el primario en la
+      wrote(session, lsn)               la escritura de una sesión se consolidó en el primario en la
                                         posición `lsn` del log (las posiciones solo crecen)
       pick(session, key, replicas)      una lectura: devuelve "primary" o el nombre de una réplica
       saw(session, key, name, lsn)      tras una lectura: respondió el nodo `name`, y el valor que dio

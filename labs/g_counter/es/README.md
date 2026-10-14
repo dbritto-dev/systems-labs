@@ -5,10 +5,10 @@
 El reto n.º 4 de [Gossip Glomers](https://fly.io/dist-sys/4/), en Python, sobre una red
 simulada: 3 nodos sin estado en una LAN (20 ms por mensaje) y el servicio `seq-kv` de
 Maelstrom, un almacén clave/valor *secuencialmente consistente*: una lectura puede devolver un
-valor de hasta 0,5 s de antigüedad, aunque nunca más viejo que tus propias escrituras. Los
+valor de hasta 0.5 s de antigüedad, aunque nunca más viejo que tus propias escrituras. Los
 clientes envían `add` (un delta) y `read` (el total).
 
-Los incidentes llegan al azar, como en producción: picos de sumas (una venta flash, un cliente
+Los incidentes llegan al azar, como en producción: picos de sumas (una venta relámpago, un cliente
 atascado en un bucle de reintentos) y una red lenta. El primero siempre es un pico de 3x entre
 0:20 y 0:30.
 
@@ -33,7 +33,7 @@ Objetivos, evaluados en cada incidente: la cuenta vive en seq-kv (antes), sin su
 (antes), conflictos < 10% de los compare-and-swap (durante), sumas respondidas ≥ 99%
 (durante), lecturas correctas otra vez 2-7 s después (después).
 
-Una lectura es *correcta* cuando su valor es al menos todas las sumas confirmadas 1,5 s antes
-de que empezara la lectura (seq-kv puede ir 0,5 s atrasado) y como mucho todas las sumas
+Una lectura es *correcta* cuando su valor es al menos todas las sumas confirmadas 1.5 s antes
+de que empezara la lectura (seq-kv puede ir 0.5 s atrasado) y como mucho todas las sumas
 enviadas antes de que terminara. En el dibujo seq-kv es el nodo morado; los conflictos
 parpadean en rojo al volver de él.

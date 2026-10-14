@@ -18,7 +18,7 @@ LABS_LANG=es uv run pytest labs/n_plus_one            # x = aún no, X = hecho
 
 | Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|
-| 0 N+1 (dada) | un `fetch_customer` por pedido | ~21 consultas por página; con la BD lenta se llenan sus 8 conexiones y las páginas caducan |
+| 0 N+1 (dada) | un `fetch_customer` por pedido | ~21 consultas por página; con la BD lenta se llenan sus 8 conexiones y las páginas dan timeout |
 | 1 Agrupadas | un `fetch_customers(ids)` (IN) por página | 2 consultas por página y la BD casi parada; pero 2 viajes lentos: p99 ~45 ms |
 | 2 Con JOIN | un `fetch_orders_with_customers` (JOIN) por página | 1 consulta por página: un solo viaje aunque sea lento (p99 ~25 ms) |
 

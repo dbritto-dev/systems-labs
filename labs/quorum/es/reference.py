@@ -1,4 +1,4 @@
-"""Laboratorio quorum: una solución que funciona (etapa 2). Léela después de intentar main.py.
+"""Laboratorio quorum: una solución que funciona (etapa 2). Léela después de intentar es/main.py.
 
 Quórums: una escritura va a las N=3 réplicas de la clave y se confirma tras W=2 de ellas; una
 lectura pregunta a las réplicas y responde con la más nueva de R=2 respuestas. W + R > N, así
@@ -110,7 +110,7 @@ class QuorumNode(Node):
         self.spawn(self.read_repair(key, tasks, version, value))
 
     async def read_repair(self, key: str, tasks, version, value) -> None:
-        """Cuando todas las réplicas respondieron (o se agotó su tiempo), envía la versión más nueva a las atrasadas."""
+        """Cuando todas las réplicas respondieron (o dieron timeout), envía la versión más nueva a las atrasadas."""
         for reply in await asyncio.gather(*tasks):
             if reply is not None and reply[1] < version:
                 self.send(reply[0], {"type": "store", "key": key, "version": version, "value": value})

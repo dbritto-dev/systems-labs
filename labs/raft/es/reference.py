@@ -30,7 +30,7 @@ class RaftNode(Node):
         # Estado volátil.
         self.role = "follower"
         self.leader_id: str | None = None
-        self.commit_index = 0  # cuántas entradas del log están confirmadas
+        self.commit_index = 0  # cuántas entradas del log están consolidadas
         self.rng = random.Random(node_id)  # sus propios timeouts: los nodos no los agotan a la vez
         self.peers = [n for n in node_ids if n != node_id]
         self.majority = len(node_ids) // 2 + 1
@@ -146,7 +146,7 @@ class RaftNode(Node):
 
     def advance_commit(self) -> None:
         for n in range(len(self.log), self.commit_index, -1):
-            # Solo las entradas del término actual se confirman contando (Raft, figura 8).
+            # Solo las entradas del término actual se consolidan contando (Raft, figura 8).
             if self.log[n - 1].term != self.current_term:
                 break
             if 1 + sum(1 for p in self.peers if self.match_index[p] >= n) >= self.majority:
@@ -186,6 +186,6 @@ class RaftNode(Node):
             self.reply(msg, {"type": "command_redirect", "leader": self.leader_id})
             return
         self.log.append(Entry(self.current_term, msg.body["value"]))
-        self.waiting[len(self.log)] = msg  # se responde cuando esté confirmada
+        self.waiting[len(self.log)] = msg  # se responde cuando esté consolidada
         for peer in self.peers:
             self.replicate(peer)

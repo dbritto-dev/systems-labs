@@ -64,7 +64,7 @@ STRINGS = {
     "seconds": "{seconds:.0f} s",
     "over_seconds": ">{seconds:.0f} s",
     # el panel
-    "tile_served": "Éxito",
+    "tile_served": "Servido",
     "tile_waste": "Pérdida",
     "tile_reply": "Resp.",
     "bar_arrive": "Llegan",
@@ -99,7 +99,7 @@ LESSON = Lesson(
         "Descarta el trabajo que ya llega tarde: el plazo viaja con la petición, y se salta cuando "
         "no queda tiempo para responder. No se desperdicia nada en usuarios que se fueron.",
         "LIFO adaptativo: cuando la cola es larga, atiende primero las peticiones más nuevas. Esos "
-        "usuarios siguen esperando y reciben respuesta rápida, mientras las viejas caducan y se descartan.",
+        "usuarios siguen esperando y reciben respuesta rápida, mientras las viejas dan timeout y se descartan.",
     ),
     watch_for=(
         "FIFO sin límite: la cola pasa de miles y el servidor se pone naranja (DERROCHA).",

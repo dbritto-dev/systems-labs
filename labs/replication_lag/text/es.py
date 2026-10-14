@@ -8,7 +8,7 @@ SUMMARY = "Las lecturas van a réplicas que se retrasan. Que cada usuario vea lo
 PARAMS = {"rate": "operaciones de usuarios por segundo (15% escrituras)"}
 
 INCIDENT = IncidentText("Retraso", "el retraso", "el próximo retraso")
-VERBS = {"lag": "RETRAS", "caught": "AL DÍA", "down": "CAÍDA", "up": "VUELVE", "spike": "PICO", "calm": "CALMA"}
+VERBS = {"lag": "ATRASA", "caught": "AL DÍA", "down": "CAÍDA", "up": "VUELVE", "spike": "PICO", "calm": "CALMA"}
 CAUSES = {
     "analytics_query": "una consulta analítica larga frena la réplica",
     "autovacuum": "autovacuum reescribe una tabla grande en la réplica",
@@ -38,7 +38,7 @@ GOALS = {
 }
 
 LEGEND = {"fresh": "al día", "behind": "retrasada", "down": "caída", "read": "lectura",
-          "replication": "escritura / réplica", "wrong": "lectura mala", "limit": "límite del primario"}
+          "replication": "escritura / replicación", "wrong": "lectura errónea", "limit": "límite del primario"}
 
 STRINGS = {
     # incidentes
@@ -63,7 +63,7 @@ STRINGS = {
     "head_behind": "{name} va {lag:.1f} s por detrás",
     "head_down": "{name} se está reiniciando",
     "head_spike": "Todas las réplicas ~{lag:.1f} s atrás",
-    "head_wrong": "{n} lecturas mal en 5 s",
+    "head_wrong": "{n} lecturas erróneas en 5 s",
     "head_ok": "Réplicas a menos de {lag}",
     "note": "Lecturas a cámara lenta; escrituras a su retraso real.",
     # errores en tu código
@@ -75,7 +75,7 @@ LESSON = Lesson(
     title="Retraso de réplicas",
     one_liner="Las réplicas de lectura van un poco por detrás del primario, y a veces mucho. Enruta las lecturas para que nadie lo note.",
     learn=(
-        "Replicación asíncrona: una escritura se confirma en el primario y llega a cada réplica un momento "
+        "Replicación asíncrona: una escritura se consolida (commit) en el primario y llega a cada réplica un momento "
         "después (milisegundos normalmente, segundos si una réplica está ocupada, reiniciándose o inundada). "
         "Una lectura en una réplica devuelve los datos según su posición en el log (su LSN).",
         "Lee tus escrituras (read your writes): justo después de que un usuario cambia algo, una réplica "
@@ -104,7 +104,7 @@ LESSON = Lesson(
          "              session['lsn'] = max(session['lsn'], version_read)"),
     ),
     checklist=(
-        "Conoce el retraso de tus réplicas: grafícalo por réplica y alerta en segundos, no solo en 'réplica arriba'.",
+        "Conoce el retraso de tus réplicas: grafícalo por réplica y alerta en segundos, no solo en 'réplica en marcha'.",
         "Lee tus escrituras para quien escribió (LSN de sesión, o leer del primario unos segundos).",
         "Lecturas monótonas dentro de una sesión (réplica fija, o la versión más nueva vista).",
         "Saca automáticamente una réplica retrasada del grupo de lectura; devuélvela cuando se ponga al día.",

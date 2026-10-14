@@ -115,7 +115,7 @@ LESSON = Lesson(
         "Decide quién asigna el orden: un dueño (líder) por clave gana a un contador compartido con contención.",
         "Nunca confirmes un offset antes de guardar el mensaje donde los lectores lo vayan a encontrar.",
         "Un poll puede devolver menos mensajes, nunca un hueco por debajo de lo que devuelve.",
-        "Los offsets confirmados solo avanzan; guárdalos donde cualquier nodo pueda leerlos.",
+        "Los offsets con commit solo avanzan; guárdalos donde cualquier nodo pueda leerlos.",
         "Cuenta los viajes de ida y vuelta en el camino crítico, y prueba con una clave caliente.",
     ),
     refs=(

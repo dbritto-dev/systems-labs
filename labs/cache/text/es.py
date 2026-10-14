@@ -3,23 +3,23 @@
 from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
-TITLE = "Estampida en la cache"
+TITLE = "Estampida en la caché"
 SUMMARY = "Cada lectura espera a una base de datos lenta. Guarda las claves calientes y sobrevive a un vaciado."
-PARAMS = {"rate": "páginas por segundo (cada página lee 3 claves)", "ttl": "segundos que vive un valor en la cache"}
+PARAMS = {"rate": "páginas por segundo (cada página lee 3 claves)", "ttl": "segundos que vive un valor en la caché"}
 
 INCIDENT = IncidentText("Vaciado", "el vaciado", "el próximo vaciado")
 VERBS = {"flush": "VACÍA", "end": ""}
 CAUSES = {
-    "deploy_restart": "un despliegue reinició los nodos de la cache",
-    "config_roll": "un cambio de configuración reinició el clúster de la cache",
-    "out_of_memory": "la cache se quedó sin memoria y se reinició",
-    "kernel_update": "una actualización del kernel reinició los servidores de la cache",
-    "empty_replica": "la cache conmutó a una réplica vacía",
+    "deploy_restart": "un despliegue reinició los nodos de la caché",
+    "config_roll": "un cambio de configuración reinició el clúster de la caché",
+    "out_of_memory": "la caché se quedó sin memoria y se reinició",
+    "kernel_update": "una actualización del kernel reinició los servidores de la caché",
+    "empty_replica": "la caché conmutó a una réplica vacía",
     "cold_node": "un corte de red hizo que el cliente se reconectara a un nodo frío",
 }
 
 STAGES = [
-    StageText("Sin cache",
+    StageText("Sin caché",
               "Reto: cada lectura espera a la base de datos. Guarda en memoria las claves calientes.",
               "Etapa 1: cache-aside con un TTL"),
     StageText("Cache-aside",
@@ -40,9 +40,9 @@ LEGEND = {"idle": "en reposo", "hit": "acierto", "shared": "espera una carga", "
           "dup": "carga duplicada", "rejected": "rechazada", "limit": "límite", "flush": "tras un vaciado"}
 
 STRINGS = {
-    # el dibujo de clúster: clientes -> app -> cache (derecha) y base de datos (abajo)
-    "pic_state": "app · cache · base de datos: {state}",
-    "pic_empty": "app · cache VACÍA · base de datos: {state}",
+    # el dibujo de clúster: clientes -> app -> caché (derecha) y base de datos (abajo)
+    "pic_state": "app · caché · base de datos: {state}",
+    "pic_empty": "app · caché VACÍA · base de datos: {state}",
     # incidentes
     "flushed": "está vacía: {cause}",
     "warn_db": "lecturas de la base de datos {ratio:.1f}x lo normal",
@@ -57,22 +57,22 @@ STRINGS = {
     "bar_db": "BD",
     "limit": "límite {limit:.0f}/s",
     "head_hit_db": "Vaciado: {ratio:.0f}x lecturas van a la base de datos",
-    "head_refilling": "Vaciado: la cache se está llenando",
-    "head_no_cache": "Sin cache: cada lectura va a la base de datos",
-    "head_cache": "Cache: {share:.0%} de las lecturas desde memoria",
+    "head_refilling": "Vaciado: la caché se está llenando",
+    "head_no_cache": "Sin caché: cada lectura va a la base de datos",
+    "head_cache": "Caché: {share:.0%} de las lecturas desde memoria",
     "note_dots": "Los puntos son una muestra de lecturas, más lentas (estético).",
-    "note_chart": "El gráfico: lecturas de la base de datos por segundo.",
+    "note_chart": "Gráfica: lecturas de la base de datos por segundo.",
     # errores en tu código
     "stuck": "una lectura lleva más de {seconds:.0f} s: ¿get() espera algo que nunca termina?",
 }
 
 LESSON = Lesson(
-    title="Estampida en la cache",
-    one_liner="Una cache esconde una base de datos lenta, hasta que se vacía y cada fallo va a la base de datos a la vez.",
+    title="Estampida en la caché",
+    one_liner="Una caché esconde una base de datos lenta, hasta que se vacía y cada fallo va a la base de datos a la vez.",
     learn=(
-        "Cache-aside: lee la cache; si falla, lee la base de datos, guarda el valor con un TTL y "
+        "Cache-aside: lee la caché; si falla, lee la base de datos, guarda el valor con un TTL y "
         "devuélvelo. Con tráfico sesgado (unas pocas claves calientes) casi todas las lecturas salen de memoria.",
-        "Un vaciado (un despliegue, un reinicio, una conmutación) deja la cache vacía. Ahora cada lectura "
+        "Un vaciado (un despliegue, un reinicio, una conmutación) deja la caché vacía. Ahora cada lectura "
         "falla. Una clave caliente se lee muchas veces mientras su primera carga sigue en curso, y cada uno "
         "de esos fallos lanza su propia carga: una estampida (thundering herd).",
         "Las cargas duplicadas hacen cola en la base de datos, así que cada carga tarda más, y todavía más "
@@ -83,7 +83,7 @@ LESSON = Lesson(
         "azar (digamos ±20%) reparte las caducidades.",
     ),
     watch_for=(
-        "Sin cache: 'Usuarios' supera el límite de la base de datos, la cola se llena y las lecturas esperan o fallan.",
+        "Sin caché: 'Usuarios' supera el límite de la base de datos, la cola se llena y las lecturas esperan o fallan.",
         "Cache-aside: todo tranquilo hasta un vaciado; luego cargas duplicadas naranja oscuro y un p99 cerca de un segundo.",
         "A prueba de estampidas: tras un vaciado la base de datos trabaja más un rato, pero cada clave carga una vez.",
         "Single-flight no reduce los fallos de claves distintas; elimina los duplicados.",
@@ -110,7 +110,7 @@ LESSON = Lesson(
         "Conoce tu tasa de aciertos y qué hace la base de datos al 0% (tras un vaciado o un arranque en frío).",
         "Single-flight (o leases) por clave en la ruta de lectura, al menos por proceso.",
         "TTL con jitter, y refresca pronto las claves calientes (caducidad anticipada probabilística) en vez de dejarlas caducar.",
-        "Calienta la cache antes de que un despliegue reciba tráfico, o despliega poco a poco.",
+        "Calienta la caché antes de que un despliegue reciba tráfico, o despliega poco a poco.",
         "Protege igualmente la base de datos: una cola acotada, timeouts y descarte de carga.",
     ),
     refs=(

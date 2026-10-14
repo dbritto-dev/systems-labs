@@ -100,7 +100,7 @@ LESSON = Lesson(
     watch_for=(
         "Nada aún: cada petición vuelve en rojo.",
         "Un contador por nodo: las respuestas se ponen verdes, pero sube la tarjeta Duplic.: n0 y n1 dan 1, 2, 3...",
-        "Preguntar a un líder: únicos, hasta que una partición deja nodos sin él y sus peticiones caducan.",
+        "Preguntar a un líder: únicos, hasta que una partición deja nodos sin él y sus peticiones dan timeout.",
         "Nodo + contador: siempre únicos y disponibles, pero son texto y no van ordenados por tiempo.",
         "Snowflake sin protección: cuando un reloj se atrasa (un nodo naranja), sus IDs van hacia atrás.",
     ),

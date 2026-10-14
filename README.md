@@ -135,6 +135,9 @@ Backend systems (the **lanes** picture: users, a door, a server):
 | `conn_pool` | the database slows down or traffic spikes | pool → bounded pool → acquire timeout |
 | `circuit_breaker` | one dependency gets very slow and takes the rest down | timeouts → bulkhead → circuit breaker |
 | `overload` | a traffic spike; the queue never recovers (metastable) | bounded queue → skip late requests → adaptive LIFO |
+| `idempotency` | payments get retried and arrive twice | replay stored answers → reserve the key before charging |
+| `n_plus_one` | a page asks the database once per item | N+1 → one batched IN query → one JOIN |
+| `db_index` | the table keeps growing; every query reads all of it | hash index → hash + composite index |
 
 Distributed systems: the Fly.io [Gossip Glomers](https://fly.io/dist-sys/) challenges on a
 simulated network with partitions (the **cluster** picture: nodes and the messages between them):
@@ -146,6 +149,17 @@ simulated network with partitions (the **cluster** picture: nodes and the messag
 | `g_counter` | #4 Grow-only counter | shared key → compare-and-swap → a key per node, on seq-kv |
 | `kafka_log` | #5 Kafka-style log | single node → multi-node through lin-kv → efficient: an owner per key (5a–5c) |
 | `txn` | #6 Totally-available transactions | replicated → read uncommitted → read committed (6a–6c) |
+
+Replication and partitioning, on the same network (cluster picture first):
+
+| Lab | Problem | Stages |
+|---|---|---|
+| `replication_lag` | reads go to replicas that lag behind | read your writes → monotonic reads |
+| `consistent_hashing` | cache servers come and go; keys move | modulo → hash ring → ring + virtual nodes |
+| `quorum` | every key on 3 of 5 nodes; a node goes down | one copy → quorums (R + W > N) → quorums + read repair |
+| `raft` | elect a leader; never lose a committed command | leader election → log replication → safe (terms, up-to-date votes) |
+
+Every lab also has a second picture: press `v` (lanes ↔ cluster).
 
 ## Layout
 

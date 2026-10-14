@@ -23,7 +23,7 @@ Cómo habla tu nodo (mira core/net.py):
   await self.rpc(dest, {...}, timeout=0.5)   envía y espera la respuesta (TimeoutError si se pierde)
   self.every(seconds, coroutine_function)    ejecuta algo de forma periódica
 
-Guarda cada número que conozcas en `self.messages` (un set): el verificador mira ahí.
+Guarda cada número que conozcas en `self.messages` (un set): el comprobador mira ahí.
 
 Compruébalo:  LABS_LANG=es uv run pytest labs/broadcast
 Mira una solución (¡después de intentarlo!):  labs/broadcast/es/reference.py

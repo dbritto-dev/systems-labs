@@ -36,7 +36,7 @@ STAGES = [
 
 GOALS = {
     "baseline": GoalText("Base correcta", "el pool debe dar conexiones"),
-    "reuse": GoalText("Reuso ≥ 90%", "guarda las conexiones libres"),
+    "reuse": GoalText("Reúso ≥ 90%", "guarda las conexiones libres"),
     "errors": GoalText("Errores conex. = 0", "limita el pool a max_size"),
     "wait": GoalText("Espera p99 < 1s", "lanza PoolTimeout antes"),
     "recovered": GoalText("Recuperado ≥ 95%", "da conexiones a quien espera"),
@@ -60,7 +60,7 @@ STRINGS = {
     "warn_refused": "demasiadas conexiones: {n:.0f} rechazadas",
     "warn_wait": "hay peticiones que esperan más de 1 s",
     # el panel
-    "tile_reuse": "Reuso",
+    "tile_reuse": "Reúso",
     "tile_conns": "Conex.",
     "tile_wait": "Esp. p99",
     "toplist": "Peticiones",
@@ -74,7 +74,7 @@ STRINGS = {
     "head_spike_ok": "Pico de tráfico; el pool aguanta",
     "head_pool": "Pool: {n} conexiones abiertas",
     "limit_max": "{n} máx",
-    "note_chart": "El gráfico: conexiones abiertas (ocupadas, libres).",
+    "note_chart": "Gráfica: conexiones abiertas (ocupadas, libres).",
     # errores en tu código
     "closed": "consulta sobre una conexión cerrada",
     "too_many": "demasiadas conexiones ({n} abiertas)",
@@ -93,7 +93,7 @@ LESSON = Lesson(
         "mayoría de las peticiones no pagan nada por conectarse.",
         "Un pool sin límite crece con la demanda. Cuando la base de datos va lenta, las peticiones "
         "retienen las conexiones más tiempo, el pool abre más y llega al max_connections de la base de "
-        "datos: las peticiones nuevas se rechazan. Más conexiones tampoco dan más rendimiento: pasado el "
+        "datos: las peticiones nuevas se rechazan. Más conexiones tampoco dan más throughput: pasado el "
         "número de núcleos, todo va más lento.",
         "Un pool acotado pone un tope por debajo del límite y hace que las peticiones esperen a una "
         "conexión libre. Eso protege la base de datos, pero si sigue lenta la cola de peticiones que "

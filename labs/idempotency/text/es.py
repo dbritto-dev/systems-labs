@@ -16,7 +16,7 @@ CAUSES = {
     "failover": "la base de datos del libro mayor está haciendo failover",
     "lb_reset": "el balanceador corta conexiones a mitad de respuesta",
     "deploy_drain": "un despliegue cierra conexiones antes de que salgan las respuestas",
-    "proxy_timeout": "un proxy agota su tiempo y tira las respuestas",
+    "proxy_timeout": "un proxy da timeout y descarta las respuestas",
     "sdk_bug": "un SDK móvil nuevo envía cada pago dos veces",
     "double_click": "los usuarios hacen doble clic en Pagar en una página lenta",
     "proxy_retry": "un proxy reintenta peticiones por su cuenta",

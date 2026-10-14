@@ -21,7 +21,7 @@ LABS_LANG=es uv run pytest labs/circuit_breaker            # x = aún no, X = he
 | 0 Sin protección (dada) | las llamadas esperan lo que haga falta | workers 24/24, y la dependencia sana también falla (~5% servidas) |
 | 1 Timeouts | `asyncio.timeout(TIMEOUT)` alrededor de la llamada | las llamadas se cortan a 1 s, pero el pool se sigue llenando: sana ~15–70% |
 | 2 Timeouts + bulkhead | un `Bulkhead(10)` por dependencia | la dependencia sana va bien; quien usa la lenta aún espera 1 s para fallar |
-| 3 Timeouts + bulkhead + breaker | un `CircuitBreaker` por dependencia | la puerta se cierra: las llamadas fallan en menos de 1 ms, y se vuelve a cerrar después |
+| 3 Timeouts + bulkhead + breaker | un `CircuitBreaker` por dependencia | la puerta se cierra: las llamadas fallan en menos de 1 ms, y se vuelve a abrir después |
 
 Objetivos, evaluados en cada lentitud: base correcta (antes); llamadas a la dependencia
 lenta ≤ 1.2 s (p99, durante); peticiones a la dependencia sana servidas ≥ 99% (durante);

@@ -68,7 +68,7 @@ STRINGS = {
     "head_flood": "{n} en avalancha: backend a {sent}/s",
     "head_calm": "Backend: {sent}/s de {capacity:.0f}/s",
     "stat_limited": "limitadas",
-    "note_chart": "El gráfico: peticiones por segundo que llegan al backend.",
+    "note_chart": "Gráfica: peticiones por segundo que llegan al backend.",
     # errores en tu código
     "stuck": "una petición lleva más de {seconds:.0f} s: ¿RateLimiter.allow espera algo?",
 }

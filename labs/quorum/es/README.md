@@ -11,17 +11,17 @@ de las claves. El primer incidente siempre tumba n2 entre 0:20 y 0:30.
 
 ```
 uv run python -m live quorum --lang es            # míralo; edita es/main.py y guarda
-uv run python -m live quorum --lang es --lesson   # el concepto, enlaces y una lista de control
+uv run python -m live quorum --lang es --lesson   # el concepto, enlaces y una lista de comprobación
 LABS_LANG=es uv run pytest labs/quorum            # x = aún no, X = hecho
 ```
 
-| Etapa | En `es/main.py` | Qué ves |
+| Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|
 | 0 Una copia (dada) | cada nodo guarda lo que le envían | las lecturas caen en otros nodos y no ven la última escritura |
 | 1 Quórums | escribe en W=2 de 3 réplicas, lee de R=2, gana la versión más nueva | ninguna lectura vieja, ni con un nodo caído; pero vuelve atrasado |
 | 2 Quórums + reparación | hinted handoff (y read repair) | el nodo que volvió se pone al día en segundos |
 
-Objetivos, por incidente: lecturas viejas = 0 (desde 15 s antes hasta su final), ≥ 99% de
+Objetivos, evaluados en cada incidente: lecturas viejas = 0 (desde 15 s antes hasta su final), ≥ 99% de
 peticiones respondidas durante él, ≥ 99% de las claves al día en todas sus réplicas 10 s
 después de que termine, y menos de 10 mensajes entre nodos por operación de cliente (en los
 15 s anteriores).

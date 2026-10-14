@@ -1,7 +1,7 @@
 """Laboratorio kafka_log: una solución que funciona (etapa 2). Léela después de intentar es/main.py.
 
 Cada clave tiene un dueño: uno de los dos nodos, elegido con un hash de la clave. El dueño guarda
-en memoria el log de esa clave y su offset confirmado, y reparte él mismo los offsets: sin viajes
+en memoria el log de esa clave y su offset con commit, y reparte él mismo los offsets: sin viajes
 al almacenamiento y sin contención. El otro nodo reenvía al dueño las peticiones sobre esa clave
 (un RPC).
 
