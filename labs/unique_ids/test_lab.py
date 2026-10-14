@@ -137,3 +137,15 @@ def test_stage2_unique_and_available():
 @your_code(3, "ids are 64-bit ints, ordered by time, never going backwards")
 def test_stage3_snowflake():
     assert first() == [True] * 6
+
+
+def test_a_second_picture_shows_what_the_clients_see():
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("unique_ids", "reference", 1)
+    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    set_view(world, "lanes")
+    frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
+    assert frame.users or frame.flights
+    text, colour = frame.state
+    assert text and len(text) <= 13

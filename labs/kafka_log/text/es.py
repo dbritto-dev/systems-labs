@@ -74,6 +74,9 @@ STRINGS = {
     # el dibujo
     "state_hot": "CLAVE CALIENTE {k}",
     "state_kv_slow": "LIN-KV LENTO",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_anomaly": "ANOMALÍA",
+    "lanes_kv_slow": "KV LENTO",
 }
 
 LESSON = Lesson(

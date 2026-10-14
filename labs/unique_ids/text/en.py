@@ -77,6 +77,9 @@ STRINGS = {
     "note_chart": "Chart: ids per second: unique, duplicate, failed.",
     # the picture
     "state_clock": "n{node} CLOCK -{seconds:.1f}s",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_dups": "DUPLICATES",
+    "lanes_clock": "CLOCK SKEW",
 }
 
 LESSON = Lesson(

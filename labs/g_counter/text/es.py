@@ -75,6 +75,9 @@ STRINGS = {
     "state_off": "LECTURAS MAL",
     # errores en tu código
     "stuck": "una petición de cliente lleva más de {seconds:.0f} s esperando: ¿algún handler nunca responde?",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_conflicts": "CONFLICTOS",
+    "lanes_kv_slow": "KV LENTO",
 }
 
 LESSON = Lesson(

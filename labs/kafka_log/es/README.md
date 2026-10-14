@@ -18,6 +18,10 @@ uv run python -m live kafka_log --lang es --lesson   # el concepto, enlaces y un
 LABS_LANG=es uv run pytest labs/kafka_log            # x = aún no, X = hecho
 ```
 
+Dos dibujos: `cluster` (el de siempre: los nodos y los mensajes entre ellos) y `lanes`
+(lo que ven los clientes: sus peticiones esperando, la red como una puerta, el clúster como
+un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
+
 | Etapa | Reto | En `es/main.py` | Lo que ves |
 |---|---|---|---|
 | 0 Un solo nodo (dada) | 5a | cada nodo guarda su propio log | offsets duplicados, escrituras perdidas, commits perdidos |

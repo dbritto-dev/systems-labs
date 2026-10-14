@@ -65,6 +65,8 @@ STRINGS = {
     "state_cut": "n{node} aislado",
     # errores en tu código
     "no_store": "TxnNode debe guardar su almacén clave/valor en self.store (un dict)",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_g1b": "LECTURA G1b",
 }
 
 LESSON = Lesson(

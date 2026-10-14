@@ -14,6 +14,10 @@ uv run python -m live unique_ids --lesson   # the concept, links and a checklist
 uv run pytest labs/unique_ids               # x = not yet, X = done
 ```
 
+Two pictures: `cluster` (the default: the nodes and the messages between them) and `lanes`
+(what the clients see: their requests waiting, the network as a door, the cluster as one
+server). Press `v` to switch, or start with `--view lanes`.
+
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
 Spanish comments and hints.
 
