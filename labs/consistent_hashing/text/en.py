@@ -77,6 +77,9 @@ STRINGS = {
     "head_ok": "{hits:.0%} hits; the database reads {db:.0f}/s",
     "note_chart": "Chart: database reads/s; refused in red.",
     "note_nodes": "Nodes: colour = share of keys vs average.",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_hits": "HITS {share:.0%}",
+    "lanes_misses": "MISSES {share:.0%}",
     # errors in your code
     "bad_node": "node_for returned '{node}', which is not in the cluster now ({live})",
 }

@@ -142,3 +142,17 @@ def test_stage1_quorums():
 @your_code(2, "replicas in sync 10 s after the node is back, under 10 messages per operation")
 def test_stage2_repair():
     assert first() == [True] * 4
+
+
+def test_a_second_picture_shows_what_the_clients_see():
+    from live.canvas import RED
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("quorum_replication", "reference", 1)
+    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    set_view(world, "lanes")
+    frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
+    assert frame.users or frame.flights or frame.outcomes
+    text, colour = frame.state
+    assert text and len(text) <= 13
+    assert RED not in [c for c, _ in frame.outcomes]  # no stale reads (red) even with a node down

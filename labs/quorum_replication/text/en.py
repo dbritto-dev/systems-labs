@@ -68,6 +68,9 @@ STRINGS = {
     "note_chart": "Chart: messages between nodes per second.",
     # the picture
     "state_sick": "{state}: {node}",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_stale": "STALE READS",
+    "lanes_unanswered": "UNANSWERED",
     # errors in your code
     "no_store": "QuorumNode must keep its data in self.store",
 }

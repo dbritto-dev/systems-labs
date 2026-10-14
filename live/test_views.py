@@ -121,3 +121,28 @@ def test_a_lab_can_have_several_views_and_opens_with_its_own():
     with pytest.raises(LookupError):
         set_view(w, "globe")
     del ADAPTERS[("toyboth", "lanes")], ADAPTERS[("toyboth", "cluster")]
+
+
+def test_client_lanes_colours_answers_and_can_put_red_ones_first():
+    from live.adapters.common import OUTCOMES, client_lanes
+    from live.canvas import EXTRA2
+
+    class Run:  # 100 answers in the last 0.1 s: one red, a few orange, the rest green
+        max_dur = {"ops": 0.0}
+        rows_ = [(9.9 + i / 1000, 9.9 + i / 1000, "red" if i == 50 else "orange" if i % 10 == 0 else "ok")
+                 for i in range(100)]
+
+        def active(self, table, t, end):
+            return []
+
+        def rows(self, table, a, b):
+            return [r for r in self.rows_ if a <= r[0] < b]
+
+    colour = {"red": RED, "orange": EXTRA2, "ok": GREEN}
+    _, _, plain = client_lanes(Run(), 10.0, 60, "ops", 0, 1, colour=lambda o: colour[o[2]])
+    _, _, first = client_lanes(Run(), 10.0, 60, "ops", 0, 1, colour=lambda o: colour[o[2]], rare_first=True)
+    assert len(plain) == len(first) == OUTCOMES
+    assert RED not in [c for c, _ in plain]  # one red among a hundred is easily missed ...
+    assert first[0][0] == RED and EXTRA2 in [c for c, _ in first]  # ... unless red goes first
+    _, _, old = client_lanes(Run(), 10.0, 60, "ops", 0, 1, bad=lambda o: o[2] != "ok")
+    assert {c for c, _ in old} <= {RED, GREEN}

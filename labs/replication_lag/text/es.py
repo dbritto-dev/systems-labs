@@ -66,6 +66,10 @@ STRINGS = {
     "head_wrong": "{n} lecturas erróneas en 5 s",
     "head_ok": "Réplicas a menos de {lag}",
     "note": "Lecturas a cámara lenta; escrituras a su retraso real.",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_stale": "DATOS VIEJOS",
+    "lanes_primary": "PRIMARIO {share:.0%}",
+    "lanes_lag": "RETRASO {lag:.1f}s",
     # errores en tu código
     "bad_pick": "Router.pick devolvió {name!r}: usa 'primary' o una de r1..r{last}",
     "stuck": "una lectura lleva más de {seconds:.0f} s esperando",
