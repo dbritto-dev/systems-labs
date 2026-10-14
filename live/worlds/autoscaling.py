@@ -72,11 +72,13 @@ def flaps(ticks: list[tuple], since: float) -> int:
 
 def _memo(measure):
     """A frame asks for the same goal values several times: remember the last few (a run only grows, so
-    its piece count tells an old answer from a new one)."""
-    cache: dict[tuple, tuple] = {}
+    its piece count tells an old answer from a new one). The memo lives in the run itself, so a new run
+    can never be handed an old one's values."""
+    name = f"memo_{measure.__name__}"
 
     def cached(run: Run, inc: Incident, upto: float):
-        key = (id(run), run.pieces, inc.index, upto)
+        cache = run.data.setdefault(name, {})
+        key = (run.pieces, inc.index, upto)
         if key not in cache:
             if len(cache) > 64:
                 cache.clear()
