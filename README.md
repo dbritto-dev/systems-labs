@@ -2,8 +2,9 @@
 
 *[Leer en español](README.es.md)*
 
-Learn how backend systems behave by doing. Each **lab** is one problem (retries,
-caching, and later queues, databases, concurrency and distributed systems). You
+Learn how backend and distributed systems behave by doing. There are **18 labs**, each
+one problem (retries, caching, rate limits, pools, queries and indexes, idempotency,
+replication, partitioning, consensus, and the Fly.io Gossip Glomers challenges). You
 reproduce the problem, fix it in your own file, and **watch it live in the
 terminal** while it runs. The tool assumes no topic: a lab about a cache plugs in
 exactly like a lab about retries.
@@ -69,7 +70,7 @@ lab's `es/` folder to `<code>/`, and add the code to `core.i18n.LANGS`.
   ±15%) and things go wrong at random: gaps vary, durations have a long tail,
   incidents cross minute boundaries, and each has a cause (a bad deploy, an
   expired certificate, a dead replica, a cache node restart…). The `retry_storm`
-  service has full and partial outages; the `caching` is emptied by deploys,
+  service has full and partial outages; the `caching` lab's cache is emptied by deploys,
   restarts and failovers. Only the first incident is fixed (0:20), so the first
   verdict is stable; `--seed N` gives another production day.
 - **Hot reload.** Save any file in `labs/<lab>/` (or press `r`): it reruns and plays
@@ -90,7 +91,7 @@ Behavior: Retry   → Stage 2: sleep backoff_delay(attempt) between retries
                               DOWN          ▍Events  NEXT …   legend
  ▁▂▃▅█  chart: last 60 s per second, the limit dashed, incidents shaded
 Edit labs/retry_storm/main.py and save: this window reruns it.
-pause/resume [space] - restart [0] - rerun [r] - quit [q]
+pause/resume [space] - restart [0] - rerun [r] - view [v] - quit [q]
 ```
 
 - **Header**: the lab, the clock (`▶` playing, `❚❚` paused, `…` simulating ahead),
@@ -125,7 +126,10 @@ a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed. The scr
 
 ## Labs
 
-Backend systems (the **lanes** picture: users, a door, a server):
+Every lab has two pictures, **lanes** (users, a door, a server) and **cluster** (nodes and
+the messages between them); press `v` to switch.
+
+Backend systems (open with the lanes picture):
 
 | Lab | Problem | Stages |
 |---|---|---|
@@ -140,7 +144,7 @@ Backend systems (the **lanes** picture: users, a door, a server):
 | `database_index` | the table keeps growing; every query reads all of it | hash index → hash + composite index |
 
 Distributed systems: the Fly.io [Gossip Glomers](https://fly.io/dist-sys/) challenges on a
-simulated network with partitions (the **cluster** picture: nodes and the messages between them):
+simulated network with partitions (open with the cluster picture):
 
 | Lab | Challenge | Stages |
 |---|---|---|
@@ -150,7 +154,7 @@ simulated network with partitions (the **cluster** picture: nodes and the messag
 | `kafka_style_log` | #5 Kafka-style log | single node → multi-node through lin-kv → efficient: an owner per key (5a–5c) |
 | `transactions` | #6 Totally-available transactions | replicated → read uncommitted → read committed (6a–6c) |
 
-Replication and partitioning, on the same network (cluster picture first):
+Replication, partitioning and consensus, on the same network (open with the cluster picture):
 
 | Lab | Problem | Stages |
 |---|---|---|
@@ -159,7 +163,6 @@ Replication and partitioning, on the same network (cluster picture first):
 | `quorum_replication` | every key on 3 of 5 nodes; a node goes down | one copy → quorums (R + W > N) → quorums + read repair |
 | `raft_consensus` | elect a leader; never lose a committed command | leader election → log replication → safe (terms, up-to-date votes) |
 
-Every lab also has a second picture: press `v` (lanes ↔ cluster).
 
 ## Layout
 
@@ -240,5 +243,5 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
 ## Performance
 
 After 7 minutes a 110x44 frame renders in 2–4 ms; appending a minute takes
-about 10 ms (retry_storm) to 30 ms (cache). Simulating a minute takes 0.5–1.5 s in
+about 10 ms (retry_storm) to 30 ms (caching). Simulating a minute takes 0.5–1.5 s in
 the child process, well ahead of the playhead.

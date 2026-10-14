@@ -2,9 +2,10 @@
 
 *[Read in English](README.md)*
 
-Aprende cómo se comportan los sistemas backend haciéndolo. Cada **laboratorio** es un
-problema (reintentos, caché, colas, bases de datos, concurrencia y sistemas
-distribuidos). Reproduces el problema, lo arreglas en tu propio archivo y **lo ves en
+Aprende cómo se comportan los sistemas backend y distribuidos haciéndolo. Hay **18
+laboratorios**, cada uno un problema (reintentos, caché, límites de tráfico, pools, consultas
+e índices, idempotencia, replicación, particionado, consenso y los retos Gossip Glomers de
+Fly.io). Reproduces el problema, lo arreglas en tu propio archivo y **lo ves en
 vivo en la terminal** mientras se ejecuta. La herramienta no supone ningún tema: un
 laboratorio de caché encaja igual que uno de reintentos.
 
@@ -91,7 +92,7 @@ Ahora: Reintentos   → Etapa 2: espera backoff_delay(attempt) entre reintentos
                               CAÍDO         ▍Eventos  SIG. …   leyenda
  ▁▂▃▅█  gráfica: los últimos 60 s por segundo, el límite discontinuo, incidentes sombreados
 Edita labs/retry_storm/es/main.py y guarda: esta ventana lo vuelve a ejecutar.
-pausa/sigue [space] - reinicia [0] - repite [r] - sal [q]
+pausa/sigue [space] - reinicia [0] - repite [r] - vista [v] - sal [q]
 ```
 
 - **Cabecera**: el laboratorio, el reloj (`▶` en marcha, `❚❚` en pausa, `…` simulando por
@@ -131,7 +132,10 @@ y se ve mejor desde 110x44.
 
 ## Laboratorios
 
-Sistemas backend (el dibujo de **carriles**: usuarios, una puerta, un servidor):
+Cada laboratorio tiene dos dibujos, **carriles** (usuarios, una puerta, un servidor) y
+**clúster** (nodos y los mensajes entre ellos); pulsa `v` para cambiar.
+
+Sistemas backend (abren con el dibujo de carriles):
 
 | Laboratorio | Problema | Etapas |
 |---|---|---|
@@ -146,7 +150,7 @@ Sistemas backend (el dibujo de **carriles**: usuarios, una puerta, un servidor):
 | `database_index` | la tabla no deja de crecer; cada consulta la lee entera | índice hash → índice hash + compuesto |
 
 Sistemas distribuidos: los retos [Gossip Glomers](https://fly.io/dist-sys/) de Fly.io sobre
-una red simulada con particiones (el dibujo de **clúster**: nodos y los mensajes entre ellos):
+una red simulada con particiones (abren con el dibujo de clúster):
 
 | Laboratorio | Reto | Etapas |
 |---|---|---|
@@ -156,7 +160,7 @@ una red simulada con particiones (el dibujo de **clúster**: nodos y los mensaje
 | `kafka_style_log` | n.º 5 Log al estilo Kafka | un nodo → varios nodos con lin-kv → eficiente: un dueño por clave (5a–5c) |
 | `transactions` | n.º 6 Transacciones siempre disponibles | replicado → lectura no confirmada → lectura confirmada (6a–6c) |
 
-Replicación y particionado, sobre la misma red (primero el dibujo de clúster):
+Replicación, particionado y consenso, sobre la misma red (abren con el dibujo de clúster):
 
 | Laboratorio | Problema | Etapas |
 |---|---|---|
@@ -165,7 +169,6 @@ Replicación y particionado, sobre la misma red (primero el dibujo de clúster):
 | `quorum_replication` | cada clave en 3 de 5 nodos; un nodo se cae | una copia → quórums (R + W > N) → quórums + reparación en lectura |
 | `raft_consensus` | elegir un líder; no perder nunca un comando confirmado | elección de líder → replicación del log → seguro (términos, votos al día) |
 
-Cada laboratorio tiene además un segundo dibujo: pulsa `v` (carriles ↔ clúster).
 
 ## Estructura
 
@@ -222,5 +225,5 @@ live/   canvas.py (Braille + color)  screen.py (terminal)  runner.py (procesos h
 ## Rendimiento
 
 Tras 7 minutos, un fotograma de 110x44 se dibuja en 2–4 ms; añadir un minuto tarda de 10 ms
-(retry_storm) a 30 ms (cache). Simular un minuto tarda 0,5–1,5 s en el proceso hijo, muy por
+(retry_storm) a 30 ms (caching). Simular un minuto tarda 0,5–1,5 s en el proceso hijo, muy por
 delante del cabezal.
