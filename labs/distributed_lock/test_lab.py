@@ -5,7 +5,7 @@ import sys
 
 from core.contract import load
 from core.net import Client, Network, RPCError
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.distributed_lock import main as given
 from labs.distributed_lock import reference as ref
@@ -100,6 +100,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_a_plain_lock_stalls_every_job_while_its_holder_is_frozen():
     for seed in (1, 2, 3):
         world = world_of("main", 1, seed)
@@ -108,6 +109,7 @@ def test_a_plain_lock_stalls_every_job_while_its_holder_is_frozen():
         assert world.stage_index("main") == 0
 
 
+@starting_code
 def test_a_crashed_holder_blocks_a_plain_lock_forever():
     world = build_world("distributed_lock", "main", 4, seed=1)
     crash = [i for i in world.runs["main"].incidents if i.kind in ("crash", "partition")]
@@ -116,6 +118,7 @@ def test_a_crashed_holder_blocks_a_plain_lock_forever():
     assert after and not any(r[4] for r in after)  # no job ever finishes again
 
 
+@starting_code
 def test_stage_variants_land_on_their_stage():
     # 0 plain lock (or tokens on a lock that never expires), 1 leases, 2 leases + fencing
     for v, stage in ((NO_EXPIRY, 0), (LEASES, 1), (NO_RENEW, 1), (LOCAL_CHECK, 1), (UNCHECKED, 1),
@@ -125,6 +128,7 @@ def test_stage_variants_land_on_their_stage():
             assert world.stage_index(v) == stage, (v.__name__, seed, results(world, v))
 
 
+@starting_code
 def test_each_goal_catches_its_mistake():
     (_, leases), = results(world_of(LEASES), LEASES)
     assert not leases[CORRUPT] and leases[STUCK] and leases[DONE]  # the frozen holder's late write
@@ -132,6 +136,7 @@ def test_each_goal_catches_its_mistake():
     assert plain[CORRUPT] and not plain[STUCK]
 
 
+@starting_code
 def test_leases_corrupt_after_every_pause_and_late_write():
     world = build_world("distributed_lock", LEASES, 5, seed=3)
     res = results(world, LEASES)
@@ -284,6 +289,7 @@ def test_stage2_first_pause():
     assert [r.ok for r in world_of(variant()).runs[variant()].settled[0]] == [True] * 3
 
 
+@starting_code
 def test_both_pictures():
     from live.canvas import RED
     from live.views import adapter_for, set_view, views_for

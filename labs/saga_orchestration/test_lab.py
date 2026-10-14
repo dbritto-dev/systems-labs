@@ -4,7 +4,7 @@ import itertools
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.saga_orchestration import scenario
 from labs.saga_orchestration.api import Declined, Order, SagaLog, StepFailed, Timeout, services
@@ -88,6 +88,7 @@ def by_kind(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_leaves_orders_half_done():
     world = build_world("saga_orchestration", "main", 1)
     first = world.runs["main"].settled[0]
@@ -250,6 +251,7 @@ def test_stage2_first_incident_every_goal():
     assert [r.ok for r in first] == [True] * 6
 
 
+@starting_code
 def test_two_pictures_cluster_first():
     from live.canvas import EXTRA2, RED, plain
     from live.frame import compose

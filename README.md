@@ -2,10 +2,10 @@
 
 *[Leer en español](README.es.md)*
 
-Learn how backend and distributed systems behave by doing. There are **34 labs**, each
+Learn how backend and distributed systems behave by doing. There are **45 labs**, each
 one problem: retries, load balancing, deadlines, autoscaling, caching, queries and indexes,
-migrations, queues, outboxes and sagas, streams, replication, partitioning, locks,
-consensus, and the Fly.io Gossip Glomers challenges. You
+migrations, pagination, queues, outboxes, webhooks and sagas, streams, asyncio, deadlocks,
+replication, partitioning, locks, consensus, and the Fly.io Gossip Glomers challenges. You
 reproduce the problem, fix it in your own file, and **watch it live in the
 terminal** while it runs. The tool assumes no topic: a lab about a cache plugs in
 exactly like a lab about retries.
@@ -127,7 +127,7 @@ a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed. The scr
 
 ## Labs
 
-There are 34 labs. Each has two pictures, **lanes** (users, a door, a server) and **cluster**
+There are 45 labs. Each has two pictures, **lanes** (users, a door, a server) and **cluster**
 (nodes and the messages between them), and opens with the one that teaches it best; press
 `v` to switch.
 
@@ -145,21 +145,33 @@ Traffic and reliability:
 | `deadline_propagation` | a chain of services keeps working after users give up | per-hop timeouts → pass the deadline down → skip late work |
 | `graceful_shutdown` | deploys drop in-flight requests | exit at once → drain → readiness off first, then drain |
 | `autoscaling` | traffic surges and drops; scale too late or flap | fixed fleet → CPU thresholds → target tracking with cooldown and warm-up |
+| `canary_releases` | a bad build reaches users: crashes, errors, latency, one endpoint | deploy everywhere → fixed canary threshold → compare against a baseline, staged ramp, auto rollback |
 
 Data and messaging:
 
 | Lab | Problem | Stages |
 |---|---|---|
 | `caching` | a slow database; then a cache flush | cache-aside with TTL → single-flight + jittered TTLs |
+| `cache_invalidation` | updates and cache fills race; stale values stick | cache then DB → write then delete → leased (versioned) fills |
 | `idempotency` | payments get retried and arrive twice | replay stored answers → reserve the key before charging |
 | `n_plus_one_queries` | a page asks the database once per item | N+1 → one batched IN query → one JOIN |
 | `database_index` | the table keeps growing; every query reads all of it | hash index → hash + composite index |
+| `keyset_pagination` | users page through a feed while rows come and go | OFFSET → keyset on created_at → opaque (created_at, id) cursor |
 | `optimistic_locking` | many requests read, change and write the same rows | last write wins → version check → retry with re-read and jittered backoff |
 | `zero_downtime_migration` | rename a column while old and new code both run | change in place → expand/contract → throttled batch backfill |
 | `transactional_outbox` | save an order and announce it; the process dies in between | dual write → outbox + relay → idempotent consumer |
 | `message_queue_consumers` | workers crash, jobs run slow, poison messages arrive | ack on receipt → ack after work + heartbeat → backoff + dead-letter queue |
 | `saga_orchestration` | an order spans payments, stock and shipping; a step fails | no rollback → compensations → idempotent, resumable sagas |
 | `stream_windowing` | count events per window when they arrive late | processing time → event time + watermarks → allowed lateness + updates |
+| `webhook_delivery` | customer endpoints go down, hang, slow down or reject an event | fire once → retries with backoff → a queue per endpoint, ordered per key, parking |
+
+Concurrency (asyncio and locks):
+
+| Lab | Problem | Stages |
+|---|---|---|
+| `event_loop_blocking` | one blocking call stalls every request on the loop | sync calls → to_thread → bounded thread and process pools + a loop-lag watchdog |
+| `async_backpressure` | a fast producer and a slow sink: memory grows until OOM | unbounded queues → bounded queues → credits, adaptive batches, counted shedding |
+| `deadlock_avoidance` | transfers lock two accounts and the service freezes | lock in request order → timeouts with retry → one global lock order |
 
 Distributed systems: the Fly.io [Gossip Glomers](https://fly.io/dist-sys/) challenges on a
 simulated network with partitions:
@@ -178,13 +190,17 @@ Replication, partitioning and coordination, on the same network:
 |---|---|---|
 | `replication_lag` | reads go to replicas that lag behind | read your writes → monotonic reads |
 | `consistent_hashing` | cache servers come and go; keys move | modulo → hash ring → ring + virtual nodes |
+| `geo_replication` | users in 3 regions; a region fails or is cut off | one primary region → read replicas → writes in every region + session tokens |
 | `hot_partition` | one key explodes and melts its partition | hash by key → salt hot keys → adaptive salting + hot-key cache |
 | `quorum_replication` | every key on 3 of 5 nodes; a node goes down | one copy → quorums (R + W > N) → quorums + read repair |
+| `chain_replication` | a chain of 4 replicas; a node crashes, slows down or joins | primary-backup → chain → chain with repair |
+| `merkle_anti_entropy` | replicas silently drift: missed writes, bad disks, old backups | no repair → full scan → Merkle trees |
 | `vector_clocks_crdts` | replicas take writes during a partition, then merge | last write wins → vector clocks → an OR-set CRDT |
 | `failure_detection` | find a crashed node; never bury a slow one | fixed timeout → phi accrual → SWIM |
 | `distributed_lock` | a lock holder freezes and wakes up still writing | plain lock → leases → fencing tokens |
 | `two_phase_commit` | a transfer touches 3 shards; the coordinator crashes | one shard at a time → 2PC → 2PC with a decision log and recovery |
 | `raft_consensus` | elect a leader; never lose a committed command | leader election → log replication → safe (terms, up-to-date votes) |
+| `paxos_consensus` | several nodes propose; the leader crashes mid-round | first proposal wins → Paxos per slot → Multi-Paxos |
 
 ## Layout
 
@@ -223,7 +239,8 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
    - `lab.py`: `META` (`id`, `params`: `{name: Param(default)}`), the numbers, `stage_of`;
    - `test_lab.py`: given behaviour passes; your-code tests use `@your_code(stage, …)`;
      compare stage indices (`world.stage_index(v)`), never words, so they pass in every
-     language.
+     language. A test that shows what the starting `main.py` gets wrong gets
+     `@starting_code`: once you change `main.py` its failure becomes a skip, not a red test.
 2. **A World** in `live/worlds/<lab>.py` (exported as `WORLD`) with these hooks. Its
    words come from the catalog: `self.s("key", ...)` (STRINGS), `self.word(key)`
    (VERBS), `self.cause(inc)` (CAUSES), `self.screen` (the screen's words):

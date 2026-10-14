@@ -4,7 +4,7 @@ import random
 from collections import deque
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.webhook_delivery import reference as R
 from labs.webhook_delivery import scenario
 from labs.webhook_delivery.api import Event, ok
@@ -122,6 +122,7 @@ def by_kind(world, v) -> dict[str, list[list[bool]]]:
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_fires_once_loses_events_and_every_worker_hangs():
     for seed in (1, 2, 3):
         world = build_world(LAB, "main", FIRST, seed=seed)
@@ -287,6 +288,7 @@ def test_stage2_first_incident_every_goal():
     assert world.stage_index(variant()) == 2
 
 
+@starting_code
 def test_two_pictures_the_cluster_first():
     from live.adapters.webhook_delivery import endpoint_node
     from live.canvas import RED, plain

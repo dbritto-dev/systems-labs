@@ -3,7 +3,7 @@ import itertools
 
 from core.contract import load
 from core.net import KV, Client, KVService, Network, Node, RPCError
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.grow_only_counter import scenario
 
@@ -81,6 +81,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_keeps_the_count_in_memory():
     world = build_world("grow_only_counter", "main", 1)
     assert world.stage("main") is not None

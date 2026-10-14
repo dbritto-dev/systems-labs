@@ -5,7 +5,7 @@ import random
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.cache_invalidation import reference, scenario
 from labs.cache_invalidation.api import (
@@ -87,6 +87,7 @@ def statuses(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_serves_prices_that_were_never_saved():
     world, ok = first("main")
     assert ok[0] and not ok[1] and not ok[2] and not ok[3]  # a warm cache, but unsaved and stale prices
@@ -245,6 +246,7 @@ def test_stage2_first_incident_every_goal():
     assert world.stage_index(variant()) == 2
 
 
+@starting_code
 def test_two_pictures_lanes_first():
     from labs.cache_invalidation.api import FILLED_STALE, REFUSED
     from live.canvas import EXTRA2, RED, plain

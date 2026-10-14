@@ -3,7 +3,7 @@ import itertools
 import random
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import now, run_virtual
 from labs.message_queue_consumers import reference as R
 from labs.message_queue_consumers import scenario
@@ -75,6 +75,7 @@ def by_kind(world, v) -> dict[str, list[list[bool]]]:
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_acks_on_receipt_and_loses_jobs():
     world = build_world(LAB, "main", 3)
     results = by_kind(world, "main")
@@ -248,6 +249,7 @@ def test_stage2_first_incident_every_goal():
     assert world.stage_index(variant()) == 2
 
 
+@starting_code
 def test_two_pictures_the_cluster_first():
     from live.canvas import GREEN, PURPLE, RED, plain
     from live.frame import compose

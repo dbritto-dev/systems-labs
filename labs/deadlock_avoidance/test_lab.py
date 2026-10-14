@@ -5,7 +5,7 @@ import random
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.deadlock_avoidance import reference, scenario
 from labs.deadlock_avoidance.api import Audit, Ledger, LockManager, LockTimeout, Request, current_request
@@ -85,6 +85,7 @@ def statuses(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_deadlocks_and_freezes_in_the_payout_run():
     world, ok = first("main")
     assert not ok[0] and not ok[1] and not ok[2]  # a deadlock nobody breaks, then nothing completes

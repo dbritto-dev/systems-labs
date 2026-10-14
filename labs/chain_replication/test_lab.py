@@ -2,7 +2,7 @@ import functools
 import itertools
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.chain_replication import reference as ref
 from labs.chain_replication import scenario
 
@@ -76,6 +76,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_primary_backup_reads_miss_acknowledged_writes():
     piece = scenario.run("main", chunk=0)
     gets = [o for o in piece["tables"]["ops"] if o[1] == scenario.GET and o[5]]
@@ -84,6 +85,7 @@ def test_primary_backup_reads_miss_acknowledged_writes():
         assert world_of("main", seed=seed).stage_index("main") == 0
 
 
+@starting_code
 def test_primary_backup_loses_acknowledged_writes_when_the_head_dies():
     res = results(world_of("main", 4, 3), "main")
     heads = [r for kind, r in res if kind == "head"]

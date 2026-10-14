@@ -2,10 +2,10 @@
 
 *[Read in English](README.md)*
 
-Aprende cómo se comportan los sistemas backend y distribuidos haciéndolo. Hay **34
+Aprende cómo se comportan los sistemas backend y distribuidos haciéndolo. Hay **45
 laboratorios**, cada uno un problema: reintentos, balanceo de carga, plazos, autoescalado, caché, consultas
-e índices, migraciones, colas, bandejas de salida y sagas, flujos de eventos, replicación,
-particionado, cerrojos, consenso y los retos Gossip Glomers de Fly.io. Reproduces el problema, lo arreglas en tu propio archivo y **lo ves en
+e índices, migraciones, paginación, colas, bandejas de salida, webhooks y sagas, flujos de eventos,
+asyncio, interbloqueos, replicación, particionado, cerrojos, consenso y los retos Gossip Glomers de Fly.io. Reproduces el problema, lo arreglas en tu propio archivo y **lo ves en
 vivo en la terminal** mientras se ejecuta. La herramienta no supone ningún tema: un
 laboratorio de caché encaja igual que uno de reintentos.
 
@@ -132,7 +132,7 @@ y se ve mejor desde 110x44.
 
 ## Laboratorios
 
-Hay 34 laboratorios. Cada uno tiene dos dibujos, **carriles** (usuarios, una puerta, un
+Hay 45 laboratorios. Cada uno tiene dos dibujos, **carriles** (usuarios, una puerta, un
 servidor) y **clúster** (nodos y los mensajes entre ellos), y abre con el que mejor lo
 explica; pulsa `v` para cambiar.
 
@@ -150,21 +150,33 @@ Tráfico y fiabilidad:
 | `deadline_propagation` | una cadena de servicios sigue trabajando cuando el usuario ya se fue | timeout por salto → pasar el plazo → saltar el trabajo tardío |
 | `graceful_shutdown` | los despliegues cortan peticiones en curso | salir al instante → drenar → primero dejar de estar listo, luego drenar |
 | `autoscaling` | el tráfico sube y baja; escalar tarde u oscilar | flota fija → umbrales de CPU → seguimiento de objetivo con enfriamiento y calentamiento |
+| `canary_releases` | una versión mala llega a los usuarios: caídas, errores, latencia, una sola ruta | desplegar en todo → canario con umbral fijo → comparar con la base, rampa por etapas, vuelta atrás automática |
 
 Datos y mensajería:
 
 | Laboratorio | Problema | Etapas |
 |---|---|---|
 | `caching` | una base de datos lenta; después, una caché vaciada | cache-aside con TTL → single-flight + TTL con jitter |
+| `cache_invalidation` | escrituras y rellenos de caché compiten; quedan valores viejos | caché y luego BD → escribir y luego borrar → rellenos con concesión (versión) |
 | `idempotency` | los pagos se reintentan y llegan dos veces | repetir respuestas guardadas → reservar la clave antes de cobrar |
 | `n_plus_one_queries` | una página consulta la base de datos una vez por elemento | N+1 → una consulta IN agrupada → un JOIN |
 | `database_index` | la tabla no deja de crecer; cada consulta la lee entera | índice hash → índice hash + compuesto |
+| `keyset_pagination` | los usuarios pasan páginas mientras entran y salen filas | OFFSET → keyset por created_at → cursor opaco (created_at, id) |
 | `optimistic_locking` | muchas peticiones leen, cambian y escriben las mismas filas | gana la última escritura → control de versión → reintento con relectura y backoff con jitter |
 | `zero_downtime_migration` | renombrar una columna mientras corren el código viejo y el nuevo | cambio en el sitio → expandir/contraer → relleno por lotes con freno |
 | `transactional_outbox` | guardar un pedido y anunciarlo; el proceso muere entre medias | doble escritura → bandeja de salida + relé → consumidor idempotente |
 | `message_queue_consumers` | los workers se caen, los trabajos van lentos, llegan mensajes venenosos | confirmar al recibir → confirmar al terminar + latido → backoff + cola de mensajes muertos |
 | `saga_orchestration` | un pedido abarca pagos, inventario y envío; un paso falla | sin deshacer → compensaciones → sagas idempotentes y reanudables |
 | `stream_windowing` | contar eventos por ventana cuando llegan tarde | tiempo de proceso → tiempo del evento + marcas de agua → retraso permitido + correcciones |
+| `webhook_delivery` | los destinos de los clientes se caen, se cuelgan, van lentos o rechazan un evento | enviar una vez → reintentos con backoff → una cola por destino, en orden por clave, con pausa |
+
+Concurrencia (asyncio y cerrojos):
+
+| Laboratorio | Problema | Etapas |
+|---|---|---|
+| `event_loop_blocking` | una llamada bloqueante frena todas las peticiones del bucle | llamadas síncronas → to_thread → grupos de hilos y procesos acotados + vigilante del retardo |
+| `async_backpressure` | un productor rápido y un destino lento: la memoria crece hasta el OOM | colas sin límite → colas acotadas → créditos, lotes adaptativos, descartes contados |
+| `deadlock_avoidance` | las transferencias bloquean dos cuentas y el servicio se congela | bloquear en el orden de la petición → timeouts con reintento → un orden global |
 
 Sistemas distribuidos: los retos [Gossip Glomers](https://fly.io/dist-sys/) de Fly.io sobre
 una red simulada con particiones:
@@ -183,13 +195,17 @@ Replicación, particionado y coordinación, sobre la misma red:
 |---|---|---|
 | `replication_lag` | las lecturas van a réplicas que se quedan atrás | lee tus escrituras → lecturas monótonas |
 | `consistent_hashing` | los servidores de caché entran y salen; las claves se mueven | módulo → anillo de hash → anillo + nodos virtuales |
+| `geo_replication` | usuarios en 3 regiones; una región cae o queda aislada | una región primaria → réplicas de lectura → escrituras en cada región + tokens de sesión |
 | `hot_partition` | una clave explota y satura su partición | hash por clave → repartir claves calientes → reparto adaptativo + caché |
 | `quorum_replication` | cada clave en 3 de 5 nodos; un nodo se cae | una copia → quórums (R + W > N) → quórums + reparación en lectura |
+| `chain_replication` | una cadena de 4 réplicas; un nodo cae, va lento o entra | primario-respaldo → cadena → cadena con reparación |
+| `merkle_anti_entropy` | las réplicas divergen en silencio: escrituras perdidas, discos malos, copias viejas | sin reparación → barrido completo → árboles de Merkle |
 | `vector_clocks_crdts` | las réplicas aceptan escrituras durante una partición y luego se unen | gana la última escritura → relojes vectoriales → un CRDT (OR-set) |
 | `failure_detection` | detectar un nodo caído; no dar nunca por muerto a uno lento | timeout fijo → phi accrual → SWIM |
 | `distributed_lock` | quien tiene el cerrojo se congela y despierta escribiendo | cerrojo simple → plazos (leases) → tokens de vallado |
 | `two_phase_commit` | una transferencia toca 3 fragmentos; el coordinador se cae | un fragmento cada vez → 2PC → 2PC con registro de decisiones y recuperación |
 | `raft_consensus` | elegir un líder; no perder nunca un comando consolidado | elección de líder → replicación del log → seguro (términos, votos al día) |
+| `paxos_consensus` | varios nodos proponen; el líder cae a mitad de ronda | gana la primera propuesta → Paxos por hueco → Multi-Paxos |
 
 ## Estructura
 
@@ -229,7 +245,9 @@ live/   canvas.py (Braille + color)  screen.py (terminal)  runner.py (procesos h
      `stage_of`;
    - `test_lab.py`: el comportamiento dado pasa; los tests de tu código usan
      `@your_code(etapa, …)`; compara índices de etapa (`world.stage_index(v)`), nunca
-     palabras, para que pasen en cualquier idioma.
+     palabras, para que pasen en cualquier idioma. Un test que muestra lo que hace mal el
+     `main.py` inicial lleva `@starting_code`: cuando cambias `main.py`, su fallo pasa a ser
+     un salto (skip), no un test en rojo.
 2. **Un World** en `live/worlds/<lab>.py` (exportado como `WORLD`) con los ganchos de la
    tabla del [README en inglés](README.md#adding-a-lab). Sus palabras salen del catálogo:
    `self.s("clave", ...)` (STRINGS), `self.word(clave)` (VERBS), `self.cause(inc)` (CAUSES),

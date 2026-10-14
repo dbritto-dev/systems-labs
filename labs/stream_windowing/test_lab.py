@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.stream_windowing import reference as ref
 from labs.stream_windowing import scenario
 from live.canvas import BLUE, RED
@@ -77,6 +77,7 @@ def statuses(world, v):
 
 
 @pytest.mark.parametrize("seed", SEEDS)
+@starting_code
 def test_processing_time_puts_late_events_in_the_wrong_window(seed):
     world = build_world("stream_windowing", "main", 2, seed=seed)
     assert statuses(world, "main")[0] == [False, False, False, True, True]

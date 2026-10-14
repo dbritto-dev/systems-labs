@@ -5,7 +5,7 @@ import pytest
 
 from core.contract import load
 from core.services import ServiceError
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import now, run_virtual
 from labs.deadline_propagation import scenario
 from live.canvas import RED
@@ -45,6 +45,7 @@ def statuses(world, v):
 
 
 @pytest.mark.parametrize("seed", SEEDS)
+@starting_code
 def test_per_hop_timeouts_keep_waiting_after_users_leave(seed):
     world = build_world("deadline_propagation", "main", 1, seed=seed)
     assert statuses(world, "main")[0] == [True, False, False, False]
@@ -78,6 +79,7 @@ def test_pieces_join_and_the_first_incident_is_fixed():
     assert len(set(ids)) == len(ids)
 
 
+@starting_code
 def test_both_pictures_show_the_chain():
     from live.views import adapter_for, set_view, views_for
 

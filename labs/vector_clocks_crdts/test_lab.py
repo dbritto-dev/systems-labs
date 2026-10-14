@@ -2,7 +2,7 @@ import functools
 import itertools
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.vector_clocks_crdts import reference as ref
 from labs.vector_clocks_crdts import scenario
 
@@ -95,6 +95,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_last_write_wins_loses_adds_when_the_network_heals():
     world = world_of("main")
     assert first("main")[LOST] is False and world.stage_index("main") == 0
@@ -103,6 +104,7 @@ def test_last_write_wins_loses_adds_when_the_network_heals():
     assert sum(1 for o in reads if o[7] == scenario.LOST) > 5  # devices see their adds gone
 
 
+@starting_code
 def test_stage_variants_land_on_their_stage_on_several_days():
     # 0 last write wins (or tombstones by item), 1 vector clocks (or a CRDT that does not converge
     # or talks too much), 2 a CRDT that gossips every second
@@ -121,6 +123,7 @@ def test_each_goal_catches_its_mistake():
     assert first(CHATTY) == [True, True, True, False]
 
 
+@starting_code
 def test_a_clock_jump_loses_adds_with_last_write_wins_but_not_with_vector_clocks():
     for v in ("main", VCLOCKS):
         world = build_world("vector_clocks_crdts", v, 4)
@@ -220,6 +223,7 @@ def test_stage2_every_goal():
     assert first(variant()) == [True] * 4
 
 
+@starting_code
 def test_both_pictures_show_the_replicas_and_the_devices():
     from live.canvas import EXTRA1, EXTRA2, EXTRA3, RED, plain
     from live.frame import compose

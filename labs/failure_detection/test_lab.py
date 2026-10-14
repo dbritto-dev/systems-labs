@@ -4,7 +4,7 @@ from collections import deque
 
 from core.contract import load
 from core.net import Node
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.failure_detection import reference as ref
 from labs.failure_detection import scenario
 
@@ -100,6 +100,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_a_fixed_timeout_buries_healthy_nodes_behind_the_lossy_links():
     piece = scenario.run("main", chunk=0)
     wrong = [d for d in piece["tables"]["deaths"] if d[3]]

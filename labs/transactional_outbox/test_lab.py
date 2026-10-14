@@ -2,7 +2,7 @@ import asyncio
 import itertools
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.transactional_outbox import reference, scenario
 from labs.transactional_outbox.api import Broker, BrokerUnavailable, Database, new_id
@@ -85,6 +85,7 @@ def by_kind(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_publishes_events_for_orders_that_were_never_saved():
     world = build_world("transactional_outbox", "main", 1)
     assert first(world, "main") == [True, True, False, True, True]  # a kill after a publish: phantoms
@@ -226,6 +227,7 @@ def test_stage2_first_incident_every_goal():
     assert first(world, variant()) == [True] * 5
 
 
+@starting_code
 def test_both_pictures_show_the_flow():
     from live.canvas import EXTRA3, RED, plain
     from live.frame import compose

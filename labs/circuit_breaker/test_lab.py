@@ -4,7 +4,7 @@ import random
 
 from core.contract import load
 from core.services import FaultyService, ServiceError
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.circuit_breaker import scenario
 from labs.circuit_breaker.reference import BULKHEAD_LIMIT, TIMEOUT, Bulkhead, CircuitBreaker
@@ -62,6 +62,7 @@ def statuses(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_lets_one_slow_dependency_take_every_worker():
     world = build_world("circuit_breaker", "main", 2)
     results = statuses(world, "main")

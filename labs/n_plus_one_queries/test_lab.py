@@ -2,7 +2,7 @@ import asyncio
 import itertools
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.n_plus_one_queries import scenario
 
 code = load("n_plus_one_queries", variant(), scenario.NAMES)
@@ -33,6 +33,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_the_starting_code_is_n_plus_one_and_correct():
     world = build_world("n_plus_one_queries", "main", 1)
     first = [r.ok for r in world.runs["main"].settled[0]]
@@ -98,6 +99,7 @@ def test_stage2_joined():
     assert first() == [True] * 5
 
 
+@starting_code
 def test_a_second_picture_shows_every_query():
     from live.canvas import plain
     from live.frame import compose

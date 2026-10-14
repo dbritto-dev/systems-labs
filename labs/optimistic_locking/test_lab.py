@@ -5,7 +5,7 @@ import random
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.optimistic_locking import reference, scenario
 from labs.optimistic_locking.api import START_STOCK, Conflict, Database, current_request
@@ -105,6 +105,7 @@ def statuses(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_loses_updates_in_the_flash_sale():
     world, ok = first("main")
     assert ok == [True, False, True, True, True]  # fast and always served, but updates are lost
@@ -250,6 +251,7 @@ def test_stage2_first_incident_every_goal():
     assert world.stage_index(variant()) == 2
 
 
+@starting_code
 def test_two_pictures_lanes_first():
     from live.canvas import EXTRA2, RED, plain
     from live.frame import compose

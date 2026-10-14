@@ -26,6 +26,25 @@ def your_code(stage: int, what: str):
     )
 
 
+def starting_code(test):
+    """Mark a test that shows what the *starting* main.py does wrong ("the starting code loses
+    updates"). Once you change main.py those claims stop being true, which is the point: in your runs a
+    failure here becomes a skip that says so. With LABS_REFERENCE=1 (the repo's own checks, where
+    main.py is the untouched starting code) it stays a normal, strict test."""
+    import functools
+
+    @functools.wraps(test)
+    def run(*args, **kwargs):
+        if REFERENCE:
+            return test(*args, **kwargs)
+        try:
+            return test(*args, **kwargs)
+        except (AssertionError, Exception) as e:  # noqa: BLE001  (any failure: main.py has moved on)
+            pytest.skip(f"main.py has moved past the starting code ({type(e).__name__})")
+
+    return run
+
+
 def build_world(lab: str, variant, minutes: int, params: dict | None = None, seed: int = 1):
     """Simulate the first `minutes` of a run in-process and return the World holding them."""
     import itertools

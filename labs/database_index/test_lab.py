@@ -2,7 +2,7 @@ import itertools
 import random
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.database_index import scenario
 from labs.database_index.storage import Heap, Row
 from live.worlds import make_world
@@ -35,6 +35,7 @@ def statuses(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_full_scans_read_the_whole_table_and_fail_users_as_it_grows():
     world = build_world("database_index", "main", 3)
     results = statuses(world, "main")
@@ -129,6 +130,7 @@ def test_stage2_every_goal_passes():
     assert [r.ok for r in first] == [True] * 4
 
 
+@starting_code
 def test_a_second_picture_shows_the_workers():
     from live.canvas import EXTRA, plain
     from live.frame import compose

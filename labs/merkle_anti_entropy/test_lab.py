@@ -2,7 +2,7 @@ import functools
 import itertools
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.merkle_anti_entropy import lab, scenario
 from labs.merkle_anti_entropy import reference as ref
@@ -70,6 +70,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_without_repair_the_replicas_stay_apart_and_reads_disagree():
     world = world_of("main")
     assert first("main")[FIXED] is False and world.stage_index("main") == 0
@@ -80,6 +81,7 @@ def test_without_repair_the_replicas_stay_apart_and_reads_disagree():
     assert sum(1 for o in reads if o[4]) > 20  # and some reads get an old version
 
 
+@starting_code
 def test_stage_variants_land_on_their_stage_on_several_days():
     # 0 no repair (or a repair far too late), 1 a full scan (or a Merkle tree with huge leaves, or
     # one rebuilt every round), 2 a Merkle tree kept up to date
@@ -207,6 +209,7 @@ def test_stage2_every_goal():
     assert first(variant()) == [True] * 4
 
 
+@starting_code
 def test_both_pictures_show_the_replicas_and_the_clients():
     from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, RED, plain
     from live.frame import compose

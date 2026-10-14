@@ -5,7 +5,7 @@ import random
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.hot_partition import scenario
 from labs.hot_partition import reference as R
@@ -88,6 +88,7 @@ def test_the_first_incident_is_a_viral_post_at_0_20():
     assert len(keys) == len(incs) and len({home(k) for k in keys}) == PARTITIONS  # a new key, anywhere
 
 
+@starting_code
 def test_hashing_by_key_melts_one_partition():
     for seed in (1, 2, 3):
         world = build_world(LAB, "main", 1, seed=seed)
@@ -274,6 +275,7 @@ def test_stage2_first_incident_every_goal():
 # ------------------------------------------------------------- the pictures
 
 
+@starting_code
 def test_two_pictures_the_cluster_first():
     from live.canvas import EXTRA2, PURPLE, RED, plain
     from live.frame import compose

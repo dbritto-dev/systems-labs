@@ -4,7 +4,7 @@ import itertools
 
 from core.contract import load
 from core.net import RPCError
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.quorum_replication import reference as ref
 from labs.quorum_replication import scenario
 
@@ -81,6 +81,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_one_copy_reads_miss_the_latest_write():
     piece = scenario.run("main", chunk=0)
     gets = [o for o in piece["tables"]["ops"] if o[1] == scenario.GET and o[6]]

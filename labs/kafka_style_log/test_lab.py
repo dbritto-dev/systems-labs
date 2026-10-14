@@ -4,7 +4,7 @@ import random
 
 from core.contract import load
 from core.net import KV, Client, KVService, Network, Node, RPCError
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.kafka_style_log import scenario
 
@@ -84,6 +84,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_a_log_per_node_hands_out_the_same_offsets_twice():
     world = build_world("kafka_style_log", "main", 2)
     res = results(world, "main")

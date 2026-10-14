@@ -4,7 +4,7 @@ import itertools
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import now, run_virtual
 from labs.async_backpressure import main, reference, scenario
 from labs.async_backpressure.api import (
@@ -70,6 +70,7 @@ def statuses(world, v):
 
 
 @pytest.mark.parametrize("seed", SEEDS)
+@starting_code
 def test_unbounded_queues_grow_until_the_process_is_oom_killed(seed):
     world, ok = first("main", seed)
     assert ok[0] and not ok[OOM] and not ok[LOST] and not ok[PEAK] and not ok[THROUGHPUT]
@@ -77,6 +78,7 @@ def test_unbounded_queues_grow_until_the_process_is_oom_killed(seed):
 
 
 @pytest.mark.parametrize("seed", SEEDS)
+@starting_code
 def test_bounded_queues_stop_the_oom_but_the_upstream_overflows(seed):
     world, ok = first(BOUNDED, seed)
     assert ok[OOM] and ok[PEAK] and not ok[LOST] and not ok[THROUGHPUT]
@@ -84,6 +86,7 @@ def test_bounded_queues_stop_the_oom_but_the_upstream_overflows(seed):
 
 
 @pytest.mark.parametrize("seed", SEEDS[:2])
+@starting_code
 def test_adaptive_batches_alone_keep_up_better_but_pausing_still_loses_events(seed):
     for v in (BOUNDED_ADAPTIVE, NO_SHED):
         world, ok = first(v, seed)
@@ -98,6 +101,7 @@ def test_credits_with_fixed_batches_waste_the_slow_sink(seed):
     assert world.stage_index(FIXED_BATCH) == 1
 
 
+@starting_code
 def test_adaptive_batches_on_unbounded_queues_still_run_out_of_memory():
     world, ok = first(UNBOUNDED_ADAPTIVE)
     assert not ok[PEAK]
@@ -293,6 +297,7 @@ def test_stage2_first_incident_every_goal():
     assert world.stage_index(variant()) == 2
 
 
+@starting_code
 def test_two_pictures_lanes_first():
     from live.canvas import MUTED, RED, plain
     from live.frame import compose

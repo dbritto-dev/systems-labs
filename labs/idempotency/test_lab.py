@@ -1,7 +1,7 @@
 import asyncio
 import itertools
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import now, run_virtual
 from labs.idempotency import scenario
 from labs.idempotency.api import Conflict, KeyStore, Ledger, current_attempt
@@ -43,6 +43,7 @@ def statuses(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_charges_retried_payments_twice():
     world = build_world("idempotency", "main", 1)
     first = world.runs["main"].settled[0]
@@ -161,6 +162,7 @@ def test_stage2_first_incident_every_goal():
     assert [r.ok for r in first] == [True] * 5
 
 
+@starting_code
 def test_a_second_picture_shows_the_topology():
     from live.canvas import GREEN, RED, plain
     from live.frame import compose

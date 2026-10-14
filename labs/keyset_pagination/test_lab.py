@@ -3,7 +3,7 @@ import itertools
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.keyset_pagination import reference, scenario
 from labs.keyset_pagination.api import PAGE_SIZE, BadCursor, Database, Page, Post, current_page
@@ -82,6 +82,7 @@ def statuses(world, v):
 
 
 @pytest.mark.parametrize("seed", SEEDS)
+@starting_code
 def test_offset_repeats_posts_and_reads_thousands_of_rows(seed):
     world, ok = first("main", seed)
     assert ok[0] and not ok[DUP] and not ok[DEEP] and not ok[ROWS]
@@ -260,6 +261,7 @@ def test_stage2_first_incident_every_goal():
     assert world.stage_index(variant()) == 2
 
 
+@starting_code
 def test_two_pictures_lanes_first():
     from live.canvas import EXTRA3, PURPLE, RED, plain
     from live.frame import compose

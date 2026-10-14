@@ -6,7 +6,7 @@ import pytest
 
 from core.contract import load
 from core.net import Client, Network, Node
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.two_phase_commit import reference as ref
 from labs.two_phase_commit import scenario
@@ -110,6 +110,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_one_shard_at_a_time_leaves_partial_commits():
     world = world_of("main")
     (kind, first), = results(world, "main")
@@ -160,6 +161,7 @@ def test_reference_passes_every_goal_for_ten_minutes(seed):
     assert world.stage_index("reference") == 2  # 2PC with recovery
 
 
+@starting_code
 def test_the_reference_conserves_money_and_the_given_code_does_not():
     def drift(v):
         piece = next(itertools.islice(scenario.stream(v), 0, None))
@@ -326,6 +328,7 @@ def test_stage2_first_incident_every_goal():
 # ------------------------------------------------------------- the pictures
 
 
+@starting_code
 def test_two_pictures_cluster_first():
     from live.canvas import EXTRA2, RED, plain
     from live.frame import compose

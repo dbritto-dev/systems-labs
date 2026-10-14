@@ -2,7 +2,7 @@ import itertools
 
 from core.contract import load
 from core.net import Node
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.broadcast import scenario
 
 code = load("broadcast", variant(), scenario.NAMES)
@@ -87,6 +87,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_a_single_node_keeps_numbers_to_itself():
     world = build_world("broadcast", "main", 1)
     assert world.stage("main") is not None

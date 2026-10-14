@@ -4,7 +4,7 @@ import itertools
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import now, run_virtual
 from labs.zero_downtime_migration import reference as ref
 from labs.zero_downtime_migration import scenario
@@ -92,6 +92,7 @@ def statuses(world, v):
 
 
 @pytest.mark.parametrize("seed", SEEDS)
+@starting_code
 def test_renaming_in_place_fails_every_old_instance(seed):
     world = build_world("zero_downtime_migration", "main", 2, seed=seed)
     assert statuses(world, "main")[0] == [False, True, True, True]
@@ -150,6 +151,7 @@ def test_pieces_join_and_the_first_incident_is_fixed():
     assert scenario.rename(0) == ("fullname", "display_name") and scenario.rename(10) == ("fullname2", "display_name2")
 
 
+@starting_code
 def test_both_pictures_show_the_migration():
     from live.views import adapter_for, set_view, views_for
 

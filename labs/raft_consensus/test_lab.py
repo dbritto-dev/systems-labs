@@ -3,7 +3,7 @@ import itertools
 
 from core.contract import load
 from core.net import Client, Network, ask
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.raft_consensus import reference as ref
 from labs.raft_consensus import scenario
@@ -130,6 +130,7 @@ def leaders(nodes):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_starting_code_runs_but_nobody_leads():
     world = build_world("raft_consensus", "main", 1)
     assert world.stage_index("main") is not None

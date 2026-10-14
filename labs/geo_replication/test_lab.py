@@ -5,7 +5,7 @@ import pytest
 
 from core.contract import load
 from core.net import Client, RPCError
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import now, run_virtual
 from labs.geo_replication import reference as R
 from labs.geo_replication import scenario
@@ -124,6 +124,7 @@ def test_the_network_has_oceans_in_it():
     assert 0.12 <= min(eu_ap) and max(eu_ap) <= 0.18
 
 
+@starting_code
 def test_one_primary_region_is_slow_far_away_and_keeps_one_copy():
     for seed in (1, 2, 3):
         world = build_world(LAB, "main", 1, seed=seed)
@@ -201,6 +202,7 @@ def test_a_bug_in_your_node_is_reported():
         scenario.run(as_module(NoStore), chunk=0)
 
 
+@starting_code
 def test_two_pictures_the_cluster_first():
     from live.canvas import EXTRA2, RED, plain
     from live.frame import compose

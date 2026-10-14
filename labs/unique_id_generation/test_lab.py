@@ -2,7 +2,7 @@ import itertools
 
 from core.contract import load
 from core.net import Node
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.unique_id_generation import scenario
 
 code = load("unique_id_generation", variant(), scenario.NAMES)
@@ -77,6 +77,7 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_the_starting_node_answers_nothing():
     world = build_world("unique_id_generation", "main", 1)
     assert world.stage_index("main") == 0  # Nothing yet

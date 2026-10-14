@@ -4,7 +4,7 @@ import random
 
 from core.contract import load
 from core.services import SlowDatabase
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.caching import scenario
 
@@ -46,6 +46,7 @@ def statuses(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
+@starting_code
 def test_no_cache_fails_the_p99_goal():
     world = build_world("caching", "main", 1)
     first = world.runs["main"].settled[0]
