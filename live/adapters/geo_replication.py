@@ -1,0 +1,124 @@
+"""The pictures for lab geo_replication: cluster (the three regions as columns of nodes, with users'
+requests and the messages that cross oceans between them) and lanes (the users' view: every
+operation, the global load balancer as the door, the regions as the server)."""
+
+from __future__ import annotations
+
+from live.adapters.common import client_lanes, every, op_id
+from live.canvas import BLUE, EXTRA2, GREEN, PURPLE, RED, WHITE
+from live.views.base import adapts
+from live.views.cluster import ClusterAdapter, ClusterFrame
+from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+
+ZONES = 3  # nodes per region: a column each, one row per zone
+USER_FLY = 0.25  # seconds a user's request is shown flying to its region (cosmetic: it takes ~1 ms)
+DROP_FADE = 0.6  # seconds a dropped message or a failed request stays on screen
+LONGEST = 1.2  # seconds: the longest a message between regions can be on the wire (a slow link)
+MAX_USERS, MAX_MSGS, MAX_DROPS = 36, 60, 24
+
+
+def node(region: int, k: int) -> int:
+    """The node of a region in the 3x3 grid: column = region (us, eu, ap), row = one of its zones."""
+    return (k % ZONES) * 3 + region
+
+
+@adapts("geo_replication", "cluster")
+class GeoReplicationCluster(ClusterAdapter):
+    """The three regions side by side, us, eu and ap, as columns of three nodes (their zones), coloured
+    by how many acknowledged writes the region still lacks: blue up to date, oranges behind, red down.
+    A cut-off region is fenced by a red dashed line. Users' requests fly in from the left to the region
+    that answers them: white at home, orange in another region (forwarded, failed over, retried).
+    Between regions: orange a user's request forwarded across an ocean, blue replication and the rest,
+    at their real speed (~70-150 ms); a message the network dropped dies half way in red."""
+
+    def frame(self, variant: str, t: float) -> ClusterFrame:
+        from live.worlds.geo_replication import (
+            MSG_ARRIVED, MSG_DEST, MSG_SENT, MSG_SRC, MSG_USER, OP_END, OP_FIRST, OP_HOME, OP_OK, OP_SERVED,
+            OP_START, REG_CUT,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return ClusterFrame()
+        flights, drops = [], []
+        for o in every(run.rows("ops", t - USER_FLY, t + 1e-9), MAX_USERS):
+            to = o[OP_SERVED] if o[OP_SERVED] >= 0 else o[OP_FIRST]
+            colour = WHITE if to == o[OP_HOME] else EXTRA2
+            flights.append((-1, node(to, op_id(o[OP_START])), (t - o[OP_START]) / USER_FLY, colour))
+        span = run.max_dur.get("ops", 0.0)
+        failed = [o for o in run.rows("ops", t - DROP_FADE - span, t + 1e-9)
+                  if not o[OP_OK] and t - DROP_FADE <= o[OP_END] <= t]
+        for o in every(failed, MAX_DROPS // 2):
+            drops.append((-1, node(o[OP_FIRST], op_id(o[OP_START])), (t - o[OP_END]) / DROP_FADE))
+        moving, lost = [], []
+        for k, m in enumerate(run.rows("msgs", t - LONGEST, t + 1e-9)):
+            a, b = node(m[MSG_SRC], k), node(m[MSG_DEST], k + 1)
+            if m[MSG_ARRIVED] is None:
+                if t - m[MSG_SENT] <= DROP_FADE:
+                    lost.append((a, b, (t - m[MSG_SENT]) / DROP_FADE))
+            elif t < m[MSG_ARRIVED]:
+                p = (t - m[MSG_SENT]) / max(1e-6, m[MSG_ARRIVED] - m[MSG_SENT])
+                moving.append((a, b, p, EXTRA2 if m[MSG_USER] else BLUE))
+        flights += every(moving, MAX_MSGS)
+        drops += every(lost, MAX_DROPS)
+        colours = w.region_colours(run, t)
+        sample = w.sample_at(run, t)
+        groups = None
+        if sample is not None and any(sample[REG_CUT]):
+            groups = [1 if sample[REG_CUT][i % 3] else 0 for i in range(3 * ZONES)]
+        return ClusterFrame(nodes=[colours[i % 3] for i in range(3 * ZONES)], groups=groups, flights=flights,
+                            drops=drops, state=w.state_at(variant, t))
+
+
+STALE_SHOWN = 1.0  # seconds a missed own write keeps the state purple
+
+
+@adapts("geo_replication", "lanes")
+class GeoReplicationLanes(LaneAdapter):
+    """The users' view: every operation is a circle on the left, filled while it waits (white, then
+    oranges). It flies to the door, the global load balancer (red while a region is down and its users
+    are being moved). What came back fades there: green fast, orange slow (it crossed an ocean, or
+    waited for a retry), purple a read that missed the user's own write, red failed. The server is the
+    three regions: its gauge is the busiest region's load against its capacity."""
+
+    def frame(self, variant: str, t: float, users: int) -> LaneFrame:
+        from labs.geo_replication import lab
+        from labs.geo_replication.api import REGIONS
+        from live.worlds.geo_replication import OP_END, OP_KIND, OP_OK, OP_STALE, READ, REG_CUT, REG_UP, slow
+        from live.worlds.base import fmt_ms, percentile
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return LaneFrame()
+
+        def colour(o):
+            return RED if not o[OP_OK] else PURPLE if o[OP_STALE] else EXTRA2 if slow(o) else GREEN
+
+        waiting, flights, outcomes = client_lanes(run, t, users, "ops", 0, OP_END, colour=colour, rare_first=True)
+        busy = w.busy(run, t)
+        busiest = max(range(3), key=lambda i: busy[i])
+        sample = w.sample_at(run, t)
+        down = [i for i in range(3) if sample is not None and not sample[REG_UP][i]]
+        cut = [i for i in range(3) if sample is not None and sample[REG_CUT][i]]
+        last = w.recent(run, t, STALE_SHOWN)
+        reads = [o[OP_END] - o[0] for o in w.recent(run, t, 5.0) if o[OP_KIND] == READ and o[OP_OK]]
+        p99 = percentile(reads, 99)
+        if any(o[OP_STALE] for o in last):
+            state = (w.s("lanes_stale"), PURPLE)
+        elif down:
+            state = (w.s("lanes_down", name=REGIONS[down[0]]), RED)
+        elif cut:
+            state = (w.s("lanes_cut", name=REGIONS[cut[0]]), RED)
+        elif busy[busiest] >= 0.9:
+            state = (w.s("lanes_busy", name=REGIONS[busiest], util=busy[busiest]), EXTRA2)
+        elif p99 is not None and p99 > lab.READ_P99_MAX:
+            state = (w.s("lanes_far", p99=fmt_ms(p99)), EXTRA2)
+        else:
+            state = (w.screen.STATES["healthy"], GREEN)
+        fill = busy[busiest]
+        return LaneFrame(users=waiting, flights=flights, outcomes=outcomes,
+                         door_color=RED if down else None, fill=fill,
+                         gauge=RED if fill >= 0.9 else EXTRA2 if fill >= 0.7 else BLUE,
+                         outline=RED if down or not all(o[OP_OK] for o in last) else OUTLINE, state=state)
