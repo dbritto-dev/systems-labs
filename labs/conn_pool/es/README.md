@@ -35,3 +35,5 @@ servidas en menos de 1 s (después).
 Una petición que sigue esperando cuando se evalúa un incidente cuenta con el tiempo que lleva
 esperado. Un pool más grande no hace más rápida una base de datos lenta: pasadas ~20
 conexiones trabajando a la vez, cada consulta tarda más.
+
+**Segundo dibujo.** Pulsa `v` (o `--view cluster`) para ver la topología: clientes → pool → base de datos. Las peticiones que esperan conexión se acumulan en el pool; las conexiones rechazadas mueren en rojo camino de la base de datos.

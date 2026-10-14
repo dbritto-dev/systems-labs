@@ -36,3 +36,5 @@ Por qué saltar usa un margen: una petición sacada del principio de una cola FI
 casi exactamente la edad del timeout, así que la respuesta llegaría justo después de que el
 usuario se rindiera. `too_late` la salta cuando queda menos de `MARGIN` (0.1 s): el plazo
 viaja con la petición, como con los plazos de gRPC.
+
+**Segundo dibujo.** Pulsa `v` (o `--view cluster`) para ver la topología: clientes → cola → servidor. La cola se vuelve naranja al llenarse (más intenso si casi todo es para usuarios que se fueron); los intentos rechazados mueren en rojo al llegar.

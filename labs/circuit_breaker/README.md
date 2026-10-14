@@ -32,3 +32,5 @@ served again ≥ 95% from 7 s after it is back (after).
 
 The chart shows busy workers each second (white: calls to a healthy dependency; orange:
 calls to the slow one), against the pool size.
+
+**Second picture.** Press `v` (or `--view cluster`) to see the topology: clients → service → payments and recommendations. Slow calls park by their dependency, holding a worker; refused and failed calls die in red on its edge.

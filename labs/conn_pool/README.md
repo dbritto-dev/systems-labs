@@ -36,3 +36,5 @@ no "too many connections" errors (during), p99 wait for a connection < 1 s (duri
 A request still waiting when an incident is judged counts with the time it has waited so
 far. A bigger pool does not make a slow database faster: past ~20 connections working
 at once, every query just takes longer.
+
+**Second picture.** Press `v` (or `--view cluster`) to see the topology: clients → pool → database. Requests waiting for a connection pile up at the pool; refused connections die in red on the way to the database.

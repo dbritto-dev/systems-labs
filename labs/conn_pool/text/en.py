@@ -47,6 +47,8 @@ LEGEND = {"idle": "idle", "query": "query", "waits": "waits for a conn", "opens"
           "incident": "incident"}
 
 STRINGS = {
+    # the cluster picture: the topology under the grid
+    "topology": "pool → database",
     # incidents
     "slowdown": "Slowdown",
     "spike": "Spike",

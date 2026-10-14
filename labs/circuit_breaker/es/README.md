@@ -31,3 +31,5 @@ recupere (después).
 
 La gráfica muestra los workers ocupados cada segundo (blanco: llamadas a una dependencia
 sana; naranja: llamadas a la lenta), frente al tamaño del pool.
+
+**Segundo dibujo.** Pulsa `v` (o `--view cluster`) para ver la topología: clientes → servicio → pagos y recomendaciones. Las llamadas lentas se quedan junto a su dependencia ocupando un worker; las rechazadas y las fallidas mueren en rojo en su arista.

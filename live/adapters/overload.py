@@ -1,12 +1,14 @@
-"""The lanes picture for lab overload: the door is the queue, the server's gauge is how many wait in it."""
+"""The pictures for lab overload: lanes (the door is the queue, the server's gauge is how many wait
+in it) and cluster (the topology: clients → queue → server)."""
 
 from __future__ import annotations
 
 from labs.overload import lab as overload_lab
 from labs.overload.scenario import LATE, OK, REJECTED
 from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
-from live.canvas import BLUE, EXTRA2, EXTRA3, GREEN, RED
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
+from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
 
 
@@ -62,3 +64,57 @@ class OverloadLanes(LaneAdapter):
             gauge=EXTRA2 if waiting and stale / waiting > 0.5 else BLUE,
             outline=outline, state=state,
         )
+
+
+@adapts("overload", "cluster")
+class OverloadCluster(ClusterAdapter):
+    """The topology, live: clients → the queue → the server.
+
+    Tries fly from the clients to the queue (deeper orange for each retry); work flies from the
+    queue to the server, deep orange when it is for a user who already left. A full queue rejects:
+    the try dies in red on the way in. The queue node is orange while users wait in it (deeper the
+    more of them already left); the server turns red while it has lost capacity.
+    """
+
+    QUEUE, SERVER = 0, 1
+
+    def frame(self, variant: str, t: float) -> ClusterFrame:
+        from live.worlds.overload import (
+            TRIES, TRY_ATTEMPT, TRY_END, TRY_RESULT, TRY_SENT, WORK_END, WORK_KIND, WORK_START, capacity_at,
+        )
+        from labs.overload.scenario import SKIPPED
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return ClusterFrame()
+        flights = [(-1, self.QUEUE, (t - r[TRY_SENT]) / FLY, TRIES[min(2, r[TRY_ATTEMPT])])
+                   for r in every(run.rows("tries", t - FLY, t + 1e-9), FLIGHTS)]
+        work = [x for x in run.rows("work", t - FLY, t + 1e-9) if x[WORK_KIND] != SKIPPED]
+        flights += [(self.QUEUE, self.SERVER, (t - x[WORK_START]) / FLY, EXTRA3 if x[WORK_KIND] == LATE else WHITE)
+                    for x in every(work, FLIGHTS)]
+        rejected = [r for r in run.rows("tries", t - BACK - 1.0, t + 1e-9)
+                    if t - BACK <= r[TRY_END] <= t and r[TRY_RESULT] == REJECTED]
+        drops = [(-1, self.QUEUE, (t - r[TRY_END]) / BACK) for r in every(rejected, OUTCOMES)]
+
+        waiting, stale = w.queue_at(run, t)
+        if waiting > 100:
+            queue = RED
+        elif waiting:
+            queue = EXTRA3 if stale / waiting > 0.5 else EXTRA2 if waiting > 20 else EXTRA1
+        else:
+            queue = BLUE
+        recent = run.rows("work", t - 1.0, t + 1e-9)
+        late = sum(x[WORK_KIND] == LATE for x in recent)
+        busy = sum(x[WORK_KIND] != SKIPPED for x in recent)
+        lost = capacity_at(run, t) < overload_lab.CAPACITY
+        server = RED if lost else EXTRA3 if busy and late / busy > 0.5 else BLUE
+        words = w.screen.STATES
+        if busy and late / busy > 0.5:
+            word, colour = w.s("state_wasting"), EXTRA2
+        elif waiting > 100 or lost:
+            word, colour = words["overloaded"], RED
+        else:
+            word, colour = words["healthy"], GREEN
+        return ClusterFrame(nodes=[queue, server], flights=flights, drops=drops,
+                            state=(f"{word}   {w.s('topology')}", colour))

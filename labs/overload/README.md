@@ -38,3 +38,5 @@ Why skipping uses a margin: a request taken from the head of a full FIFO queue i
 almost exactly as old as the timeout, so a reply would land just after the user gave
 up. `too_late` skips it when less than `MARGIN` (0.1 s) is left: the deadline travels
 with the request, as with gRPC deadlines.
+
+**Second picture.** Press `v` (or `--view cluster`) to see the topology: clients → queue → server. The queue turns orange as it fills (deeper when most of it is for users who left); rejected tries die in red on the way in.

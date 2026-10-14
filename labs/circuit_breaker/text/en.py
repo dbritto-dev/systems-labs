@@ -48,6 +48,8 @@ LEGEND = {"idle": "idle", "fast_call": "fast call", "waits_worker": "waits for a
           "incident": "incident"}
 
 STRINGS = {
+    # the cluster picture: the topology under the grid
+    "topology": "service → {a} and {b}",
     # the dependencies (toplist bars: at most 10 letters)
     "dep_payments": "Payments",
     "dep_recs": "Recs",
