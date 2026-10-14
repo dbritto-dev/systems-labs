@@ -48,7 +48,7 @@ LEGEND = {"idle": "idle", "first_try": "first try", "retries": "retry 1,2,3", "c
 
 STRINGS = {
     # incidents
-    "flash_start": "{times:.1f}x the traffic, most of it on one item: {cause}",
+    "flash_start": "{times:.1f}x the traffic, most of it on one item, sold in drops: {cause}",
     "flash_end": "the sale is over",
     "import_start": "a job writes {rate:.0f} rows/s to the popular items: {cause}",
     "import_end": "the import has finished",
@@ -96,8 +96,10 @@ LESSON = Lesson(
         "statement checks and writes at once. If it matches no row, someone got there first: that is a "
         "conflict, and nothing was overwritten.",
         "A conflict is not a failure of the user's intent. Read the row again, apply the change to the "
-        "fresh value (the merge), and try again. Wait a small random time first (jitter), so the "
-        "requests that lost the same race do not collide again, and cap the waits and the tries.",
+        "fresh value (the merge), and try again. Wait a small random time first (jitter): requests that "
+        "lost the same race learn it together, and retried at once they read the same new version and "
+        "collide again, one winner per round, while their failed writes queue for the row. Let the wait "
+        "grow with each try, and cap the waits and the tries.",
         "It is optimistic because it bets conflicts are rare: nobody holds a lock while they think. When "
         "one row is very hot (a flash sale), conflicts are common; retries still work, but SELECT ... "
         "FOR UPDATE, an atomic UPDATE stock = stock - 2, or a queue per item may serve it better.",
@@ -105,8 +107,8 @@ LESSON = Lesson(
         "happen where the data is.",
     ),
     watch_for=(
-        "Last write wins: every request is served, fast, and the flash sale loses hundreds of updates (red).",
-        "Version check: no update is lost, but about one buyer in eight on the sale item gets a 409 (orange).",
+        "Last write wins: every request is served, fast, and the flash sale loses most of its updates (red).",
+        "Version check: no update is lost, but only one buyer per drop wins; over half get a 409 (orange).",
         "Retry and merge: retries (orange dots) win on the next try or two; lost updates and 409s stay at 0.",
     ),
     build=(

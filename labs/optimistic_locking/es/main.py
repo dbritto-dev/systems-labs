@@ -16,7 +16,9 @@ Haz las etapas en orden, en este archivo:
            (la combinación), hasta MAX_TRIES veces, esperando `backoff(attempt, rng)` entre
            medias: una espera aleatoria pequeña que crece con cada intento, hasta un tope. Lanza
            Conflict solo cuando todos los intentos pierdan. Los usuarios lo consiguen, y sigue
-           sin perderse ningún cambio.
+           sin perderse ningún cambio. Por qué esperar: en una oferta los compradores de una
+           tanda pulsan juntos y pierden juntos; si reintentan enseguida, vuelven a chocar,
+           ronda tras ronda.
 
 Lo que tienes (mira labs/optimistic_locking/api.py):
   row = await self.db.read(item)            row.value, row.version

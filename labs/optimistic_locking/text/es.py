@@ -49,7 +49,7 @@ LEGEND = {"idle": "en reposo", "first_try": "primer intento", "retries": "reinte
 
 STRINGS = {
     # incidentes
-    "flash_start": "{times:.1f}x el tráfico, casi todo a un artículo: {cause}",
+    "flash_start": "{times:.1f}x el tráfico, casi todo a un artículo, en tandas: {cause}",
     "flash_end": "la oferta ha terminado",
     "import_start": "un proceso escribe {rate:.0f} filas/s en los artículos populares: {cause}",
     "import_end": "la carga ha terminado",
@@ -98,9 +98,11 @@ LESSON = Lesson(
         "sola sentencia comprueba y escribe a la vez. Si no coincide con ninguna fila, alguien llegó "
         "antes: es un conflicto, y no se ha sobrescrito nada.",
         "Un conflicto no anula lo que el usuario quería. Vuelve a leer la fila, aplica el cambio al valor "
-        "nuevo (la combinación) e inténtalo otra vez. Espera antes un tiempo pequeño y aleatorio (jitter), "
-        "para que las peticiones que perdieron la misma carrera no vuelvan a chocar, y pon tope a las "
-        "esperas y a los intentos.",
+        "nuevo (la combinación) e inténtalo otra vez. Espera antes un tiempo pequeño y aleatorio (jitter): "
+        "las peticiones que perdieron la misma carrera se enteran juntas, y si reintentan enseguida leen la "
+        "misma versión nueva y vuelven a chocar, un ganador por ronda, mientras sus escrituras fallidas "
+        "hacen cola en la fila. Haz que la espera crezca en cada intento, y pon tope a las esperas y a los "
+        "intentos.",
         "Es optimista porque apuesta a que los conflictos son raros: nadie retiene un bloqueo mientras "
         "piensa. Cuando una fila está muy caliente (una oferta relámpago), los conflictos son frecuentes; "
         "los reintentos siguen funcionando, pero SELECT ... FOR UPDATE, un UPDATE atómico "
@@ -109,9 +111,9 @@ LESSON = Lesson(
         "que hacerse donde están los datos.",
     ),
     watch_for=(
-        "Gana la última escritura: todas las peticiones se atienden, rápido, y la oferta pierde cientos de "
-        "cambios (rojo).",
-        "Control de versión: no se pierde nada, pero uno de cada ocho compradores del artículo en oferta "
+        "Gana la última escritura: todas las peticiones se atienden, rápido, y la oferta pierde casi todos "
+        "sus cambios (rojo).",
+        "Control de versión: no se pierde nada, pero solo gana un comprador por tanda; más de la mitad "
         "recibe un 409 (naranja).",
         "Reintento y combinación: los reintentos (puntos naranjas) ganan al siguiente intento o al otro; "
         "cambios perdidos y 409 se quedan en 0.",

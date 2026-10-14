@@ -14,7 +14,9 @@ Do the stages in order, in this file:
   Stage 2  Retry on conflict: read the row again and apply your change to the fresh value (the
            merge), up to MAX_TRIES times, sleeping `backoff(attempt, rng)` in between: a small
            random wait that grows with each attempt, up to a cap. Raise Conflict only when every
-           try lost. Users succeed, and still no update is lost.
+           try lost. Users succeed, and still no update is lost. Why wait: in a flash sale the
+           buyers of one drop click together and lose together; retried at once they collide
+           again, round after round.
 
 What you get (see labs/optimistic_locking/api.py):
   row = await self.db.read(item)            row.value, row.version

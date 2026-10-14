@@ -59,6 +59,22 @@ class NO_CAP:  # re-reads and retries, but the waits double without a cap: users
             raise Conflict(item)
 
 
+class NO_BACKOFF:  # re-reads and retries at once: the buyers of one drop collide again, round after round
+    MAX_TRIES = 8
+
+    @staticmethod
+    def backoff(attempt, rng):
+        return 0.0
+
+    class StockService(reference.StockService):
+        async def adjust(self, item, delta):
+            for attempt in range(8):
+                row = await self.db.read(item)
+                if await self.db.compare_and_set(item, row.value + delta, row.version):
+                    return row.value + delta
+            raise Conflict(item)
+
+
 class LOCAL_LOCK:  # an asyncio.Lock per item, last write wins: each app server has its own locks
     MAX_TRIES = 1
     backoff = staticmethod(reference.backoff)
@@ -121,6 +137,13 @@ def test_an_uncapped_backoff_serves_everyone_too_late(seed):
     world, ok = first(NO_CAP, seed)
     assert ok[1] and ok[2] and not ok[3]  # nothing lost, few 409s, but the p99 is far too long
     assert world.stage_index(NO_CAP) == 1
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_retrying_at_once_keeps_colliding(seed):
+    world, ok = first(NO_BACKOFF, seed)
+    assert ok[1] and not ok[2] and not ok[4]  # nothing lost, but a quarter of the buyers still get a 409
+    assert world.stage_index(NO_BACKOFF) == 1
 
 
 def test_reference_passes_every_goal_on_every_kind_of_incident():

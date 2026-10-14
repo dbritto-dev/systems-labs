@@ -6,7 +6,8 @@ units. A few items are popular, most are not, so two requests rarely touch the s
 A user waits up to 1 s for an answer; a 409 (`Conflict`) is an error page.
 
 Incidents come at random, like in production: a flash sale (traffic jumps and most of it buys
-the same item), a bulk import (a job restocks the popular items while users buy them), or a
+the same item; the sale releases stock in drops every 250 ms, and the ~25 buyers waiting for a
+drop all click Buy within 2 ms of each other), a bulk import (a job restocks the popular items while users buy them), or a
 slow network (every round trip to the database is several times slower, which widens the gap
 between a request's read and its write). The first incident is always a flash sale at 0:20-0:30.
 
@@ -37,6 +38,8 @@ POPULAR = 10  # the items a bulk import restocks
 TIMEOUT = 1.0  # a user waits this long for an answer
 LATENCY = 0.003  # one round trip to the database
 HOT_SHARE = 0.6  # of the traffic during a flash sale, the share that buys the sale item
+DROP = 0.25  # seconds between a flash sale's drops of stock
+CLICKS = 0.002  # the buyers of one drop click within this many seconds
 
 # Request outcomes, from the client's side.
 OK, CONFLICT, TIMEOUT_, ERROR = range(4)
@@ -44,7 +47,7 @@ OK, CONFLICT, TIMEOUT_, ERROR = range(4)
 # Causes are keys; their words are in text/<lang>.py (CAUSES).
 FIRST = Planned(20.0, 30.0, "flash", 3.0, "flash_sale")
 KINDS = [
-    Kind("flash", 0.4, median=10.0, shortest=5.0, longest=20.0, severity=(2.0, 3.5),
+    Kind("flash", 0.4, median=10.0, shortest=5.0, longest=20.0, severity=(2.0, 3.0),
          causes=("flash_sale", "push_alert", "influencer", "price_error")),
     Kind("import", 0.3, median=12.0, shortest=6.0, longest=25.0, severity=(80.0, 200.0),
          causes=("supplier_feed", "recount", "price_sync")),
@@ -68,6 +71,7 @@ class _Sim:
         self.apps = [code.StockService(self.db, random.Random(seed * 11 + 5 + k)) for k in range(APPS)]
         self.boost = 1.0  # traffic multiplier (a flash sale)
         self.hot: int | None = None  # the flash sale's item
+        self.waiting: list[int] = []  # buyers of the sale item waiting for the next drop (their deltas)
         self.planned: list[Planned] = []
         self.bugs: list[BaseException] = []
         self.open: dict[int, dict] = {}  # running requests
@@ -101,9 +105,22 @@ class _Sim:
             await asyncio.sleep(t - now())
             if rng.random() * self.rate * 4.0 > rate_at(self.rate, t, self.seed) * self.boost:
                 continue
-            hot = self.hot is not None and rng.random() < HOT_SHARE
-            item = self.hot if hot else self.item(rng)
-            asyncio.ensure_future(self.request(item, -rng.randint(1, 3), False, hot, rng))
+            if self.hot is not None and rng.random() < HOT_SHARE:
+                self.waiting.append(-rng.randint(1, 3))  # on the sale page, until the next drop
+            else:
+                asyncio.ensure_future(self.request(self.item(rng), -rng.randint(1, 3), False, False, rng))
+
+    async def drops(self) -> None:
+        """A flash sale releases its stock in drops: everyone waiting on the page clicks Buy together."""
+        rng = random.Random(self.seed * 17)
+        while True:
+            await asyncio.sleep(DROP - now() % DROP)
+            buyers, self.waiting = self.waiting, []
+            for delta in buyers:
+                asyncio.get_running_loop().call_later(
+                    rng.uniform(0, CLICKS), asyncio.ensure_future,
+                    self.request(self.hot, delta, False, True, rng) if self.hot is not None
+                    else self.request(self.item(rng), delta, False, False, rng))
 
     async def bulk(self, rate: float, until: float) -> None:
         rng = random.Random(self.seed * 13 + int(now()))
@@ -173,6 +190,7 @@ def stream(variant="main", seed: int = 1, rate: float = 50.0) -> Iterator[dict]:
     s = _Sim(code, seed, rate)
     sim.spawn(s.traffic())
     sim.spawn(s.chaos())
+    sim.spawn(s.drops())
     try:
         for k in itertools.count():
             a, b = k * PIECE, (k + 1) * PIECE
