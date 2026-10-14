@@ -26,9 +26,13 @@ class _VirtualSelector:
         self.loop: VirtualClockLoop | None = None
 
     def select(self, timeout: float | None = None):
-        ready = self._real.select(0)
-        if ready:
-            return ready
+        # The loop always registers its own wake-up pipe; only poll the real selector
+        # when something else is registered too (a socket, a subprocess pipe). That
+        # syscall was about half the time of a simulation.
+        if len(self._real.get_map()) > 1:
+            ready = self._real.select(0)
+            if ready:
+                return ready
         loop = self.loop
         assert loop is not None
         if timeout is None:
