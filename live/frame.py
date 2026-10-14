@@ -36,7 +36,7 @@ def window(t: float) -> tuple[float, float]:
 
 
 def nice(v: float) -> float:
-    for step in (50, 100, 150, 200, 250, 300, 400, 450, 500, 600, 800, 1000, 1500, 2000, 3000, 5000):
+    for step in (5, 10, 20, 30, 50, 100, 150, 200, 250, 300, 400, 450, 500, 600, 800, 1000, 1500, 2000, 3000, 5000):
         if v <= step:
             return float(step)
     return float(int(v) + 1)
