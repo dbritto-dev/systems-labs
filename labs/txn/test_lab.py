@@ -149,3 +149,15 @@ def test_stage2_catches_up():
 @your_code(3, "no intermediate reads (read committed)")
 def test_stage3_read_committed():
     assert first() == [True] * 4
+
+
+def test_a_second_picture_shows_what_the_clients_see():
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("txn", "reference", 1)
+    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    set_view(world, "lanes")
+    frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
+    assert frame.users or frame.flights
+    text, colour = frame.state
+    assert text and len(text) <= 13

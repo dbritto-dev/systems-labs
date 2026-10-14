@@ -181,3 +181,15 @@ def test_stage1_commits():
 def test_stage2_efficient():
     world = build_world("kafka_log", variant(), 1)
     assert [r.ok for r in world.runs[variant()].settled[0]] == [True] * 5
+
+
+def test_a_second_picture_shows_what_the_clients_see():
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("kafka_log", "reference", 1)
+    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    set_view(world, "lanes")
+    frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
+    assert frame.users or frame.flights
+    text, colour = frame.state
+    assert text and len(text) <= 13

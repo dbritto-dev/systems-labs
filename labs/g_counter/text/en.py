@@ -74,6 +74,9 @@ STRINGS = {
     "state_off": "READS OFF",
     # errors in your code
     "stuck": "a client request has waited over {seconds:.0f} s: does a handler never reply?",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_conflicts": "CONFLICTS",
+    "lanes_kv_slow": "KV SLOW",
 }
 
 LESSON = Lesson(

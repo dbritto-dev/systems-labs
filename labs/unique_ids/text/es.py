@@ -77,6 +77,9 @@ STRINGS = {
     "note_chart": "Gráfica: IDs por segundo: únicos, duplicados, fallidos.",
     # el dibujo
     "state_clock": "n{node} RELOJ -{seconds:.1f}s",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_dups": "DUPLICADOS",
+    "lanes_clock": "DESFASE",
 }
 
 LESSON = Lesson(

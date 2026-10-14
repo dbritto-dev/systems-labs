@@ -74,6 +74,9 @@ STRINGS = {
     # the picture
     "state_hot": "HOT KEY {k}",
     "state_kv_slow": "LIN-KV SLOW",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_anomaly": "ANOMALY",
+    "lanes_kv_slow": "KV SLOW",
 }
 
 LESSON = Lesson(

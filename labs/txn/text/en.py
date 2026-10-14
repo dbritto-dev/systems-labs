@@ -65,6 +65,8 @@ STRINGS = {
     "state_cut": "n{node} cut off",
     # errors in your code
     "no_store": "TxnNode must keep its key/value store in self.store (a dict)",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_g1b": "G1b READ",
 }
 
 LESSON = Lesson(
