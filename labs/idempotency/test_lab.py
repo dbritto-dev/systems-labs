@@ -159,3 +159,25 @@ def test_stage2_first_incident_every_goal():
     world = build_world("idempotency", variant(), 1)
     first = world.runs[variant()].settled[0]
     assert [r.ok for r in first] == [True] * 5
+
+
+def test_a_second_picture_shows_the_topology():
+    from live.canvas import GREEN, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for, set_view, views_for
+
+    def picture(v: str):
+        world = build_world("idempotency", v, 1)
+        assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+        set_view(world, "cluster")
+        frame = adapter_for(world).frame(v, 25.0)  # in the first incident: a slow ledger
+        assert len(frame.nodes) == 3 and any(src == -1 for src, _, _, _ in frame.flights)
+        text = "\n".join(plain(line) for line in compose(world, v, 25.0, 92, 30))
+        assert frame.state[0] in text  # the line under the grid fits the smallest screen
+        return frame
+
+    given, solved = picture("main"), picture("reference")
+    # Without keys, retries charge the ledger again (red); with them, receipts come from the key store.
+    assert any(dest == 2 and colour == RED for _, dest, _, colour in given.flights)
+    assert not any(colour == RED for _, _, _, colour in solved.flights)
+    assert any(dest == 1 and colour == GREEN for _, dest, _, colour in solved.flights)

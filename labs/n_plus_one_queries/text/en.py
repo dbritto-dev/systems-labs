@@ -68,6 +68,8 @@ STRINGS = {
     "head_busy": "Database {busy:.0%} busy: pages wait",
     "head_calm": "{qpp:.1f} queries per page",
     "note": "Dots: queries of 1 page in 4 (cosmetic speed).",
+    # the cluster picture: the topology under the grid
+    "pic_state": "app → database · {qpp:.1f} queries/page: {state}",
     # errors in your code
     "stuck": "a page has been loading for over {seconds:.0f} s: does load_page wait forever?",
 }

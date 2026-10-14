@@ -71,6 +71,8 @@ STRINGS = {
     "head_spike": "{x:.1f}x the logins",
     "head_calm": "{rows:,} rows; a login reads {read:,.0f}",
     "note_chart": "Chart: database busy time, % of 4 workers.",
+    # the cluster picture: the topology under the grid
+    "pic_state": "queue → 4 workers · {read:,.0f} rows/login: {state}",
 }
 
 LESSON = Lesson(

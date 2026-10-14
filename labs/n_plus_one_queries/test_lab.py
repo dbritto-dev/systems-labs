@@ -96,3 +96,21 @@ def test_stage1_batched():
 @your_code(2, "one query per page, so a slow database costs one round trip")
 def test_stage2_joined():
     assert first() == [True] * 5
+
+
+def test_a_second_picture_shows_every_query():
+    from live.canvas import plain
+    from live.frame import compose
+    from live.views import adapter_for, set_view, views_for
+
+    def queries(v: str) -> int:
+        world = build_world("n_plus_one_queries", v, 1)
+        assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+        set_view(world, "cluster")
+        frame = adapter_for(world).frame(v, 10.0)
+        assert len(frame.nodes) == 2 and any(src == -1 for src, _, _, _ in frame.flights)
+        text = "\n".join(plain(line) for line in compose(world, v, 10.0, 92, 30))
+        assert frame.state[0] in text  # the line under the grid fits the smallest screen
+        return sum(1 for src, dest, _, _ in frame.flights if (src, dest) == (0, 1))
+
+    assert queries("main") >= 4 * queries("reference")  # N+1 is a swarm of round trips, a join one each

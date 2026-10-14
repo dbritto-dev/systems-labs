@@ -69,6 +69,9 @@ STRINGS = {
     "head_slow": "El libro mayor va lento: se acumulan intentos",
     "head_ok": "Cada pago cobrado una vez",
     "state_slow": "LENTO",
+    "state_double": "COBRO DOBLE",
+    # el dibujo de clúster: la topología bajo la cuadrícula
+    "pic_state": "servicio → claves · libro mayor: {state}",
     "note": "Los puntos son una muestra de intentos, más lentos (estético).",
     "subtitle": "por segundo, último 1 s",
     "title": "Pagos",

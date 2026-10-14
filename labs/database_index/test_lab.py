@@ -127,3 +127,22 @@ def test_stage2_every_goal_passes():
     world = build_world("database_index", variant(), 1)
     first = world.runs[variant()].settled[0]
     assert [r.ok for r in first] == [True] * 4
+
+
+def test_a_second_picture_shows_the_workers():
+    from live.canvas import EXTRA, plain
+    from live.frame import compose
+    from live.views import adapter_for, set_view, views_for
+
+    def workers(v: str) -> list:
+        world = build_world("database_index", v, 1)
+        assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+        set_view(world, "cluster")
+        frame = adapter_for(world).frame(v, 10.0)
+        assert len(frame.nodes) == 1 + 4 and any(src == -1 for src, _, _, _ in frame.flights)
+        text = "\n".join(plain(line) for line in compose(world, v, 10.0, 92, 30))
+        assert frame.state[0] in text  # the line under the grid fits the smallest screen
+        return frame.nodes[1:]
+
+    assert EXTRA[3] in workers("main")  # full scans hold the workers
+    assert EXTRA[3] not in workers("reference")  # index lookups are gone in a blink

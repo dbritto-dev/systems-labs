@@ -68,6 +68,9 @@ STRINGS = {
     "head_slow": "The ledger is slow: tries pile up",
     "head_ok": "Every payment charged once",
     "state_slow": "SLOW",
+    "state_double": "CHARGED TWICE",
+    # the cluster picture: the topology under the grid
+    "pic_state": "service → keys · ledger: {state}",
     "note": "Dots are a sample of tries, slowed down (cosmetic).",
     "subtitle": "per second, last 1 s",
     "title": "Payments",

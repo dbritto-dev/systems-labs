@@ -71,6 +71,8 @@ STRINGS = {
     "head_spike": "{x:.1f}x logins",
     "head_calm": "{rows:,} filas; un login lee {read:,.0f}",
     "note_chart": "Gráfica: tiempo ocupado de la BD, % de 4 workers.",
+    # el dibujo de clúster: la topología bajo la cuadrícula
+    "pic_state": "cola → 4 workers · {read:,.0f} filas/login: {state}",
 }
 
 LESSON = Lesson(
