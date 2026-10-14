@@ -67,7 +67,8 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
 
     def cell(i: int) -> tuple[int, int]:  # (row, col) of node i
         r, c = divmod(i, side)
-        return round(top + r * step_r), round(left + c * step_c)
+        row = (top + bottom) / 2 if rows == 1 else top + r * step_r  # a lone row sits mid-height
+        return round(row), round(left + c * step_c)
 
     def centre(i: int) -> tuple[float, float]:  # in dots
         if i < 0:  # the clients
