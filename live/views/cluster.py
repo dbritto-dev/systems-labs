@@ -93,7 +93,7 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
                     if k % 3 != 2:
                         if vertical:
                             cv.dot(mx, my + k, RED, 3)
-                        else:
+                        elif (left - 1) * 2 <= mx + k <= (right + 1) * 2:  # keep off the clients
                             cv.dot(mx + k, my, RED, 3)
     # Messages that were dropped: red, half way, fading.
     for a, b, fade in fr.drops:
