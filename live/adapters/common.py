@@ -11,7 +11,9 @@ FLIGHTS, OUTCOMES = 14, 8
 
 
 def every(rows: list, most: int) -> list:
-    """At most `most` rows, evenly spread."""
+    """At most `most` rows, evenly spread (none when `most` is 0 or less)."""
+    if most <= 0:
+        return []
     return rows[:: max(1, len(rows) // most)][:most]
 
 
