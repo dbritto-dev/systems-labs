@@ -18,7 +18,8 @@ configuración erróneo, una caída de la nube, una falla de refrigeración), un
 de las otras dos aunque sus usuarios todavía llegan a ella (un corte de fibra, una fuga BGP, una
 regla de cortafuegos), el enlace entre dos regiones se vuelve 150–350 ms más lento y pierde el 10% de
 sus mensajes (un cable submarino cortado), o una región tiene su pico (2,5–3 veces su tráfico). La
-ejecución nunca se reinicia. El primer incidente siempre es la caída de us de 0:20 a 0:32.
+ejecución nunca se reinicia. El primer incidente siempre aísla a us, la primaria de las etapas 0 y 1, de eu y ap de 0:20 a
+0:32 (un corte de fibra); sus propios usuarios todavía llegan a ella.
 
 ```
 uv run python -m live geo_replication --lang es          # míralo; edita es/main.py y guarda
@@ -40,9 +41,9 @@ la escritura del propio usuario) o rojas (fallidas).
 
 | Etapa | En `es/main.py` | Qué ves |
 |---|---|---|
-| 0 Una región primaria (dada) | cada región reenvía cada lectura y escritura a us | puntos naranjas cruzan un océano en cada petición de eu y ap (p99 ~180–250 ms); cuando us se pone roja, todo falla, y cada escritura vive solo en us |
-| 1 Réplicas de lectura | cada región responde las lecturas con su copia; us confirma las escrituras y las envía (`ship`) en lotes cada 0,1 s (`on_replicate` las guarda) | las lecturas se quedan en casa (p99 ~15 ms); pero quien guarda y recarga no ve su cambio (morado), las escrituras de los últimos ~0,1 s existen solo en us, y con us caída nadie puede escribir |
-| 2 Escrituras en cada región | cualquier región acepta una escritura y la confirma cuando la primera de las otras dos la tiene (`replicate`, `send_to`); las escrituras perdidas se vuelven pistas (`hand_off`); una lectura más vieja que el token de sesión busca (`fetch`) la nueva | con us caída, eu recibe a sus usuarios y todas las escrituras; los usuarios de una región aislada escriben en otra y sus lecturas en casa esperan al token; todos los objetivos OK |
+| 0 Una región primaria (dada) | cada región reenvía cada lectura y escritura a us | puntos naranjas cruzan un océano en cada petición de eu y ap (p99 ~180–250 ms); con us aislada, sus peticiones esperan un timeout y un reintento en us (p99 ~650 ms), y cada escritura vive solo en us; cuando us cae, todo falla |
+| 1 Réplicas de lectura | cada región responde las lecturas con su copia; us confirma las escrituras y las envía (`ship`) en lotes cada 0,1 s (`on_replicate` las guarda) | las lecturas se quedan en casa (p99 ~10–15 ms); pero quien guarda y recarga no ve su cambio (morado), las escrituras recientes existen solo en us (todas mientras está aislada), las de eu y ap esperan un reintento al otro lado del océano, y con us caída nadie puede escribir |
+| 2 Escrituras en cada región | cualquier región acepta una escritura y la confirma cuando la primera de las otras dos la tiene (`replicate`, `send_to`); las escrituras perdidas se vuelven pistas (`hand_off`); una lectura más vieja que el token de sesión busca (`fetch`) la nueva | con us aislada, sus escrituras se rechazan allí y las acepta eu, y sus lecturas en casa esperan al token en vez de mostrar datos viejos; con us caída, eu recibe a sus usuarios; todos los objetivos OK |
 
 Objetivos, evaluados por incidente, sobre lo que pasa desde su inicio hasta 5 s después de su fin:
 

@@ -28,13 +28,13 @@ CAUSES = {
 
 STAGES = [
     StageText("One primary region",
-              "Challenge: far users wait an ocean for every read, and losing us stops everything.",
+              "Challenge: far users cross an ocean for every read, and every write lives in us alone.",
               "Stage 1: a read replica in every region"),
     StageText("Read replicas",
-              "Challenge: reads are fast, but with us down nobody writes, and users miss their writes.",
+              "Challenge: reads are fast, but users miss their own writes, and writes have one copy.",
               "Stage 2: writes in every region, two copies, session tokens"),
     StageText("Writes in every region",
-              "Solved: local reads, one ocean per write, nothing missed or at risk, any region down.",
+              "Solved: local reads, one ocean per write, nothing missed or at risk, any region lost.",
               "All stages done"),
 ]
 
@@ -126,8 +126,8 @@ LESSON = Lesson(
         "hints: the writes it missed, re-sent until it acknowledges them.",
     ),
     watch_for=(
-        "One primary: orange dots cross from eu and ap to us for every request; when us turns red, every "
-        "request fails.",
+        "One primary: orange dots cross from eu and ap to us for every request; when us is cut off they "
+        "die half way and the apps retry in us; when us turns red, every request fails.",
         "Read replicas: reads stay inside each column; blue batches cross to the replicas; purple answers when "
         "a user reads before their write arrived; with us down, writes fail.",
         "Writes everywhere: every write sends two blue dots and is answered at the first reply; a cut-off "
@@ -192,7 +192,7 @@ LESSON = Lesson(
     ),
     try_next=(
         "Do stage 1 in labs/geo_replication/main.py and watch the read p99 drop for eu and ap users.",
-        "Then wait for us to go down: writes stop. Do stage 2 and watch eu take us's users.",
+        "Then watch us get cut off: users miss their writes. Do stage 2 and watch the tokens catch it.",
         "Try --set rate=300: the regions get closer to their capacity during a peak.",
     ),
 )

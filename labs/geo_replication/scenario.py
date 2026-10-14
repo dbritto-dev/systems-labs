@@ -11,7 +11,7 @@ Incidents come at random, like in production: a whole region goes down (a power 
 config push, a cloud outage), a region is cut off from the other two (its users still reach it),
 the link between two regions gets slow and drops packets (a subsea cable cut), or a region has
 its peak (morning there: three times its traffic). The first one is always us, the primary of
-stages 0 and 1, going down at 0:20-0:32.
+stages 0 and 1, cut off from eu and ap at 0:20-0:32 (a fiber cut): its users still reach it.
 
 The checker knows the truth: for every read of a user's own profile it knows the last write that
 user got acknowledged; and every 0.2 s it looks inside each region's `store` (outside the network)
@@ -58,7 +58,7 @@ ORDER = {r: [r, FAILOVER[r]] + [x for x in REGIONS if x not in (r, FAILOVER[r])]
 READ, WRITE = 0, 1
 
 # Causes are keys; their words are in text/<lang>.py (CAUSES).
-FIRST = Planned(20.0, 32.0, "down", 1.0, "power")
+FIRST = Planned(20.0, 32.0, "partition", 1.0, "fiber_cut")
 KINDS = [
     Kind("down", 0.35, median=12.0, shortest=6.0, longest=25.0, causes=("power", "config_push", "cloud_outage", "cooling")),
     Kind("partition", 0.25, median=10.0, shortest=5.0, longest=20.0, causes=("fiber_cut", "bgp_leak", "firewall")),

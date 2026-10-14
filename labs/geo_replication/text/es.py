@@ -28,10 +28,10 @@ CAUSES = {
 
 STAGES = [
     StageText("Una región primaria",
-              "Reto: los lejanos cruzan un océano en cada lectura, y si cae us todo se detiene.",
+              "Reto: los lejanos cruzan un océano en cada lectura, y cada escritura vive solo en us.",
               "Etapa 1: una réplica de lectura en cada región"),
     StageText("Réplicas de lectura",
-              "Reto: leer es rápido, pero con us caída nadie escribe y no ven sus propios cambios.",
+              "Reto: leer es rápido, pero no ven sus propios cambios, y cada escritura tiene una copia.",
               "Etapa 2: escrituras en cada región, dos copias, token de sesión"),
     StageText("Escrituras en cada región",
               "Resuelto: lecturas locales, un océano por escritura, nada perdido ni en riesgo.",
@@ -128,8 +128,8 @@ LESSON = Lesson(
         "que se perdió, reenviadas hasta que las confirme.",
     ),
     watch_for=(
-        "Una primaria: puntos naranjas cruzan de eu y ap a us en cada petición; cuando us se pone roja, toda "
-        "petición falla.",
+        "Una primaria: puntos naranjas cruzan de eu y ap a us en cada petición; cuando us queda aislada, "
+        "mueren a mitad de camino y las aplicaciones reintentan en us; cuando us se pone roja, toda petición falla.",
         "Réplicas de lectura: las lecturas se quedan en su columna; lotes azules cruzan a las réplicas; "
         "respuestas moradas cuando un usuario lee antes de que llegue su escritura; con us caída, escribir falla.",
         "Escrituras en todas partes: cada escritura manda dos puntos azules y se responde con la primera "
@@ -199,8 +199,8 @@ LESSON = Lesson(
     ),
     try_next=(
         "Haz la etapa 1 en labs/geo_replication/es/main.py y mira bajar el p99 de lectura en eu y ap.",
-        "Luego espera a que caiga us: las escrituras se detienen. Haz la etapa 2 y mira a eu recibir a los "
-        "usuarios de us.",
+        "Luego mira a us quedar aislada: los usuarios no ven sus escrituras. Haz la etapa 2 y mira a los "
+        "tokens detectarlo.",
         "Prueba --set rate=300: las regiones se acercan a su capacidad durante un pico.",
     ),
 )

@@ -16,9 +16,9 @@ AT_RISK_MAX = 0  # acknowledged writes only one region holds (lost if that regio
 
 
 def stage_of(read_ok: bool, write_ok: bool, ryw_ok: bool, available_ok: bool, risk_ok: bool) -> int:
-    """Judge the stage from the first incident (the primary region, us, goes down):
+    """Judge the stage from the first incident (the primary region, us, is cut off from eu and ap):
     0 one primary region (far users read across an ocean), 1 read replicas in every region (fast
-    reads, but writes stop with the primary, users miss their own writes, recent writes have one
+    reads, but writes wait for a retry across an ocean, users miss their own writes, writes have one
     copy), 2 writes in every region, acknowledged with two copies, with session tokens."""
     if not read_ok:
         return 0

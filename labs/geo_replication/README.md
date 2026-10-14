@@ -17,7 +17,8 @@ At random times, like in production: a whole region goes down (a power failure, 
 a cloud outage, a cooling failure), a region is cut off from the other two while its users still
 reach it (a fiber cut, a BGP leak, a firewall push), the link between two regions gets 150–350 ms
 slower and drops 10% of its messages (a subsea cable cut), or a region has its peak (2.5–3x its
-traffic). The run never restarts. The first incident is always us going down at 0:20–0:32.
+traffic). The run never restarts. The first incident is always us, the primary of stages 0 and 1, cut off from eu and ap at
+0:20–0:32 (a fiber cut); its own users still reach it.
 
 ```
 uv run python -m live geo_replication          # watch it; edit main.py and save
@@ -40,9 +41,9 @@ ocean or waited for a retry), purple (a read that missed the user's own write) o
 
 | Stage | In `main.py` | What you see |
 |---|---|---|
-| 0 One primary region (given) | every region forwards every read and write to us | orange dots cross an ocean for every request from eu and ap (p99 ~180–250 ms); when us goes red, everything fails, and every write lives only in us |
-| 1 Read replicas | every region answers reads from its own copy; us acknowledges writes and `ship`s them in batches every 0.1 s (`on_replicate` keeps them) | reads stay home (p99 ~15 ms); but users who save and reload miss their change (purple), the last ~0.1 s of writes exist only in us, and with us down nobody can write |
-| 2 Writes in every region | any region takes a write and acknowledges it once the first of the other two holds it (`replicate`, `send_to`); missed writes become hints (`hand_off`); a read older than the session token `fetch`es the newer one | with us down, eu takes us's users and every write; a cut-off region's users write elsewhere and their reads at home wait for the token; every goal OK |
+| 0 One primary region (given) | every region forwards every read and write to us | orange dots cross an ocean for every request from eu and ap (p99 ~180–250 ms); with us cut off, their requests wait for a timeout and a retry in us (p99 ~650 ms), and every write lives only in us; when us goes down, everything fails |
+| 1 Read replicas | every region answers reads from its own copy; us acknowledges writes and `ship`s them in batches every 0.1 s (`on_replicate` keeps them) | reads stay home (p99 ~10–15 ms); but users who save and reload miss their change (purple), recent writes exist only in us (all of them while it is cut off), eu and ap writes wait for a retry across an ocean, and with us down nobody can write |
+| 2 Writes in every region | any region takes a write and acknowledges it once the first of the other two holds it (`replicate`, `send_to`); missed writes become hints (`hand_off`); a read older than the session token `fetch`es the newer one | with us cut off, its users' writes are refused there and taken by eu, and their reads at home wait for the token instead of showing old data; with us down, eu takes its users; every goal OK |
 
 Goals, judged per incident, on what happens from its start to 5 s after its end:
 

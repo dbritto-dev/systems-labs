@@ -60,7 +60,7 @@ class WaitAll(R.RegionNode):  # acknowledges a write only once every region has 
         return all(await asyncio.gather(*tasks))
 
 
-class NoToken(R.RegionNode):  # two copies per write, but reads ignore the session token
+class NoToken(R.RegionNode):  # stage 1 too: two copies per write, but reads ignore the session token
     async def on_read(self, msg):
         version, value = self.store.get(msg.body["key"], (0, None))
         self.reply(msg, {"type": "read_ok", "value": value, "version": version})
@@ -99,10 +99,10 @@ def by_kind(world, v) -> dict[str, list[list[bool]]]:
 # ------------------------------------------------------------- given behaviour
 
 
-def test_the_first_incident_is_us_going_down_at_0_20():
+def test_the_first_incident_cuts_us_off_at_0_20():
     for seed in (1, 2, 99):
         first = next(scenario.incidents(seed))
-        assert (first.t0, first.t1, first.kind) == (20.0, 32.0, "down")
+        assert (first.t0, first.t1, first.kind) == (20.0, 32.0, "partition")
         assert scenario.victim(first, seed) == 0  # us, the primary of stages 0 and 1
     incs = list(itertools.islice(scenario.incidents(3), 40))
     assert {i.kind for i in incs} == {"down", "partition", "slow", "peak"} and all(i.cause for i in incs)
@@ -124,17 +124,17 @@ def test_the_network_has_oceans_in_it():
     assert 0.12 <= min(eu_ap) and max(eu_ap) <= 0.18
 
 
-def test_one_primary_region_is_slow_far_away_and_stops_with_us():
+def test_one_primary_region_is_slow_far_away_and_keeps_one_copy():
     for seed in (1, 2, 3):
         world = build_world(LAB, "main", 1, seed=seed)
-        assert statuses(world, "main")[0] == [False, False, True, False, False]
+        assert statuses(world, "main")[0] == [False, False, True, True, False]  # the apps retry in us
         assert world.stage_index("main") == 0  # One primary region
 
 
-def test_read_replicas_read_fast_but_writes_stop_and_users_miss_their_writes():
+def test_read_replicas_read_fast_but_users_miss_their_writes():
     for seed in (1, 2, 3):
         world = build_world(LAB, REPLICAS, 1, seed=seed)
-        assert statuses(world, REPLICAS)[0] == [True, False, False, False, False]
+        assert statuses(world, REPLICAS)[0] == [True, False, False, True, False]
         assert world.stage_index(REPLICAS) == 1  # Read replicas
 
 
@@ -145,7 +145,7 @@ def test_acknowledging_before_a_second_copy_leaves_writes_at_risk():
         assert world.stage_index(ASYNC) == 1  # fast everywhere, but a region lost takes writes with it
 
 
-def test_waiting_for_every_region_stops_writes_when_one_is_down():
+def test_waiting_for_every_region_stops_writes_when_one_is_cut_off():
     for seed in (1, 2, 3):
         world = build_world(LAB, WAIT_ALL, 1, seed=seed)
         result = statuses(world, WAIT_ALL)[0]
@@ -154,6 +154,10 @@ def test_waiting_for_every_region_stops_writes_when_one_is_down():
 
 
 def test_without_session_tokens_a_cut_off_region_shows_users_old_data():
+    for seed in (1, 2, 3):
+        world = build_world(LAB, NO_TOKEN, 1, seed=seed)
+        assert statuses(world, NO_TOKEN)[0] == [True, True, False, True, True]
+        assert world.stage_index(NO_TOKEN) == 1  # the first incident catches it
     missed = 0
     for seed in (1, 5):
         world = build_world(LAB, NO_TOKEN, 10, seed=seed)
@@ -187,7 +191,7 @@ def test_pieces_join_in_order_and_totals_survive_forgetting():
 def test_the_events_name_the_region():
     world = build_world(LAB, "main", 1)
     start = next(e for e in world.runs["main"].timeline if e.kind == "start")
-    assert "us" in start.text and world.text.CAUSES["power"] in start.text
+    assert "us" in start.text and world.text.CAUSES["fiber_cut"] in start.text
 
 
 def test_a_bug_in_your_node_is_reported():
@@ -219,15 +223,15 @@ def test_two_pictures_the_cluster_first():
         return frame, lanes
 
     for v in ("main", "reference"):
-        frame, lanes = pictures(v, 25.0)  # us is down: its column is red
-        assert [i for i, c in enumerate(frame.nodes) if c == RED] == [0, 3, 6]
-        assert lanes.door_color == RED
+        frame, lanes = pictures(v, 25.0)  # us is cut off: fenced, not down
+        assert frame.groups == [1, 0, 0] * 3 and RED not in frame.nodes
+        assert lanes.state[0] == worlds[v].s("lanes_cut", name="us")
     frame, lanes = pictures("main", 25.0)
-    assert frame.drops and any(c == RED for c, _ in lanes.outcomes)  # every request fails
+    assert frame.drops  # requests forwarded to us die half way
     frame, lanes = pictures("main", 45.0)
     assert any(c == EXTRA2 for _, _, _, c in frame.flights)  # requests forwarded across an ocean
     frame, lanes = pictures("reference", 25.0)
-    assert not any(c == RED for c, _ in lanes.outcomes)  # us's users are served in eu
+    assert not any(c == RED for c, _ in lanes.outcomes)  # nothing fails: us's users write in eu
 
 
 # ------------------------------------------------------------- your code: three regions, one user
