@@ -108,4 +108,5 @@ def draw_lanes(cv: Canvas, make) -> None:
         cv.blob(xg - 4, ymid + (j - 3.5) * 3, mix(col, BG, age), 6, 1)
     _server(cv, xc, body0 * 4 + 2, body1 * 4 + 2, lane.outline, lane.fill, lane.gauge)
     text, col = lane.state
-    cv.text(h - 1, round((xc + 0.5) / 2 - len(text) / 2), text, col)  # its state, centred under the server
+    at = round((xc + 0.5) / 2 - len(text) / 2)  # its state, centred under the server ...
+    cv.text(h - 1, max(0, min(at, cols - len(text))), text, col)  # ... unless that runs off the edge
