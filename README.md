@@ -2,9 +2,10 @@
 
 *[Leer en español](README.es.md)*
 
-Learn how backend and distributed systems behave by doing. There are **18 labs**, each
-one problem (retries, caching, rate limits, pools, queries and indexes, idempotency,
-replication, partitioning, consensus, and the Fly.io Gossip Glomers challenges). You
+Learn how backend and distributed systems behave by doing. There are **34 labs**, each
+one problem: retries, load balancing, deadlines, autoscaling, caching, queries and indexes,
+migrations, queues, outboxes and sagas, streams, replication, partitioning, locks,
+consensus, and the Fly.io Gossip Glomers challenges. You
 reproduce the problem, fix it in your own file, and **watch it live in the
 terminal** while it runs. The tool assumes no topic: a lab about a cache plugs in
 exactly like a lab about retries.
@@ -126,25 +127,42 @@ a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed. The scr
 
 ## Labs
 
-Every lab has two pictures, **lanes** (users, a door, a server) and **cluster** (nodes and
-the messages between them); press `v` to switch.
+There are 34 labs. Each has two pictures, **lanes** (users, a door, a server) and **cluster**
+(nodes and the messages between them), and opens with the one that teaches it best; press
+`v` to switch.
 
-Backend systems (open with the lanes picture):
+Traffic and reliability:
 
 | Lab | Problem | Stages |
 |---|---|---|
 | `retry_storm` | the service goes down; retries pile on | retry → backoff → jitter → retry budget |
-| `caching` | a slow database; then a cache flush | cache-aside with TTL → single-flight + jittered TTLs |
 | `rate_limiting` | a few clients flood the API | fixed window → token bucket → bucket + fair share |
 | `connection_pool` | the database slows down or traffic spikes | pool → bounded pool → acquire timeout |
 | `circuit_breaker` | one dependency gets very slow and takes the rest down | timeouts → bulkhead → circuit breaker |
 | `overload` | a traffic spike; the queue never recovers (metastable) | bounded queue → skip late requests → adaptive LIFO |
+| `load_balancing` | one of 8 servers turns slow but keeps its share | round robin → least outstanding → power of two choices |
+| `hedged_requests` | rare slow replies set the p99; a replica gets slow | one call → hedge after p95 → hedge budget + cancel the loser |
+| `deadline_propagation` | a chain of services keeps working after users give up | per-hop timeouts → pass the deadline down → skip late work |
+| `graceful_shutdown` | deploys drop in-flight requests | exit at once → drain → readiness off first, then drain |
+| `autoscaling` | traffic surges and drops; scale too late or flap | fixed fleet → CPU thresholds → target tracking with cooldown and warm-up |
+
+Data and messaging:
+
+| Lab | Problem | Stages |
+|---|---|---|
+| `caching` | a slow database; then a cache flush | cache-aside with TTL → single-flight + jittered TTLs |
 | `idempotency` | payments get retried and arrive twice | replay stored answers → reserve the key before charging |
 | `n_plus_one_queries` | a page asks the database once per item | N+1 → one batched IN query → one JOIN |
 | `database_index` | the table keeps growing; every query reads all of it | hash index → hash + composite index |
+| `optimistic_locking` | many requests read, change and write the same rows | last write wins → version check → retry with re-read and jittered backoff |
+| `zero_downtime_migration` | rename a column while old and new code both run | change in place → expand/contract → throttled batch backfill |
+| `transactional_outbox` | save an order and announce it; the process dies in between | dual write → outbox + relay → idempotent consumer |
+| `message_queue_consumers` | workers crash, jobs run slow, poison messages arrive | ack on receipt → ack after work + heartbeat → backoff + dead-letter queue |
+| `saga_orchestration` | an order spans payments, stock and shipping; a step fails | no rollback → compensations → idempotent, resumable sagas |
+| `stream_windowing` | count events per window when they arrive late | processing time → event time + watermarks → allowed lateness + updates |
 
 Distributed systems: the Fly.io [Gossip Glomers](https://fly.io/dist-sys/) challenges on a
-simulated network with partitions (open with the cluster picture):
+simulated network with partitions:
 
 | Lab | Challenge | Stages |
 |---|---|---|
@@ -154,15 +172,19 @@ simulated network with partitions (open with the cluster picture):
 | `kafka_style_log` | #5 Kafka-style log | single node → multi-node through lin-kv → efficient: an owner per key (5a–5c) |
 | `transactions` | #6 Totally-available transactions | replicated → read uncommitted → read committed (6a–6c) |
 
-Replication, partitioning and consensus, on the same network (open with the cluster picture):
+Replication, partitioning and coordination, on the same network:
 
 | Lab | Problem | Stages |
 |---|---|---|
 | `replication_lag` | reads go to replicas that lag behind | read your writes → monotonic reads |
 | `consistent_hashing` | cache servers come and go; keys move | modulo → hash ring → ring + virtual nodes |
+| `hot_partition` | one key explodes and melts its partition | hash by key → salt hot keys → adaptive salting + hot-key cache |
 | `quorum_replication` | every key on 3 of 5 nodes; a node goes down | one copy → quorums (R + W > N) → quorums + read repair |
+| `vector_clocks_crdts` | replicas take writes during a partition, then merge | last write wins → vector clocks → an OR-set CRDT |
+| `failure_detection` | find a crashed node; never bury a slow one | fixed timeout → phi accrual → SWIM |
+| `distributed_lock` | a lock holder freezes and wakes up still writing | plain lock → leases → fencing tokens |
+| `two_phase_commit` | a transfer touches 3 shards; the coordinator crashes | one shard at a time → 2PC → 2PC with a decision log and recovery |
 | `raft_consensus` | elect a leader; never lose a committed command | leader election → log replication → safe (terms, up-to-date votes) |
-
 
 ## Layout
 
@@ -243,5 +265,5 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
 ## Performance
 
 After 7 minutes a 110x44 frame renders in 2–4 ms; appending a minute takes
-about 10 ms (retry_storm) to 30 ms (caching). Simulating a minute takes 0.5–1.5 s in
+about 10 ms (retry_storm) to 30 ms (caching). Simulating a minute takes 0.1–1.3 s in
 the child process, well ahead of the playhead.

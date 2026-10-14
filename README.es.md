@@ -2,10 +2,10 @@
 
 *[Read in English](README.md)*
 
-Aprende cómo se comportan los sistemas backend y distribuidos haciéndolo. Hay **18
-laboratorios**, cada uno un problema (reintentos, caché, límites de tráfico, pools, consultas
-e índices, idempotencia, replicación, particionado, consenso y los retos Gossip Glomers de
-Fly.io). Reproduces el problema, lo arreglas en tu propio archivo y **lo ves en
+Aprende cómo se comportan los sistemas backend y distribuidos haciéndolo. Hay **34
+laboratorios**, cada uno un problema: reintentos, balanceo de carga, plazos, autoescalado, caché, consultas
+e índices, migraciones, colas, bandejas de salida y sagas, flujos de eventos, replicación,
+particionado, cerrojos, consenso y los retos Gossip Glomers de Fly.io. Reproduces el problema, lo arreglas en tu propio archivo y **lo ves en
 vivo en la terminal** mientras se ejecuta. La herramienta no supone ningún tema: un
 laboratorio de caché encaja igual que uno de reintentos.
 
@@ -132,25 +132,42 @@ y se ve mejor desde 110x44.
 
 ## Laboratorios
 
-Cada laboratorio tiene dos dibujos, **carriles** (usuarios, una puerta, un servidor) y
-**clúster** (nodos y los mensajes entre ellos); pulsa `v` para cambiar.
+Hay 34 laboratorios. Cada uno tiene dos dibujos, **carriles** (usuarios, una puerta, un
+servidor) y **clúster** (nodos y los mensajes entre ellos), y abre con el que mejor lo
+explica; pulsa `v` para cambiar.
 
-Sistemas backend (abren con el dibujo de carriles):
+Tráfico y fiabilidad:
 
 | Laboratorio | Problema | Etapas |
 |---|---|---|
 | `retry_storm` | el servicio se cae; los reintentos se acumulan | reintentos → backoff → jitter → presupuesto de reintentos |
-| `caching` | una base de datos lenta; después, una caché vaciada | cache-aside con TTL → single-flight + TTL con jitter |
 | `rate_limiting` | unos pocos clientes inundan la API | ventana fija → token bucket → bucket + reparto justo |
 | `connection_pool` | la base de datos se ralentiza o llega un pico de tráfico | pool → pool acotado → timeout al pedir conexión |
 | `circuit_breaker` | una dependencia se vuelve muy lenta y arrastra al resto | timeouts → bulkhead → circuit breaker |
 | `overload` | un pico de tráfico; la cola nunca se recupera (metaestable) | cola acotada → saltar peticiones tardías → LIFO adaptativo |
+| `load_balancing` | uno de 8 servidores se vuelve lento pero sigue recibiendo su parte | por turnos → menos pendientes → dos opciones al azar |
+| `hedged_requests` | pocas respuestas lentas marcan el p99; una réplica se vuelve lenta | una llamada → copia tras el p95 → presupuesto de copias + cancelar la perdedora |
+| `deadline_propagation` | una cadena de servicios sigue trabajando cuando el usuario ya se fue | timeout por salto → pasar el plazo → saltar el trabajo tardío |
+| `graceful_shutdown` | los despliegues cortan peticiones en curso | salir al instante → drenar → primero dejar de estar listo, luego drenar |
+| `autoscaling` | el tráfico sube y baja; escalar tarde u oscilar | flota fija → umbrales de CPU → seguimiento de objetivo con enfriamiento y calentamiento |
+
+Datos y mensajería:
+
+| Laboratorio | Problema | Etapas |
+|---|---|---|
+| `caching` | una base de datos lenta; después, una caché vaciada | cache-aside con TTL → single-flight + TTL con jitter |
 | `idempotency` | los pagos se reintentan y llegan dos veces | repetir respuestas guardadas → reservar la clave antes de cobrar |
 | `n_plus_one_queries` | una página consulta la base de datos una vez por elemento | N+1 → una consulta IN agrupada → un JOIN |
 | `database_index` | la tabla no deja de crecer; cada consulta la lee entera | índice hash → índice hash + compuesto |
+| `optimistic_locking` | muchas peticiones leen, cambian y escriben las mismas filas | gana la última escritura → control de versión → reintento con relectura y backoff con jitter |
+| `zero_downtime_migration` | renombrar una columna mientras corren el código viejo y el nuevo | cambio en el sitio → expandir/contraer → relleno por lotes con freno |
+| `transactional_outbox` | guardar un pedido y anunciarlo; el proceso muere entre medias | doble escritura → bandeja de salida + relé → consumidor idempotente |
+| `message_queue_consumers` | los workers se caen, los trabajos van lentos, llegan mensajes venenosos | confirmar al recibir → confirmar al terminar + latido → backoff + cola de mensajes muertos |
+| `saga_orchestration` | un pedido abarca pagos, inventario y envío; un paso falla | sin deshacer → compensaciones → sagas idempotentes y reanudables |
+| `stream_windowing` | contar eventos por ventana cuando llegan tarde | tiempo de proceso → tiempo del evento + marcas de agua → retraso permitido + correcciones |
 
 Sistemas distribuidos: los retos [Gossip Glomers](https://fly.io/dist-sys/) de Fly.io sobre
-una red simulada con particiones (abren con el dibujo de clúster):
+una red simulada con particiones:
 
 | Laboratorio | Reto | Etapas |
 |---|---|---|
@@ -160,15 +177,19 @@ una red simulada con particiones (abren con el dibujo de clúster):
 | `kafka_style_log` | n.º 5 Log al estilo Kafka | un nodo → varios nodos con lin-kv → eficiente: un dueño por clave (5a–5c) |
 | `transactions` | n.º 6 Transacciones siempre disponibles | replicado → lectura no confirmada → lectura confirmada (6a–6c) |
 
-Replicación, particionado y consenso, sobre la misma red (abren con el dibujo de clúster):
+Replicación, particionado y coordinación, sobre la misma red:
 
 | Laboratorio | Problema | Etapas |
 |---|---|---|
 | `replication_lag` | las lecturas van a réplicas que se quedan atrás | lee tus escrituras → lecturas monótonas |
 | `consistent_hashing` | los servidores de caché entran y salen; las claves se mueven | módulo → anillo de hash → anillo + nodos virtuales |
+| `hot_partition` | una clave explota y satura su partición | hash por clave → repartir claves calientes → reparto adaptativo + caché |
 | `quorum_replication` | cada clave en 3 de 5 nodos; un nodo se cae | una copia → quórums (R + W > N) → quórums + reparación en lectura |
-| `raft_consensus` | elegir un líder; no perder nunca un comando confirmado | elección de líder → replicación del log → seguro (términos, votos al día) |
-
+| `vector_clocks_crdts` | las réplicas aceptan escrituras durante una partición y luego se unen | gana la última escritura → relojes vectoriales → un CRDT (OR-set) |
+| `failure_detection` | detectar un nodo caído; no dar nunca por muerto a uno lento | timeout fijo → phi accrual → SWIM |
+| `distributed_lock` | quien tiene el cerrojo se congela y despierta escribiendo | cerrojo simple → plazos (leases) → tokens de vallado |
+| `two_phase_commit` | una transferencia toca 3 fragmentos; el coordinador se cae | un fragmento cada vez → 2PC → 2PC con registro de decisiones y recuperación |
+| `raft_consensus` | elegir un líder; no perder nunca un comando consolidado | elección de líder → replicación del log → seguro (términos, votos al día) |
 
 ## Estructura
 
@@ -225,5 +246,5 @@ live/   canvas.py (Braille + color)  screen.py (terminal)  runner.py (procesos h
 ## Rendimiento
 
 Tras 7 minutos, un fotograma de 110x44 se dibuja en 2–4 ms; añadir un minuto tarda de 10 ms
-(retry_storm) a 30 ms (caching). Simular un minuto tarda 0,5–1,5 s en el proceso hijo, muy por
+(retry_storm) a 30 ms (caching). Simular un minuto tarda 0,1–1,3 s en el proceso hijo, muy por
 delante del cabezal.
