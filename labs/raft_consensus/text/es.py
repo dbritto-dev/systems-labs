@@ -75,6 +75,10 @@ STRINGS = {
     "head_electing": "Sin líder: eligiendo (término {term})",
     "head_ok": "{leader} lidera el término {term}",
     "note_chart": "Gráfica: mensajes entre nodos por segundo.",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_no_leader": "SIN LÍDER",
+    "lanes_uncommitted": "SIN GUARDAR",
+    "lanes_unanswered": "SIN RESPUESTA",
     # errores en tu código
     "no_state": "RaftNode debe guardar self.current_term, self.voted_for, self.log y self.role (falta {name})",
 }

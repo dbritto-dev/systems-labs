@@ -77,6 +77,9 @@ STRINGS = {
     "head_ok": "{hits:.0%} aciertos; la base de datos lee {db:.0f}/s",
     "note_chart": "Gráfica: lecturas/s a la BD; en rojo, rechazadas.",
     "note_nodes": "Nodos: color según su parte de claves.",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_hits": "ACIERTOS {share:.0%}",
+    "lanes_misses": "FALLOS {share:.0%}",
     # errores en tu código
     "bad_node": "node_for devolvió '{node}', que ahora no está en el clúster ({live})",
 }

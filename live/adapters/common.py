@@ -25,22 +25,33 @@ def op_id(start: float) -> int:
     return int(start * 1_000_003)
 
 
-def client_lanes(run, t: float, users: int, table: str, start: int, end: int, bad) -> tuple:
+def client_lanes(run, t: float, users: int, table: str, start: int, end: int, bad=None, colour=None,
+                 rare_first: bool = False) -> tuple:
     """Clients waiting (coloured by how long), requests flying to the door, answers fading at it.
 
     `table` holds one row per client operation, with `start` and `end` columns; `bad(row)` says
-    whether its answer was an error or an anomaly (red) rather than fine (green).
+    whether its answer was an error or an anomaly (red) rather than fine (green). A lab whose
+    answers come in more kinds passes `colour(row)` instead: the colour of each answer. With
+    `rare_first`, red answers are shown before the others, so a few bad answers among hundreds a
+    second still reach the door.
     """
+    if colour is None:
+        colour = lambda o: RED if bad(o) else GREEN  # noqa: E731
     waiting = {}
     for o in run.active(table, t, end):
         waited = t - o[start]
-        colour = WHITE if waited < SLOW[0] else EXTRA1 if waited < SLOW[1] else EXTRA2 if waited < SLOW[2] else EXTRA3
-        waiting[slot(op_id(o[start]), users)] = (colour, True)
+        shade = WHITE if waited < SLOW[0] else EXTRA1 if waited < SLOW[1] else EXTRA2 if waited < SLOW[2] else EXTRA3
+        waiting[slot(op_id(o[start]), users)] = (shade, True)
     flying = run.rows(table, t - FLY, t + 1e-9)
     flights = [(slot(op_id(o[start]), users), (t - o[start]) / FLY, WHITE, False) for o in every(flying, FLIGHTS)]
     span = run.max_dur.get(table, 0.0)
     ended = [o for o in run.rows(table, t - BACK - span, t + 1e-9) if t - BACK <= o[end] <= t]
-    outcomes = [(RED if bad(o) else GREEN, (t - o[end]) / BACK) for o in every(ended, OUTCOMES)]
+    shown = every(ended, OUTCOMES)
+    if rare_first:
+        red = every([o for o in ended if colour(o) == RED], OUTCOMES)
+        room = OUTCOMES - len(red)
+        shown = red + (every([o for o in ended if colour(o) != RED], room) if room else [])
+    outcomes = [(colour(o), (t - o[end]) / BACK) for o in shown]
     return waiting, flights, outcomes
 
 

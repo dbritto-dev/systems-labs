@@ -161,3 +161,17 @@ def test_stage2_every_goal_passes():
     run = world.runs[variant()]
     assert all(all(r.ok for r in run.settled[i]) for i in run.settled if all(run.settled[i]))
     assert world.stage_index(variant()) == 2
+
+
+def test_a_second_picture_shows_what_the_clients_see():
+    from live.canvas import RED
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("replication_lag", "reference", 1)
+    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    set_view(world, "lanes")
+    frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
+    assert frame.users or frame.flights or frame.outcomes
+    text, colour = frame.state
+    assert text and len(text) <= 13
+    assert RED not in [c for c, _ in frame.outcomes]  # reads go to a fresh replica: green, never stale (red)

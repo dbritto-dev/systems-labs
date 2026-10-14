@@ -66,6 +66,10 @@ STRINGS = {
     "head_wrong": "{n} wrong reads in 5 s",
     "head_ok": "Replicas within {lag}",
     "note": "Read dots slowed down; writes at their real lag.",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_stale": "STALE READS",
+    "lanes_primary": "PRIMARY {share:.0%}",
+    "lanes_lag": "LAG {lag:.1f}s",
     # errors in your code
     "bad_pick": "Router.pick returned {name!r}: use 'primary' or one of r1..r{last}",
     "stuck": "a read has been waiting for over {seconds:.0f} s",

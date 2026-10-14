@@ -68,6 +68,9 @@ STRINGS = {
     "note_chart": "Gráfica: mensajes entre nodos por segundo.",
     # el dibujo
     "state_sick": "{state}: {node}",
+    # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
+    "lanes_stale": "DATOS VIEJOS",
+    "lanes_unanswered": "SIN RESPUESTA",
     # errores en tu código
     "no_store": "QuorumNode debe guardar sus datos en self.store",
 }

@@ -160,3 +160,18 @@ def test_stage2_keys_are_spread_evenly():
 def test_stage2_first_change_passes():
     world = build_world("consistent_hashing", variant(), 1)
     assert results(world, variant())[0] == [True, True, True, True]
+
+
+def test_a_second_picture_shows_what_the_clients_see():
+    from live.canvas import RED
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("consistent_hashing", "reference", 1)
+    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    set_view(world, "lanes")
+    frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
+    assert frame.users or frame.flights or frame.outcomes
+    text, colour = frame.state
+    assert text and len(text) <= 13
+    # most reads hit the cache; the database stays under its capacity
+    assert frame.fill < 1.0 and RED not in [c for c, _ in frame.outcomes]

@@ -74,6 +74,10 @@ STRINGS = {
     "head_electing": "No leader: electing (term {term})",
     "head_ok": "{leader} leads term {term}",
     "note_chart": "Chart: messages between nodes per second.",
+    # the lanes picture (the clients' view): states under the cluster, at most 13 letters
+    "lanes_no_leader": "NO LEADER",
+    "lanes_uncommitted": "UNCOMMITTED",
+    "lanes_unanswered": "UNANSWERED",
     # errors in your code
     "no_state": "RaftNode must keep self.current_term, self.voted_for, self.log and self.role (no {name})",
 }
