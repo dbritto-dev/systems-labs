@@ -50,6 +50,8 @@ LEGEND = {"idle": "en reposo", "first_try": "primer intento", "retries": "reinte
           "max": "máximo", "incident": "incidente"}
 
 STRINGS = {
+    # el dibujo de clúster: la topología bajo la cuadrícula
+    "topology": "cola → servidor",
     # incidentes
     "capacity_drop": "Baja de capacidad",
     "spike": "Pico",

@@ -191,3 +191,13 @@ def test_stage3_client_fails_fast():
     world = build_world("circuit_breaker", variant(), 1)
     first = world.runs[variant()].settled[0]
     assert [r.ok for r in first] == [True] * 5
+
+
+def test_a_second_picture_shows_the_topology():
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("circuit_breaker", "reference", 1)
+    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    set_view(world, "cluster")
+    frame = adapter_for(world).frame("reference", 25.0)
+    assert len(frame.nodes) == 3 and frame.flights and frame.state[0]

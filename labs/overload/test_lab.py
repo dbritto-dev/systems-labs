@@ -135,3 +135,13 @@ def test_stage2_too_late():
 def test_stage3_adaptive_lifo():
     assert not code.overloaded(5) and code.overloaded(500)
     assert _first(variant()) == [True] * 6
+
+
+def test_a_second_picture_shows_the_topology():
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("overload", "reference", 1)
+    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    set_view(world, "cluster")
+    frame = adapter_for(world).frame("reference", 25.0)
+    assert len(frame.nodes) == 2 and frame.flights and frame.state[0]

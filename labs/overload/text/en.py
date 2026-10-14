@@ -49,6 +49,8 @@ LEGEND = {"idle": "idle", "first_try": "first try", "retries": "retry 1,2", "was
           "rejected": "rejected", "in_time": "in time", "max": "max", "incident": "incident"}
 
 STRINGS = {
+    # the cluster picture: the topology under the grid
+    "topology": "queue → server",
     # incidents
     "capacity_drop": "Capacity drop",
     "spike": "Spike",

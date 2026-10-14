@@ -204,3 +204,13 @@ def test_stage3_acquire_timeout():
 def test_stage3_all_goals_pass():
     world = build_world("conn_pool", variant(), 1)
     assert [r.ok for r in world.runs[variant()].settled[0]] == [True] * 5
+
+
+def test_a_second_picture_shows_the_topology():
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("conn_pool", "reference", 1)
+    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    set_view(world, "cluster")
+    frame = adapter_for(world).frame("reference", 25.0)
+    assert len(frame.nodes) == 2 and frame.flights and frame.state[0]
