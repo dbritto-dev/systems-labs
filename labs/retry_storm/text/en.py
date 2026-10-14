@@ -53,6 +53,8 @@ LEGEND = {"idle": "idle", "first_try": "first try", "retries": "retry 1,2,3", "f
           "served": "served", "limit": "limit", "incident": "incident"}
 
 STRINGS = {
+    # the cluster picture: clients -> your Client -> the service
+    "pic_state": "client → service: {state}",
     # incidents
     "partial_outage": "Partial outage",
     "down": "is down: {cause}",

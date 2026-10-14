@@ -49,6 +49,8 @@ LEGEND = {"idle": "en reposo", "normal": "normal", "flooding": "en avalancha", "
           "failed": "fallida", "served": "servida", "limit": "límite", "flood": "avalancha"}
 
 STRINGS = {
+    # el dibujo de clúster: clientes -> limitador -> backend
+    "pic_state": "limitador → backend: {state}",
     # incidentes
     "who_one": "1 cliente",
     "who_many": "{n} clientes",

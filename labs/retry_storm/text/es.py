@@ -53,6 +53,8 @@ LEGEND = {"idle": "en reposo", "first_try": "primer intento", "retries": "reinte
           "served": "servida", "limit": "límite", "incident": "incidente"}
 
 STRINGS = {
+    # el dibujo de clúster: clientes -> tu Client -> el servicio
+    "pic_state": "cliente → servicio: {state}",
     # incidentes
     "partial_outage": "Caída parcial",
     "down": "está caído: {cause}",

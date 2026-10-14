@@ -40,6 +40,9 @@ LEGEND = {"idle": "en reposo", "hit": "acierto", "shared": "espera una carga", "
           "dup": "carga duplicada", "rejected": "rechazada", "limit": "límite", "flush": "tras un vaciado"}
 
 STRINGS = {
+    # el dibujo de clúster: clientes -> app -> cache (derecha) y base de datos (abajo)
+    "pic_state": "app · cache · base de datos: {state}",
+    "pic_empty": "app · cache VACÍA · base de datos: {state}",
     # incidentes
     "flushed": "está vacía: {cause}",
     "warn_db": "lecturas de la base de datos {ratio:.1f}x lo normal",

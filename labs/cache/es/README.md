@@ -28,3 +28,5 @@ LABS_LANG=es uv run pytest labs/cache            # x = aún no, X = hecho
 Objetivos, evaluados en cada vaciado: aciertos ≥ 80% (15 s antes), cargas duplicadas < 5%
 de las lecturas de la base de datos (primeros 5 s), p99 del tiempo de lectura < 100 ms
 (lecturas empezadas en los 10 s siguientes).
+
+**Dibujos:** `lanes` (carriles, el de siempre) y `cluster`: clientes → la app, que pregunta a la cache (derecha) y lee la base de datos (abajo) si falla; la cache se pone naranja mientras está vacía. Pulsa `v` para cambiar, o empieza con `--view cluster`.

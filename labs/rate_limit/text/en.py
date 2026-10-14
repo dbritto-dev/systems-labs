@@ -49,6 +49,8 @@ LEGEND = {"idle": "idle", "normal": "normal", "flooding": "flooding", "limited":
           "failed": "failed", "served": "served", "limit": "limit", "flood": "flood"}
 
 STRINGS = {
+    # the cluster picture: clients -> rate limiter -> backend
+    "pic_state": "limiter → backend: {state}",
     # incidents
     "who_one": "1 client",
     "who_many": "{n} clients",

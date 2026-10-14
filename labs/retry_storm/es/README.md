@@ -35,3 +35,5 @@ siguientes.
 - **Jitter** es cuánto varía entre usuarios la espera antes de la *misma* ronda de
   reintentos (desviación típica / media). Las esperas fijas y el backoff exponencial simple
   dan 0%: todos vuelven en el mismo momento. El jitter completo da ~58%.
+
+**Dibujos:** `lanes` (carriles, el de siempre) y `cluster`: clientes → tu `Client` → el servicio, con las llamadas fallidas muriendo en rojo entre ellos. Pulsa `v` para cambiar, o empieza con `--view cluster`.

@@ -1,11 +1,12 @@
-"""The lanes picture for lab retry_storm."""
+"""The pictures for lab retry_storm: lanes (users, a door, the service) and cluster (the topology)."""
 
 from __future__ import annotations
 
 from labs.retry_storm import lab as retry_lab
 from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
-from live.canvas import BLUE, EXTRA, EXTRA2, GREEN, RED
+from live.canvas import BLUE, EXTRA, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
+from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
 
 
@@ -59,3 +60,32 @@ class RetryStormLanes(LaneAdapter):
             outline=RED if down else EXTRA2 if degraded else OUTLINE,
             state=self.state(down, degraded),
         )
+
+
+@adapts("retry_storm", "cluster")
+class RetryStormCluster(ClusterAdapter):
+    """The topology: clients -> your Client (node 0) -> the service (node 1). Requests fly in white;
+    calls to the service are coloured by their try; failed calls die red between the two."""
+
+    def frame(self, variant: str, t: float) -> ClusterFrame:
+        from live.worlds.retry_storm import CALL_ATTEMPT, CALL_END, CALL_OK, CALL_START, REQ_START
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return ClusterFrame()
+        inc = w.incident_at(variant, t)
+        down = inc is not None and inc.kind == "outage"
+        degraded = inc is not None and not down
+        flights = [(-1, 0, (t - r[REQ_START]) / FLY, WHITE) for r in every(run.rows("requests", t - FLY, t + 1e-9), 8)]
+        flights += [(0, 1, (t - c[CALL_START]) / FLY, EXTRA[min(3, c[CALL_ATTEMPT])])
+                    for c in every(run.rows("calls", t - FLY, t + 1e-9), FLIGHTS)]
+        ended = [c for c in run.rows("calls", t - BACK - run.max_dur.get("calls", 0.0), t + 1e-9)
+                 if t - BACK <= c[CALL_END] <= t and not c[CALL_OK]]
+        drops = [(0, 1, (t - c[CALL_END]) / BACK) for c in every(ended, OUTCOMES)]
+        load = w.load_at(run, t)
+        ask = run.count("requests", t - 1, t) or w.rate
+        service = RED if down else EXTRA2 if degraded or load / ask > retry_lab.GAUGE_ORANGE else BLUE
+        word, colour = RetryStormLanes.state(self, down, degraded)  # type: ignore[arg-type]
+        return ClusterFrame(nodes=[BLUE, service], flights=flights, drops=drops,
+                            state=(w.s("pic_state", state=word), colour))

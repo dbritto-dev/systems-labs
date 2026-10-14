@@ -146,3 +146,14 @@ def test_stage3_fair_share():
 def test_stage3_every_goal_on_the_first_flood():
     world = build_world("rate_limit", variant(), 1)
     assert [r.ok for r in world.runs[variant()].settled[0]] == [True] * 5
+
+
+def test_a_second_picture_shows_the_topology():
+    from live.views import adapter_for, set_view, views_for
+
+    world = build_world("rate_limit", "reference", 1)
+    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"
+    set_view(world, "cluster")
+    frame = adapter_for(world).frame("reference", 25.0)  # in the first incident
+    assert len(frame.nodes) >= 2 and frame.flights and frame.state[0]
+    assert any(src == -1 for src, _, _, _ in frame.flights)  # requests come from the clients

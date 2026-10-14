@@ -37,3 +37,5 @@ Goals, judged per outage (full or partial): baseline ok (before), retries ≥ 3%
 - **Jitter** is how much the wait before the *same* retry round varies between users
   (standard deviation / mean). Fixed gaps and plain exponential backoff are both 0%: every
   user comes back at the same moment. Full jitter is about 58%.
+
+**Pictures:** `lanes` (the default) and `cluster`: clients → your `Client` → the service, with failed calls dying red between them. Press `v` to switch, or start with `--view cluster`.

@@ -40,6 +40,9 @@ LEGEND = {"idle": "idle", "hit": "hit", "shared": "waits on a load", "first": "f
           "dup": "duplicate load", "rejected": "rejected", "limit": "limit", "flush": "after a flush"}
 
 STRINGS = {
+    # the cluster picture: clients -> app -> cache (right) and database (below)
+    "pic_state": "app · cache · database: {state}",
+    "pic_empty": "app · cache EMPTY · database: {state}",
     # incidents
     "flushed": "is empty: {cause}",
     "warn_db": "database reads {ratio:.1f}x normal",
