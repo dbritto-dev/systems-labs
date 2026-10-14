@@ -111,9 +111,9 @@ def _managed(cls):
             if not self.dead:
                 super().send(dest, body)
 
-        def deliver(self, msg):
+        def _deliver(self, msg):
             if not self.dead:
-                super().deliver(msg)
+                super()._deliver(msg)
 
         def kill(self) -> None:
             self.dead = True
