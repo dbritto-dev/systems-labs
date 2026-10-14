@@ -14,9 +14,9 @@ restarts. The first incident is always a slow carrier at 0:20–0:30 whose waiti
 orchestrator OOM-killed at 0:26 (back at 0:28).
 
 ```
-uv run python -m live saga          # watch it; edit main.py and save
-uv run python -m live saga --lesson # the concept, links and a checklist
-uv run pytest labs/saga             # x = not yet, X = done
+uv run python -m live saga_orchestration          # watch it; edit main.py and save
+uv run python -m live saga_orchestration --lesson # the concept, links and a checklist
+uv run pytest labs/saga_orchestration             # x = not yet, X = done
 ```
 
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with

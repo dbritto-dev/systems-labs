@@ -1,11 +1,11 @@
-"""World for lab saga. Its words are in labs/saga/text/<lang>.py."""
+"""World for lab saga_orchestration. Its words are in labs/saga_orchestration/text/<lang>.py."""
 
 from __future__ import annotations
 
 from core.i18n import strings
-from labs.saga import lab
-from labs.saga.api import DECLINED, OK
-from labs.saga.scenario import DONE, ORPHAN, ROLLED_BACK
+from labs.saga_orchestration import lab
+from labs.saga_orchestration.api import DECLINED, OK
+from labs.saga_orchestration.scenario import DONE, ORPHAN, ROLLED_BACK
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history, percentile
 
@@ -16,7 +16,7 @@ INF = float("inf")
  ORD_DECLINED, ORD_HELD) = range(11)
 CALL_START, CALL_ORDER, CALL_SVC, CALL_UNDO, CALL_END, CALL_OUTCOME = range(6)
 
-_s = strings("saga")  # one of the lab's STRINGS, for the goal measures below
+_s = strings("saga_orchestration")  # one of the lab's STRINGS, for the goal measures below
 
 
 # ---------------------------------------------------------------- goals
@@ -116,7 +116,7 @@ GOALS = [
 
 
 class SagaWorld(World):
-    id = "saga"
+    id = "saga_orchestration"
     view = "cluster"
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "step"), (EXTRA1, "retry"), (EXTRA2, "undo"),

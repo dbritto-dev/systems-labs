@@ -1,4 +1,4 @@
-"""Laboratorio saga, en español: cada palabra que muestra. Mismos nombres y claves que en.py."""
+"""Laboratorio saga_orchestration, en español: cada palabra que muestra. Mismos nombres y claves que en.py."""
 
 from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
@@ -167,7 +167,7 @@ LESSON = Lesson(
             "Un motor de flujos que guarda y reanuda las sagas por ti (en inglés)."),
     ),
     try_next=(
-        "Haz la etapa 1 en labs/saga/es/main.py y mira las compensaciones naranjas cuando falla la transportista.",
+        "Haz la etapa 1 en labs/saga_orchestration/es/main.py y mira las compensaciones naranjas cuando falla la transportista.",
         "Luego mira la siguiente caída: ¿qué pedidos quedan a medias ahora, y por qué?",
         "Haz la etapa 2 y mira cómo un orquestador nuevo termina cada saga que la caída cortó.",
     ),

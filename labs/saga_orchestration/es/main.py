@@ -1,4 +1,4 @@
-"""Laboratorio saga: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
+"""Laboratorio saga_orchestration: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
 Un pedido pasa por tres servicios, y no hay ninguna transacción que los abarque. Tu
 `Orchestrator` ejecuta una saga por pedido: cobrar la tarjeta (payments), reservar los
@@ -19,22 +19,22 @@ Haz las etapas en orden, en este archivo:
              "compensating"), bórralo cuando la saga termine, y en `recover()` termina cada
              saga que el registro aún tenga.
 
-Lo que tienes (mira labs/saga/api.py):
+Lo que tienes (mira labs/saga_orchestration/api.py):
   await payments.charge(order, key=None) -> ref      await payments.refund(ref=None, key=None)
   await stock.reserve(order, key=None) -> ref        await stock.release(ref=None, key=None)
   await shipping.book(order, key=None) -> ref        await shipping.cancel(ref=None, key=None)
   Declined (un no definitivo), Timeout (sin respuesta: pudo hacerse); los dos son StepFailed
   await log.save(saga_id, state) / log.delete(saga_id) / log.items() -> [(saga_id, state)]
 
-Compruébalo:  LABS_LANG=es uv run pytest labs/saga
-Mira una solución (¡después de intentarlo!):  labs/saga/es/reference.py
+Compruébalo:  LABS_LANG=es uv run pytest labs/saga_orchestration
+Mira una solución (¡después de intentarlo!):  labs/saga_orchestration/es/reference.py
 """
 
 from __future__ import annotations
 
 import asyncio
 
-from labs.saga.api import StepFailed, Timeout
+from labs.saga_orchestration.api import StepFailed, Timeout
 
 TRIES = 6  # intentos de un paso que da timeout, con la misma clave, antes de rendirse
 UNDO_TRIES = 40  # una compensación tiene que ocurrir: sigue intentándolo (backoff hasta MAX_BACKOFF)

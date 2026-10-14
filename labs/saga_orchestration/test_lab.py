@@ -6,10 +6,10 @@ import pytest
 from core.contract import load
 from core.testing import build_world, variant, your_code
 from core.vtime import run_virtual
-from labs.saga import scenario
-from labs.saga.api import Declined, Order, SagaLog, StepFailed, Timeout, services
+from labs.saga_orchestration import scenario
+from labs.saga_orchestration.api import Declined, Order, SagaLog, StepFailed, Timeout, services
 
-code = load("saga", variant(), scenario.NAMES)
+code = load("saga_orchestration", variant(), scenario.NAMES)
 ORDER = Order(7, 42, 1250, 2, "1 Main St")
 
 
@@ -60,7 +60,7 @@ class RETRY_NO_KEYS:  # retries timeouts, but without keys: a retry after a lost
 class NO_LOG:  # keys, retries and compensation by key, but nothing survives a crash
     class Orchestrator:
         def __init__(self, payments, stock, shipping, log):
-            from labs.saga.reference import Orchestrator
+            from labs.saga_orchestration.reference import Orchestrator
 
             self.inner = Orchestrator(payments, stock, shipping, log)
 
@@ -89,7 +89,7 @@ def by_kind(world, v):
 
 
 def test_starting_code_leaves_orders_half_done():
-    world = build_world("saga", "main", 1)
+    world = build_world("saga_orchestration", "main", 1)
     first = world.runs["main"].settled[0]
     # baseline, rolled back, half done, doubles, completed, p99
     assert [r.ok for r in first] == [True, False, False, True, False, True]
@@ -98,7 +98,7 @@ def test_starting_code_leaves_orders_half_done():
 
 @pytest.mark.parametrize("seed", [1, 2, 3])
 def test_compensations_roll_back_failures_but_not_timeouts_or_crashes(seed):
-    world = build_world("saga", ROLLBACK, 4, seed=seed)
+    world = build_world("saga_orchestration", ROLLBACK, 4, seed=seed)
     assert world.stage_index(ROLLBACK) == 1  # Compensations
     first = world.runs[ROLLBACK].settled[0]
     assert [r.ok for r in first][:3] == [True, True, False]  # rolled back, but some left half done
@@ -108,12 +108,12 @@ def test_compensations_roll_back_failures_but_not_timeouts_or_crashes(seed):
 
 @pytest.mark.parametrize("seed", [1, 2, 3])
 def test_retrying_without_keys_lands_on_stage_1(seed):
-    world = build_world("saga", RETRY_NO_KEYS, 4, seed=seed)
+    world = build_world("saga_orchestration", RETRY_NO_KEYS, 4, seed=seed)
     assert world.stage_index(RETRY_NO_KEYS) == 1
 
 
 def test_retrying_without_keys_charges_twice():
-    world = build_world("saga", RETRY_NO_KEYS, 6, seed=1)
+    world = build_world("saga_orchestration", RETRY_NO_KEYS, 6, seed=1)
     run = world.runs[RETRY_NO_KEYS]
     payment_timeouts = [res for inc, res in zip(run.incidents, statuses(world, RETRY_NO_KEYS))
                         if inc.kind == "timeouts" and scenario.TIMEOUT_CAUSES[inc.cause] == 0]
@@ -122,7 +122,7 @@ def test_retrying_without_keys_charges_twice():
 
 @pytest.mark.parametrize("seed", [1, 2, 3])
 def test_without_a_log_a_crash_leaves_orders_half_done(seed):
-    world = build_world("saga", NO_LOG, 4, seed=seed)
+    world = build_world("saga_orchestration", NO_LOG, 4, seed=seed)
     assert world.stage_index(NO_LOG) == 1
     first = world.runs[NO_LOG].settled[0]
     assert [r.ok for r in first][:4] == [True, True, False, True]  # the OOM kill cut sagas short
@@ -130,7 +130,7 @@ def test_without_a_log_a_crash_leaves_orders_half_done(seed):
 
 @pytest.mark.parametrize("seed", [1, 4, 9])
 def test_reference_passes_every_goal_for_ten_minutes(seed):
-    world = build_world("saga", "reference", 10, seed=seed)
+    world = build_world("saga_orchestration", "reference", 10, seed=seed)
     run = world.runs["reference"]
     results = statuses(world, "reference")
     assert len(results) >= 8 and len({i.kind for i in run.incidents}) >= 3
@@ -139,7 +139,7 @@ def test_reference_passes_every_goal_for_ten_minutes(seed):
 
 
 def test_pieces_join_in_order_and_totals_survive_forgetting():
-    world = build_world("saga", "reference", 7)
+    world = build_world("saga_orchestration", "reference", 7)
     run = world.runs["reference"]
     assert run.keys["orders"] == sorted(run.keys["orders"])
     assert run.keys["orders"][0] >= 60  # the first minute's raw rows are gone
@@ -245,7 +245,7 @@ def test_stage2_recover_after_a_crash():
 
 @your_code(2, "no order left half done on the first incident: every goal OK")
 def test_stage2_first_incident_every_goal():
-    world = build_world("saga", variant(), 1)
+    world = build_world("saga_orchestration", variant(), 1)
     first = world.runs[variant()].settled[0]
     assert [r.ok for r in first] == [True] * 6
 
@@ -256,7 +256,7 @@ def test_two_pictures_cluster_first():
     from live.views import adapter_for, set_view, views_for
 
     def picture(v, t: float):
-        world = build_world("saga", v, 1)
+        world = build_world("saga_orchestration", v, 1)
         assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster opens first
         frame = adapter_for(world).frame(v, t)
         assert len(frame.nodes) == 4 and any(src == -1 for src, _, _, _ in frame.flights)

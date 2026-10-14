@@ -1,4 +1,4 @@
-"""Lab saga: one endless run on virtual time, handed out a minute at a time.
+"""Lab saga_orchestration: one endless run on virtual time, handed out a minute at a time.
 
 Customers place ~`rate` orders a second. Each order is a saga run by your
 `Orchestrator.place(saga_id, order)`: charge the card (payments), reserve the items (stock),
@@ -27,12 +27,12 @@ from core.contract import load
 from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
 from core.vtime import VirtualRun, now
-from labs.saga import lab
-from labs.saga.api import (
+from labs.saga_orchestration import lab
+from labs.saga_orchestration.api import (
     DECLINED, OK, Crashed, Order, Plant, SagaLog, StepFailed, current_order, epoch, services,
 )
 
-LAB = "saga"
+LAB = "saga_orchestration"
 NAMES = ("Orchestrator",)
 PIECE = 60.0
 DRAIN = 20.0  # simulate this far past a minute before handing it out

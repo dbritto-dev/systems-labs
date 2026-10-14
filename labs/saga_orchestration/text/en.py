@@ -1,4 +1,4 @@
-"""Lab saga, in English: every word it shows. es.py has the same names and keys."""
+"""Lab saga_orchestration, in English: every word it shows. es.py has the same names and keys."""
 
 from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
@@ -166,7 +166,7 @@ LESSON = Lesson(
             "A workflow engine that persists and resumes sagas for you."),
     ),
     try_next=(
-        "Do stage 1 in labs/saga/main.py and watch the orange compensations when the carrier fails.",
+        "Do stage 1 in labs/saga_orchestration/main.py and watch the orange compensations when the carrier fails.",
         "Then watch the next crash: which orders are left half done now, and why?",
         "Do stage 2 and watch a new orchestrator finish every saga the crash cut short.",
     ),

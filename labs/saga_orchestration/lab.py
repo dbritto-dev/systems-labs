@@ -1,9 +1,9 @@
-"""Lab saga: the numbers and how the stage is judged. The words are in text/<lang>.py."""
+"""Lab saga_orchestration: the numbers and how the stage is judged. The words are in text/<lang>.py."""
 
 from core.contract import Param
 
 META = {
-    "id": "saga",
+    "id": "saga_orchestration",
     "params": {"rate": Param(20.0)},
 }
 

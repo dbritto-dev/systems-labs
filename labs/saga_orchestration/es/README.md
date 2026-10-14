@@ -16,9 +16,9 @@ cuyas sagas en espera hacen que el sistema mate al orquestador por falta de memo
 (vuelve a las 0:28).
 
 ```
-LABS_LANG=es uv run python -m live saga          # míralo; edita es/main.py y guarda
-LABS_LANG=es uv run python -m live saga --lesson # el concepto, enlaces y una lista de comprobación
-LABS_LANG=es uv run pytest labs/saga             # x = aún no, X = hecho
+LABS_LANG=es uv run python -m live saga_orchestration          # míralo; edita es/main.py y guarda
+LABS_LANG=es uv run python -m live saga_orchestration --lesson # el concepto, enlaces y una lista de comprobación
+LABS_LANG=es uv run pytest labs/saga_orchestration             # x = aún no, X = hecho
 ```
 
 | Etapa | En `es/main.py` | Lo que ves |

@@ -1,4 +1,4 @@
-"""Lab saga: YOUR FILE. Edit it and save; the live window reruns it.
+"""Lab saga_orchestration: YOUR FILE. Edit it and save; the live window reruns it.
 
 An order spans three services, and there is no transaction across them. Your `Orchestrator`
 runs one saga per order: charge the card (payments), reserve the items (stock), book a
@@ -19,22 +19,22 @@ Do the stages in order, in this file:
              "compensating"), delete it when the saga ends, and in `recover()` finish every
              saga the log still has.
 
-What you get (see labs/saga/api.py):
+What you get (see labs/saga_orchestration/api.py):
   await payments.charge(order, key=None) -> ref      await payments.refund(ref=None, key=None)
   await stock.reserve(order, key=None) -> ref        await stock.release(ref=None, key=None)
   await shipping.book(order, key=None) -> ref        await shipping.cancel(ref=None, key=None)
   Declined (a definite no), Timeout (no answer: it may have happened); both are StepFailed
   await log.save(saga_id, state) / log.delete(saga_id) / log.items() -> [(saga_id, state)]
 
-Check yourself:  uv run pytest labs/saga
-Peek at a solution (after trying!):  labs/saga/reference.py
+Check yourself:  uv run pytest labs/saga_orchestration
+Peek at a solution (after trying!):  labs/saga_orchestration/reference.py
 """
 
 from __future__ import annotations
 
 import asyncio
 
-from labs.saga.api import StepFailed, Timeout
+from labs.saga_orchestration.api import StepFailed, Timeout
 
 TRIES = 6  # tries of a step that times out, with the same key, before giving up on it
 UNDO_TRIES = 40  # a compensation must happen: keep trying (backoff capped at MAX_BACKOFF)

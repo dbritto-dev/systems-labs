@@ -1,10 +1,10 @@
-"""The pictures for lab saga: cluster (the orchestrator and the three services it calls) and lanes
+"""The pictures for lab saga_orchestration: cluster (the orchestrator and the three services it calls) and lanes
 (customers, the orchestrator as the door, the services as the server)."""
 
 from __future__ import annotations
 
-from labs.saga.api import DECLINED, OK
-from labs.saga.scenario import DONE, ORPHAN, TIMEOUT_CAUSES
+from labs.saga_orchestration.api import DECLINED, OK
+from labs.saga_orchestration.scenario import DONE, ORPHAN, TIMEOUT_CAUSES
 from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
@@ -38,7 +38,7 @@ def _state(world, variant: str, t: float, orphans: bool) -> tuple[str, tuple[int
     return world.screen.STATES["healthy"], GREEN
 
 
-@adapts("saga", "cluster")
+@adapts("saga_orchestration", "cluster")
 class SagaCluster(ClusterAdapter):
     """The orchestrator (node 0, top left) and the services it calls: payments (1), stock (2) and
     shipping (3). New orders fly in from the customers (white). Each call flies from the orchestrator
@@ -51,7 +51,7 @@ class SagaCluster(ClusterAdapter):
     ORCH = 0
 
     def frame(self, variant: str, t: float) -> ClusterFrame:
-        from live.worlds.saga import (
+        from live.worlds.saga_orchestration import (
             CALL_OUTCOME, CALL_START, CALL_SVC, CALL_UNDO, ORD_END, ORD_HELD, ORD_START, ORD_STATUS,
         )
 
@@ -85,7 +85,7 @@ class SagaCluster(ClusterAdapter):
                             state=(w.s("pic_state", state=text), colour))
 
 
-@adapts("saga", "lanes")
+@adapts("saga_orchestration", "lanes")
 class SagaLanes(LaneAdapter):
     """Each order is a customer; it flies to the orchestrator (the door, closed in red while it is
     down) and waits while its saga runs: white, light orange after a timeout, orange while it is
@@ -93,7 +93,7 @@ class SagaLanes(LaneAdapter):
     done). The server is the three services; its gauge is the calls in flight."""
 
     def frame(self, variant: str, t: float, users: int) -> LaneFrame:
-        from live.worlds.saga import (
+        from live.worlds.saga_orchestration import (
             CALL_END, CALL_ORDER, CALL_OUTCOME, CALL_UNDO, ORD_END, ORD_ID, ORD_START, ORD_STATUS,
         )
 
