@@ -47,6 +47,7 @@ LEGEND = {"idle": "en reposo", "query": "consulta", "waits": "espera conexión",
           "incident": "incidente"}
 
 STRINGS = {
+    "note_dots": "Los puntos son una muestra, más lentos (estético).",
     # el dibujo de clúster: la topología bajo la cuadrícula
     "topology": "pool → base de datos",
     # incidentes

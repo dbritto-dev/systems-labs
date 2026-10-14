@@ -279,7 +279,7 @@ class CircuitBreakerWorld(World):
         return float(self.workers), self.s("chart_limit", workers=self.workers)
 
     def legend_notes(self) -> list[str]:
-        return [self.s("note_chart")]
+        return [self.s("note_chart"), self.s("note_dots")]
 
 
 WORLD = CircuitBreakerWorld

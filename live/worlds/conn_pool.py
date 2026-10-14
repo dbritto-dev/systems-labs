@@ -274,7 +274,7 @@ class ConnPoolWorld(World):
         return float(lab.MAX_CONNECTIONS), self.s("limit_max", n=lab.MAX_CONNECTIONS)
 
     def legend_notes(self) -> list[str]:
-        return [self.s("note_chart")]
+        return [self.s("note_chart"), self.s("note_dots")]
 
 
 WORLD = ConnPoolWorld

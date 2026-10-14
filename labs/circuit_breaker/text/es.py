@@ -48,6 +48,7 @@ LEGEND = {"idle": "en reposo", "fast_call": "llamada rápida", "waits_worker": "
           "workers": "workers", "incident": "incidente"}
 
 STRINGS = {
+    "note_dots": "Los puntos son una muestra, más lentos (estético).",
     # el dibujo de clúster: la topología bajo la cuadrícula
     "topology": "servicio → {a} y {b}",
     # las dependencias (barras: 10 letras como máximo)

@@ -47,6 +47,7 @@ LEGEND = {"idle": "idle", "query": "query", "waits": "waits for a conn", "opens"
           "incident": "incident"}
 
 STRINGS = {
+    "note_dots": "Dots are a sample, slowed down (cosmetic).",
     # the cluster picture: the topology under the grid
     "topology": "pool → database",
     # incidents
