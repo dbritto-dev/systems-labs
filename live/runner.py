@@ -1,6 +1,6 @@
 """Run lab code in a child process, so a bug or an endless loop never freezes the viewer.
 
-`Job("labs.cache.scenario:run", "main", {"chunk": 0, "seed": 1})` calls
+`Job("labs.caching.scenario:run", "main", {"chunk": 0, "seed": 1})` calls
 `run("main", chunk=0, seed=1)` in a fresh process (spawn). `poll()` returns
 None while it runs, then ("ok", data) or ("error", message).
 """

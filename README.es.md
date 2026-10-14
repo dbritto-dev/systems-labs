@@ -17,8 +17,8 @@ Python 3.13+.
 uv sync                                              # Python 3.13 + pytest
 uv run python -m live --lang es                      # lista los laboratorios
 uv run python -m live retry_storm --lang es          # abre uno; edita su es/main.py y guarda
-uv run python -m live cache --lang es --lesson       # el concepto, enlaces y una lista de comprobación
-uv run python -m live cache --lang es --at 90 --size 110x44 --color   # imprime un fotograma
+uv run python -m live caching --lang es --lesson       # el concepto, enlaces y una lista de comprobación
+uv run python -m live caching --lang es --at 90 --size 110x44 --color   # imprime un fotograma
 LABS_LANG=es uv run pytest                           # x = tu código aún no está, X = hecho
 LABS_LANG=es LABS_REFERENCE=1 uv run pytest          # comprueba las soluciones de referencia
 ```
@@ -136,25 +136,25 @@ Sistemas backend (el dibujo de **carriles**: usuarios, una puerta, un servidor):
 | Laboratorio | Problema | Etapas |
 |---|---|---|
 | `retry_storm` | el servicio se cae; los reintentos se acumulan | reintentos → backoff → jitter → presupuesto de reintentos |
-| `cache` | una base de datos lenta; después, una caché vaciada | cache-aside con TTL → single-flight + TTL con jitter |
-| `rate_limit` | unos pocos clientes inundan la API | ventana fija → token bucket → bucket + reparto justo |
-| `conn_pool` | la base de datos se ralentiza o llega un pico de tráfico | pool → pool acotado → timeout al pedir conexión |
+| `caching` | una base de datos lenta; después, una caché vaciada | cache-aside con TTL → single-flight + TTL con jitter |
+| `rate_limiting` | unos pocos clientes inundan la API | ventana fija → token bucket → bucket + reparto justo |
+| `connection_pool` | la base de datos se ralentiza o llega un pico de tráfico | pool → pool acotado → timeout al pedir conexión |
 | `circuit_breaker` | una dependencia se vuelve muy lenta y arrastra al resto | timeouts → bulkhead → circuit breaker |
 | `overload` | un pico de tráfico; la cola nunca se recupera (metaestable) | cola acotada → saltar peticiones tardías → LIFO adaptativo |
 | `idempotency` | los pagos se reintentan y llegan dos veces | repetir respuestas guardadas → reservar la clave antes de cobrar |
-| `n_plus_one` | una página consulta la base de datos una vez por elemento | N+1 → una consulta IN agrupada → un JOIN |
-| `db_index` | la tabla no deja de crecer; cada consulta la lee entera | índice hash → índice hash + compuesto |
+| `n_plus_one_queries` | una página consulta la base de datos una vez por elemento | N+1 → una consulta IN agrupada → un JOIN |
+| `database_index` | la tabla no deja de crecer; cada consulta la lee entera | índice hash → índice hash + compuesto |
 
 Sistemas distribuidos: los retos [Gossip Glomers](https://fly.io/dist-sys/) de Fly.io sobre
 una red simulada con particiones (el dibujo de **clúster**: nodos y los mensajes entre ellos):
 
 | Laboratorio | Reto | Etapas |
 |---|---|---|
-| `unique_ids` | n.º 1 Echo, n.º 2 IDs únicos | echo → IDs únicos → IDs Snowflake (64 bits, ordenados en el tiempo, resisten saltos de reloj) |
+| `unique_id_generation` | n.º 1 Echo, n.º 2 IDs únicos | echo → IDs únicos → IDs Snowflake (64 bits, ordenados en el tiempo, resisten saltos de reloj) |
 | `broadcast` | n.º 3 Broadcast | varios nodos → tolerante a fallos → eficiente → por lotes (3b–3e) |
-| `g_counter` | n.º 4 Contador solo creciente | clave compartida → compare-and-swap → una clave por nodo, sobre seq-kv |
-| `kafka_log` | n.º 5 Log al estilo Kafka | un nodo → varios nodos con lin-kv → eficiente: un dueño por clave (5a–5c) |
-| `txn` | n.º 6 Transacciones siempre disponibles | replicado → lectura no confirmada → lectura confirmada (6a–6c) |
+| `grow_only_counter` | n.º 4 Contador solo creciente | clave compartida → compare-and-swap → una clave por nodo, sobre seq-kv |
+| `kafka_style_log` | n.º 5 Log al estilo Kafka | un nodo → varios nodos con lin-kv → eficiente: un dueño por clave (5a–5c) |
+| `transactions` | n.º 6 Transacciones siempre disponibles | replicado → lectura no confirmada → lectura confirmada (6a–6c) |
 
 Replicación y particionado, sobre la misma red (primero el dibujo de clúster):
 
@@ -162,8 +162,8 @@ Replicación y particionado, sobre la misma red (primero el dibujo de clúster):
 |---|---|---|
 | `replication_lag` | las lecturas van a réplicas que se quedan atrás | lee tus escrituras → lecturas monótonas |
 | `consistent_hashing` | los servidores de caché entran y salen; las claves se mueven | módulo → anillo de hash → anillo + nodos virtuales |
-| `quorum` | cada clave en 3 de 5 nodos; un nodo se cae | una copia → quórums (R + W > N) → quórums + reparación en lectura |
-| `raft` | elegir un líder; no perder nunca un comando confirmado | elección de líder → replicación del log → seguro (términos, votos al día) |
+| `quorum_replication` | cada clave en 3 de 5 nodos; un nodo se cae | una copia → quórums (R + W > N) → quórums + reparación en lectura |
+| `raft_consensus` | elegir un líder; no perder nunca un comando confirmado | elección de líder → replicación del log → seguro (términos, votos al día) |
 
 Cada laboratorio tiene además un segundo dibujo: pulsa `v` (carriles ↔ clúster).
 

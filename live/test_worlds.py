@@ -101,7 +101,7 @@ def test_the_child_says_your_code_loaded_before_the_first_minute():
 
     from live.runner import StreamJob
 
-    job = StreamJob("labs.cache.scenario:stream", "reference", {"seed": 1})
+    job = StreamJob("labs.caching.scenario:stream", "reference", {"seed": 1})
     job.request()
     seen = []
     deadline = time.monotonic() + 20

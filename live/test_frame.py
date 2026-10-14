@@ -69,7 +69,7 @@ def test_chart_scrolls_and_never_draws_the_future(world):
 def test_listing_labs(capsys):
     assert main([]) == 0
     out = capsys.readouterr().out
-    assert "retry_storm" in out and "cache" in out
+    assert "retry_storm" in out and "caching" in out
 
 
 def test_one_frame_cli(capsys):

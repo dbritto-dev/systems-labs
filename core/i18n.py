@@ -47,7 +47,7 @@ def set_lang(code: str) -> None:
 
 
 def catalog(package: str, code: str | None = None) -> ModuleType:
-    """The catalog module `<package>.<lang>`, e.g. catalog("labs.cache.text")."""
+    """The catalog module `<package>.<lang>`, e.g. catalog("labs.caching.text")."""
     return importlib.import_module(f"{package}.{code or lang()}")
 
 
@@ -60,7 +60,7 @@ def screen_text(code: str | None = None) -> ModuleType:
 
 
 def strings(lab: str):
-    """A formatter for one lab's STRINGS in the language in use: `_s = strings("cache")`,
+    """A formatter for one lab's STRINGS in the language in use: `_s = strings("caching")`,
     then `_s("few")` or `_s("avg", value=1.2)`. Looked up on every call, so it follows --lang."""
 
     def s(key: str, /, **values: Any) -> str:

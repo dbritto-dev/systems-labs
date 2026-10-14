@@ -17,8 +17,8 @@ uv sync                                   # Python 3.13 + pytest
 uv run python -m live                     # list the labs
 uv run python -m live retry_storm         # watch one; edit its main.py and save
 uv run python -m live retry_storm --lang es   # in Spanish: edit its es/main.py
-uv run python -m live cache --lesson      # the concept, links and a checklist
-uv run python -m live cache --at 90 --size 110x44 --color   # print one frame
+uv run python -m live caching --lesson      # the concept, links and a checklist
+uv run python -m live caching --at 90 --size 110x44 --color   # print one frame
 uv run pytest                             # x = your code is not there yet, X = done
 LABS_REFERENCE=1 uv run pytest            # check the reference solutions
 LABS_LANG=es uv run pytest                # your Spanish files (es/main.py)
@@ -69,7 +69,7 @@ lab's `es/` folder to `<code>/`, and add the code to `core.i18n.LANGS`.
   ±15%) and things go wrong at random: gaps vary, durations have a long tail,
   incidents cross minute boundaries, and each has a cause (a bad deploy, an
   expired certificate, a dead replica, a cache node restart…). The `retry_storm`
-  service has full and partial outages; the `cache` is emptied by deploys,
+  service has full and partial outages; the `caching` is emptied by deploys,
   restarts and failovers. Only the first incident is fixed (0:20), so the first
   verdict is stable; `--seed N` gives another production day.
 - **Hot reload.** Save any file in `labs/<lab>/` (or press `r`): it reruns and plays
@@ -130,25 +130,25 @@ Backend systems (the **lanes** picture: users, a door, a server):
 | Lab | Problem | Stages |
 |---|---|---|
 | `retry_storm` | the service goes down; retries pile on | retry → backoff → jitter → retry budget |
-| `cache` | a slow database; then a cache flush | cache-aside with TTL → single-flight + jittered TTLs |
-| `rate_limit` | a few clients flood the API | fixed window → token bucket → bucket + fair share |
-| `conn_pool` | the database slows down or traffic spikes | pool → bounded pool → acquire timeout |
+| `caching` | a slow database; then a cache flush | cache-aside with TTL → single-flight + jittered TTLs |
+| `rate_limiting` | a few clients flood the API | fixed window → token bucket → bucket + fair share |
+| `connection_pool` | the database slows down or traffic spikes | pool → bounded pool → acquire timeout |
 | `circuit_breaker` | one dependency gets very slow and takes the rest down | timeouts → bulkhead → circuit breaker |
 | `overload` | a traffic spike; the queue never recovers (metastable) | bounded queue → skip late requests → adaptive LIFO |
 | `idempotency` | payments get retried and arrive twice | replay stored answers → reserve the key before charging |
-| `n_plus_one` | a page asks the database once per item | N+1 → one batched IN query → one JOIN |
-| `db_index` | the table keeps growing; every query reads all of it | hash index → hash + composite index |
+| `n_plus_one_queries` | a page asks the database once per item | N+1 → one batched IN query → one JOIN |
+| `database_index` | the table keeps growing; every query reads all of it | hash index → hash + composite index |
 
 Distributed systems: the Fly.io [Gossip Glomers](https://fly.io/dist-sys/) challenges on a
 simulated network with partitions (the **cluster** picture: nodes and the messages between them):
 
 | Lab | Challenge | Stages |
 |---|---|---|
-| `unique_ids` | #1 Echo, #2 Unique IDs | echo → unique ids → Snowflake ids (64-bit, time-ordered, survive clock steps) |
+| `unique_id_generation` | #1 Echo, #2 Unique IDs | echo → unique ids → Snowflake ids (64-bit, time-ordered, survive clock steps) |
 | `broadcast` | #3 Broadcast | multi-node → fault tolerant → efficient → batched (3b–3e) |
-| `g_counter` | #4 Grow-only counter | shared key → compare-and-swap → a key per node, on seq-kv |
-| `kafka_log` | #5 Kafka-style log | single node → multi-node through lin-kv → efficient: an owner per key (5a–5c) |
-| `txn` | #6 Totally-available transactions | replicated → read uncommitted → read committed (6a–6c) |
+| `grow_only_counter` | #4 Grow-only counter | shared key → compare-and-swap → a key per node, on seq-kv |
+| `kafka_style_log` | #5 Kafka-style log | single node → multi-node through lin-kv → efficient: an owner per key (5a–5c) |
+| `transactions` | #6 Totally-available transactions | replicated → read uncommitted → read committed (6a–6c) |
 
 Replication and partitioning, on the same network (cluster picture first):
 
@@ -156,8 +156,8 @@ Replication and partitioning, on the same network (cluster picture first):
 |---|---|---|
 | `replication_lag` | reads go to replicas that lag behind | read your writes → monotonic reads |
 | `consistent_hashing` | cache servers come and go; keys move | modulo → hash ring → ring + virtual nodes |
-| `quorum` | every key on 3 of 5 nodes; a node goes down | one copy → quorums (R + W > N) → quorums + read repair |
-| `raft` | elect a leader; never lose a committed command | leader election → log replication → safe (terms, up-to-date votes) |
+| `quorum_replication` | every key on 3 of 5 nodes; a node goes down | one copy → quorums (R + W > N) → quorums + read repair |
+| `raft_consensus` | elect a leader; never lose a committed command | leader election → log replication → safe (terms, up-to-date votes) |
 
 Every lab also has a second picture: press `v` (lanes ↔ cluster).
 
