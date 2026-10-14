@@ -105,3 +105,14 @@ def test_terminal_enters_and_leaves_alternate_screen_in_a_pty():
     assert "\x1b[?1049h" in text and "\x1b[?1049l" in text
     assert text.index("\x1b[?1049h") < text.index("hello") < text.index("\x1b[?1049l")
     assert "Traceback" not in text and "bye" in text
+
+
+def test_a_widget_head_never_overflows():
+    from live.canvas import Style, vis
+    from live.panel import widget
+
+    style = Style("none")
+    head = widget("A title far too long for this narrow widget", "and a subtitle", [], 20, style)[0]
+    assert vis(head) <= 20 and "…" in head
+    head = widget("Users", "waits: the last five seconds", [], 20, style)[0]
+    assert vis(head) <= 20 and head.startswith("▍Users")

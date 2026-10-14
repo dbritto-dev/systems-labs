@@ -52,6 +52,10 @@ def tinted(row: str, width: int, style: Style, bg: RGB = DD_BG) -> str:
 
 def widget(title: str, right: str, rows: list[str], width: int, style: Style) -> list[str]:
     p = style.paint
+    if len(title) > width - 2:  # never wider than the widget: cut the title, then drop the subtitle
+        title = title[:max(0, width - 3)] + "…"
+    if right and 1 + len(title) + 1 + vis(right) > width - 1:
+        right = ""
     head = p("▍", PURPLE) + style.bold(p(title, DD_HEAD))
     out = [tinted(split_row(head, right, width - 1) if right else head, width, style)]
     return out + [tinted(" " + r, width, style) for r in rows]
