@@ -116,7 +116,7 @@ class Network:
             rec.dropped = True
             return
         rec.arrived = now()
-        self.nodes[msg.dest].deliver(msg)
+        self.nodes[msg.dest]._deliver(msg)
 
 
 class Endpoint:
@@ -179,7 +179,7 @@ class Endpoint:
 
     # ---- receiving
 
-    def deliver(self, msg: Message) -> None:
+    def _deliver(self, msg: Message) -> None:
         reply_to = msg.body.get("in_reply_to")
         if reply_to is not None:
             fut = self._waiting.get(reply_to)
