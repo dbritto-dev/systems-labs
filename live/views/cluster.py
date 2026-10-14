@@ -4,7 +4,8 @@ Each node is one character, coloured by how far behind it is. Messages are dots 
 one node to another at their real speed (~100 ms). A message dropped by a partition stops
 half way and fades out in red. During a partition a red dashed line cuts the grid between
 the groups that cannot talk. Clients sit in a column on the left and send their requests to
-the nodes (white dots).
+the nodes (white dots). A lab can put every node in one row (`columns`), e.g. a chain left to
+right, and write a word under each node (`labels`), e.g. its role.
 
 It draws a `ClusterFrame`; a `ClusterAdapter` per lab (live/adapters/<lab>.py) makes one.
 """
@@ -30,6 +31,8 @@ class ClusterFrame:
     flights: list[tuple[int, int, float, RGB]] = field(default_factory=list)  # (src, dest, 0..1, colour); -1 = clients
     drops: list[tuple[int, int, float]] = field(default_factory=list)  # (src, dest, 0..1 faded)
     state: tuple[str, RGB] = ("CONNECTED", GREEN)  # under the grid
+    columns: int = 0  # nodes per row (0: a square grid); len(nodes) puts them all in one row, left to right
+    labels: list[tuple[str, RGB]] | None = None  # a short word under each node, e.g. its role
 
 
 class ClusterAdapter(Adapter):
@@ -57,7 +60,7 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
     n = len(fr.nodes)
     if n == 0:
         return
-    side = grid_side(n)
+    side = fr.columns or grid_side(n)
     rows = math.ceil(n / side)
     # The grid fills the canvas right of the clients column, leaving a row for the state.
     left, right = 8, cv.cols - 3
@@ -107,6 +110,10 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
     for i, colour in enumerate(fr.nodes):
         r, c = cell(i)
         cv.text(r, c, "◉", colour)
+    for i, (word, colour) in enumerate(fr.labels or []):
+        if i < n and word:
+            r, c = cell(i)
+            cv.text(r + 1, max(0, min(cv.cols - len(word), c - len(word) // 2)), word, colour)
     text, colour = fr.state
     cv.text(cv.rows - 1, max(0, (left + right) // 2 - len(text) // 2), text, colour)
 
