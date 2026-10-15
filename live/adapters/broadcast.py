@@ -18,6 +18,19 @@ def _behind(missing: int) -> tuple[int, int, int]:
     return EXTRA1 if missing <= 3 else EXTRA2 if missing <= 10 else EXTRA3
 
 
+def _grid_links(n: int) -> list[tuple[int, int]]:
+    """The scenario's grid topology (core.net.Topology.grid): each node and its right and lower neighbour."""
+    side = max(1, round(n ** 0.5))
+    out = []
+    for i in range(n):
+        r, c = divmod(i, side)
+        if c + 1 < side and i + 1 < n:
+            out.append((i, i + 1))
+        if i + side < n:
+            out.append((i, i + side))
+    return out
+
+
 @adapts("broadcast", "cluster")
 class BroadcastCluster(ClusterAdapter):
     def frame(self, variant: str, t: float) -> ClusterFrame:
@@ -45,8 +58,10 @@ class BroadcastCluster(ClusterAdapter):
             state = (f"{words['partitioned']}  {' | '.join(map(str, sizes))}", RED)
         else:
             state = (words["connected"], GREEN)
+        missing = w.missing_at(run, t)
+        labels = [(f"−{m}", _behind(m)) if m else ("", WHITE) for m in missing]  # how many values each still lacks
         return ClusterFrame(nodes=nodes, groups=groups, flights=every(flights, MAX_FLIGHTS),
-                            drops=every(drops, 30), state=state)
+                            drops=every(drops, 30), state=state, links=_grid_links(len(nodes)), labels=labels)
 
 
 # ---------------------------------------------------------------- the lanes picture: the clients' view

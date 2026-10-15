@@ -17,6 +17,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 
 from live.canvas import BG, GREEN, RED, RGB, Canvas, mix
+from live.views.parts import LINE
 from live.views.base import Adapter, View, register
 
 CLIENT: RGB = (139, 148, 158)
@@ -33,6 +34,7 @@ class ClusterFrame:
     state: tuple[str, RGB] = ("CONNECTED", GREEN)  # under the grid
     columns: int = 0  # nodes per row (0: a square grid); len(nodes) puts them all in one row, left to right
     labels: list[tuple[str, RGB]] | None = None  # a short word under each node, e.g. its role
+    links: list[tuple[int, int]] = field(default_factory=list)  # who can talk to whom: faint dotted lines
 
 
 class ClusterAdapter(Adapter):
@@ -98,6 +100,13 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
                             cv.dot(mx, my + k, RED, 3)
                         elif (left - 1) * 2 <= mx + k <= (right + 1) * 2:  # keep off the clients
                             cv.dot(mx + k, my, RED, 3)
+    # The links the nodes have (a topology), faint, under everything that moves.
+    for a, b in fr.links:
+        if 0 <= a < n and 0 <= b < n:
+            (x0, y0), (x1, y1) = centre(a), centre(b)
+            steps = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) / 3))
+            for k in range(1, steps):
+                cv.dot(x0 + (x1 - x0) * k / steps, y0 + (y1 - y0) * k / steps, LINE, 0)
     # Messages that were dropped: red, half way, fading.
     for a, b, fade in fr.drops:
         (x0, y0), (x1, y1) = centre(a), centre(b)
