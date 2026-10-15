@@ -6,7 +6,7 @@ from collections import deque
 import pytest
 
 from core.contract import import_module, load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.autoscaling import lab, scenario
 
 code = load("autoscaling", variant(), scenario.NAMES)
@@ -227,13 +227,31 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("autoscaling", "reference", 1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
     lane = adapter_for(world).frame("reference", 50.0, 100)
     assert lane.users and lane.flights and lane.state[0] and 0 < lane.fill < 1
     set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 50.0)
     assert len(frame.nodes) == scenario.MAX_INSTANCES and frame.flights
     assert len(set(frame.nodes)) >= 3  # empty slots, booting instances, warm ones
+
+
+@starting_code
+def test_the_relay_picture_shows_the_fleet_falling_behind():
+    from live.canvas import RED
+    from live.views import adapter_for, set_view
+
+    def relay(v):
+        world = build_world("autoscaling", v, 2)
+        set_view(world, "relay")
+        return adapter_for(world).frame(v, 85.0, 100)  # the surge, near its top
+
+    given, solved = relay("main"), relay("reference")
+    assert given.users and given.flights and given.hops and given.relay.label[0] and given.state[0]
+    # a fixed fleet: the traffic is past what it can do, the balancer red, requests time out in red
+    assert given.relay.gauge == RED and given.closed and any(c == RED for _, c, _ in given.hops)
+    # one that follows the traffic: the load under what it can do, more of the instances it needs serving
+    assert solved.relay.gauge != RED and not solved.closed and solved.fill > given.fill
 
 
 # ------------------------------------------------------------- your code

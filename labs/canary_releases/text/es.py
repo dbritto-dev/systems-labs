@@ -77,6 +77,12 @@ STRINGS = {
     "state_back": "REVERTIDA v{v}",
     "cluster_live": "{state}  · v{v} en las {n} instancias",
     "cluster_canary": "{state} en {b} de {n} · v{live} en {a}",
+    # el dibujo de relevo: lo que hace el enrutador, las instancias de cada versión
+    "relay_split": "{w:.0%} → v{v}",
+    "relay_router": "enrutador",
+    "relay_fleet": "v{v} en {b}/{n}",
+    "relay_bad": "MALA v{v}",
+    "relay_back": "REVERTIDA v{v}",
     # despliegues
     "good": "Versión buena",
     "flaky": "Dependencia inestable",

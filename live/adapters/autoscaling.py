@@ -1,16 +1,17 @@
 """The pictures for lab autoscaling: lanes (users → the load balancer as the door → the fleet as one server
 whose gauge is the number of instances) and cluster (one node per instance slot: instances appear light
 orange while they boot, purple while they warm up, blue once warm, red while their queue grows; empty
-slots are dim)."""
+slots are dim) and relay (users → the door → the load balancer → the fleet)."""
 
 from __future__ import annotations
 
 from labs.autoscaling.scenario import BOOTING, EMPTY, MAX_INSTANCES, WARM_STATE, WARMING, WORKERS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every
-from live.canvas import BLUE, GREEN, RED, RGB, WHITE
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, op_id
+from live.canvas import BLUE, EXTRA2, GREEN, RED, RGB, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
-from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 EMPTY_SLOT: RGB = (40, 46, 56)  # a slot with no instance: room for the fleet to grow
 OVERLOADED = 3 * WORKERS  # requests in flight on one instance that make it red (its queue is growing)
@@ -109,3 +110,55 @@ class AutoscalingCluster(ClusterAdapter):
         state, colour = _state(w, bool(failed), overloaded, booting)
         text = w.s("cluster_state", state=state, n=n - booting, booting=booting, need=need)
         return ClusterFrame(nodes=nodes, flights=flights, drops=drops, state=(text, colour))
+
+
+@adapts("autoscaling", "relay")
+class AutoscalingRelay(RelayAdapter):
+    """The lanes picture with the load balancer as a server of its own: users → the door → the load balancer
+    → the fleet. The balancer's gauge is how loaded the instances it spreads the traffic over are: the
+    traffic against what the serving fleet can do (blue up to the target, two thirds, orange up to all of
+    it, red past it, its outline red then too). Under it: that load. The fleet's gauge is the instances
+    serving against those the traffic needs, light orange while some boot, purple while some warm up, red
+    while requests time out; its outline red while it has less capacity than the traffic. Under it: the
+    instances serving / needed. Requests fly user → door, then balancer → instance: purple to an instance
+    still warming up (slow), big and red when they timed out."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.autoscaling import (
+            BOOTING_C, REQ_OK, REQ_SLOT, REQ_START, S_CAPACITY, S_DEMAND, S_STATES, WARM_C, WARMING_C,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = AutoscalingLanes(w).frame(variant, t, users)  # users, outcomes and the door
+        n, booting, warming, need, overloaded, sample = _fleet(w, run, t)
+        states = sample[S_STATES] if sample is not None else ()
+        flying = run.rows("requests", t - FLY, t + 1e-9)
+        shown = every([r for r in flying if not r[REQ_OK]], FLIGHTS // 2)
+        shown += every([r for r in flying if r[REQ_OK]], FLIGHTS - len(shown))
+        flights, hops = [], []  # the first half of the way: user → door; the second: balancer → instance
+        for r in shown:
+            p = (t - r[REQ_START]) / FLY
+            if p < 0.5:
+                flights.append((slot(op_id(r[REQ_START]), users), 2 * p, WHITE, False))
+            elif not r[REQ_OK]:
+                hops.append((2 * p - 1, RED, True))
+            else:
+                cold = 0 <= r[REQ_SLOT] < len(states) and states[r[REQ_SLOT]] == WARMING
+                hops.append((2 * p - 1, WARMING_C if cold else WHITE, False))
+
+        load = sample[S_DEMAND] / sample[S_CAPACITY] if sample is not None and sample[S_CAPACITY] else 0.0
+        colour = BLUE if load <= 2 / 3 else EXTRA2 if load <= 1 else RED
+        relay = Relay(label=(w.s("relay_load", load=load), OUTLINE if colour == BLUE else colour),
+                      fill=min(1.0, load), gauge=colour, outline=RED if load > 1 else OUTLINE)
+        serving = n - booting
+        failing = lane.closed
+        gauge = RED if failing else BOOTING_C if booting else WARMING_C if warming else WARM_C
+        _, state = lane.state
+        return RelayFrame(
+            users=lane.users, flights=flights, outcomes=lane.outcomes, closed=failing,
+            fill=min(1.0, serving / need) if need else 1.0, gauge=gauge, outline=RED if overloaded else OUTLINE,
+            state=(w.s("relay_fleet", n=serving, need=need), state), relay=relay, hops=hops,
+        )

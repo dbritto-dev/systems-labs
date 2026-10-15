@@ -1,7 +1,7 @@
 import itertools
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.rate_limiting import scenario
 
 code = load("rate_limiting", variant(), scenario.NAMES)
@@ -152,8 +152,26 @@ def test_a_second_picture_shows_the_topology():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("rate_limiting", "reference", 1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"
     set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 25.0)  # in the first incident
     assert len(frame.nodes) >= 2 and frame.flights and frame.state[0]
     assert any(src == -1 for src, _, _, _ in frame.flights)  # requests come from the clients
+
+
+@starting_code
+def test_the_relay_picture_shows_the_gateway_holding_the_flood_back():
+    from live.canvas import EXTRA3, RED
+    from live.views import adapter_for, set_view
+
+    def relay(v):
+        world = build_world("rate_limiting", v, 1)
+        set_view(world, "relay")
+        return adapter_for(world).frame(v, 25.0, 100)  # in the first flood
+
+    given, solved = relay("main"), relay("reference")
+    assert given.users and given.flights and given.hops and given.relay.label[0] and given.state[0]
+    # no limit: a flooding client gets through far over its share, and the backend fails (the door shuts)
+    assert given.relay.gauge == RED and given.relay.fill == 1.0 and given.closed
+    # with one, the gateway refuses the flood (429s, in their colour) and the backend holds
+    assert solved.relay.gauge == EXTRA3 and "429" in solved.relay.label[0] and not solved.closed

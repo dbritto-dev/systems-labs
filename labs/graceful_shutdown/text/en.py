@@ -55,6 +55,8 @@ STRINGS = {
     "state_draining": "DRAINING s{slot} · {n}/{of}",
     "state_refusing": "REFUSING s{slot} · {n}/{of}",
     "state_cut": "CUT s{slot} · {n}/{of}",
+    # the relay picture: the instances the load balancer routes to
+    "relay_lb": "rotation {n}/{of}",
     # incidents
     "deploy": "Deploy",
     "drain": "Node drain",

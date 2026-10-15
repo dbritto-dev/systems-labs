@@ -55,6 +55,8 @@ STRINGS = {
     "state_draining": "DRENANDO s{slot} · {n}/{of}",
     "state_refusing": "RECHAZA s{slot} · {n}/{of}",
     "state_cut": "CORTE s{slot} · {n}/{of}",
+    # el dibujo de relevo: las instancias a las que enruta el balanceador
+    "relay_lb": "rotación {n}/{of}",
     # incidentes
     "deploy": "Despliegue",
     "drain": "Drenado de nodo",

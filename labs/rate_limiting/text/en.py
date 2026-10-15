@@ -51,6 +51,9 @@ LEGEND = {"idle": "idle", "normal": "normal", "flooding": "flooding", "limited":
 STRINGS = {
     # the cluster picture: clients -> rate limiter -> backend
     "pic_state": "limiter → backend: {state}",
+    # the relay picture: the gateway, or the 429s it sent in the last second
+    "relay_gateway": "gateway",
+    "relay_refused": "{n} × 429/s",
     # incidents
     "who_one": "1 client",
     "who_many": "{n} clients",

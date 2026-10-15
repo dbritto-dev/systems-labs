@@ -57,6 +57,9 @@ STRINGS = {
     # los dibujos
     "fleet_state": "{state} {n}+{booting}",
     "cluster_state": "{state}  {n} activas · {booting} arrancando · necesita {need}",
+    # el dibujo de relevo: la carga de las instancias, la flota que sirve / la necesaria
+    "relay_load": "carga {load:.0%}",
+    "relay_fleet": "sirven {n}/{need}",
     # incidentes
     "surge": "Pico de tráfico",
     "drop": "Bajada de tráfico",
