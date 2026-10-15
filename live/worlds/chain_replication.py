@@ -12,7 +12,7 @@ from live.worlds.base import (
 
 OP_START, OP_KIND, OP_KEY, OP_VALUE, OP_END, OP_OK, OP_STALE, OP_LOST, OP_NODE = range(9)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED, MSG_KIND = range(5)
-ST_T, ST_CHAIN, ST_DOWN, ST_JOINING, ST_BEHIND, ST_SLOW, ST_INFLIGHT = range(7)
+ST_T, ST_CHAIN, ST_DOWN, ST_JOINING, ST_BEHIND, ST_SLOW, ST_INFLIGHT, ST_SENT = range(8)
 LOST_T, LOST_KEY, LOST_VALUE = range(3)
 
 SLOW_WRITE = 0.5  # a write acknowledged after this long is slow (orange on the chart)
@@ -109,7 +109,7 @@ GOALS = [
 
 class ChainWorld(World):
     id = "chain_replication"
-    view = "cluster"
+    view = "pipeline"
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(WHITE, "request"), (BLUE, "write"), (GREEN, "ack"), (EXTRA1, "copy"),
               (BLUE, "in_sync", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (ORANGE, "slow", "◉"),

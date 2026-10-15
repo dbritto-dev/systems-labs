@@ -358,3 +358,56 @@ def test_fanin_names_fit_and_a_cross_line_joins_the_nodes():
     column = [cv.cell(r, x) for r in range(27)]
     assert sum(ch != " " for ch, _ in column) >= 8 and BLUE in [c for _, c in column]  # n0 → n1, half way
     assert x < g["col"] - 1  # a blank column between the line and the names
+def test_the_pipeline_variation_draws_a_row_of_boxes_with_their_names_under_them():
+    from live.canvas import BG, BLUE, GREEN, RED, WHITE, mix
+    from live.views.lanes_pipeline import Leaf, PipelineFrame, draw_pipeline
+    from live.views.parts import Stage
+
+    names = [("service", "svc", "S"), ("db", "db", "db"), ("relay", "relay", "R"), ("broker", "brkr", "B"),
+             ("shipping", "ship", "sh")]
+    fr = PipelineFrame(users={0: (WHITE, True)}, flights=[(0, 0.5, WHITE, False)], outcomes=[(GREEN, 0.1)],
+                       boxes=[Leaf((n, WHITE), 0.5, short=s, tiny=t) for n, s, t in names],
+                       hops=[(1, 0.5, BLUE, False), (4, 0.5, GREEN, True)], drops=[(2, 0.1)],
+                       state=("RESTARTING", RED))
+    for cols, rows in ((50, 12), (54, 14), (68, 28)):  # the smallest picture, 92x30, 110x44 (and 200x70)
+        cv = Canvas(cols, rows)
+        draw_pipeline(cv, lambda n: fr)
+        lines = cv.plain()
+        assert len(lines) == rows and all(len(line) <= cols for line in lines)
+        assert "RESTARTING" in lines[-1] and lines[-1].index("RESTARTING") < 12  # the state, under the users
+        under = lines[-2] + " " + lines[-1]
+        words = [next((w for w in forms if f" {w} " in f" {under} "), None) for forms in names]
+        assert None not in words, (cols, under)  # every box has a whole name, in one of its forms
+        if cols == 68:
+            assert words == [n for n, _, _ in names]  # with room, the full names
+        assert not lines[0][cols // 2:].strip()  # the band over the boxes is empty: nothing skips
+        mid = int(Stage.on(cv).ymid // 4)  # the middle row: the line the requests travel along
+        assert any(cv.cell(mid, c)[1] == GREEN for c in range(cols))  # a hop between the boxes
+        assert any(cv.cell(mid, c)[1] == mix(RED, BG, 0.1) for c in range(cols))  # a drop, fading red
+
+
+def test_pipeline_boxes_sit_left_to_right_and_the_out_ones_after_a_gap():
+    from live.canvas import MUTED, WHITE
+    from live.views.lanes_pipeline import Leaf, PipelineFrame, draw_pipeline
+    from live.views.parts import Boxes
+
+    leaves = [Leaf((f"n{i}", WHITE)) for i in range(4)]
+    inline = Boxes(leaves, 50.0, 134.0)
+    gapped = Boxes(leaves, 50.0, 134.0, gap_after=2)
+    assert inline.xs == sorted(inline.xs) and gapped.xs == sorted(gapped.xs)
+    steps = [b - a for a, b in zip(gapped.xs, gapped.xs[1:])]
+    assert steps[2] > steps[1] + 4  # a gap before the box out of the line
+    assert 2 * gapped.rx <= 16 and gapped.xs[-1] + gapped.rx <= 134
+
+    fr = PipelineFrame(boxes=leaves, gap_after=2, skips=[(-1, 2, 0.5, MUTED)], state=("OK", WHITE))
+    cv = Canvas(68, 28)
+    draw_pipeline(cv, lambda n: fr)
+    lines = cv.plain()
+    assert (lines[0] + lines[1])[34:68].strip() or lines[1][34:].strip()  # the arc over the top
+    top = next(r for r, line in enumerate(lines) if "⡤" in line or "⢠" in line)
+    assert top >= 2  # the boxes start under the arcs' band
+    door = int((22 + (136 - 22) * 0.28) // 2)
+    assert all(lines[top][c] == " " for c in range(door + 1, door + 3))  # the first box is clear of the door
+    drawn = Boxes(leaves, 22 + (136 - 22) * 0.28, 134.0, gap_after=2)  # where draw_pipeline puts them
+    case = [cv.cell(top + 2, int((x - drawn.rx) // 2))[1] for x in drawn.xs]  # each box's left side
+    assert case[0] == case[1] == case[2] != case[3]  # the box out of the line is dimmed
