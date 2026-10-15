@@ -184,6 +184,11 @@ def dd_monitors(lines: list[GoalRow], width: int, style: Style) -> list[str]:
 # ------------------------------------------------------------------- events
 
 
+def cut(s: str, n: int) -> str:
+    """s in at most n characters: whole, or cut with "…" so it shows that it goes on."""
+    return s if len(s) <= n else s[: max(0, n - 1)] + "…"
+
+
 def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) -> tuple[str, list[str]]:
     """The run's events up to now: time, an icon and verb in its colour, and what it is about. The latest
     alert of this incident stays pinned on top with what to do; the rest follow, newest first. Then the
@@ -205,21 +210,23 @@ def dd_events(world, v: str, t: float, width: int, style: Style, rows: int = 4) 
         if e.start and len(e.text) > room:  # what went wrong: up to 3 lines, so the cause shows
             first, *rest = textwrap.wrap(e.text, room, max_lines=3, placeholder="…")
             return [head + p(first, INK)] + [p("▌", col) + " " * 13 + p(more, INK) for more in rest]
-        return [head + p(e.text[:room], DD_TITLE if dim else INK)]
+        return [head + p(cut(e.text, room), DD_TITLE if dim else INK)]
 
     out: list[str] = []
     if pin is not None:
         out += row(pin)
         if pin.fix:
-            out.append(p("▌", EVENT_STYLE["alert"][1]) + "      " + p("→ ", FIX_ARROW) + p(pin.fix[:inner - 8], INK))
-    for e in reversed(seen):
+            out.append(p("▌", EVENT_STYLE["alert"][1]) + "      " + p("→ ", FIX_ARROW) + p(cut(pin.fix, inner - 8), INK))
+    for e in reversed(seen):  # newest first, and only as many as fit (the history keeps growing)
+        if len(out) >= rows:
+            break
         if e is not pin:
             out += row(e)
-    nxt = world.next_check(v, t)
+    nxt = world.next_check(v, t, room=inner - 14)
     out = out[:rows - 1] if nxt and len(out) >= rows else out[:rows]
     if len(out) < rows and nxt:
         out.append(p("▌", FADED_BAR) + p("     ○ ", FADED) + style.bold(p(f"{sc.NEXT[:6]:<7}", FADED))
-                   + p(nxt[:inner - 14], DD_TITLE))
+                   + p(cut(nxt, inner - 14), DD_TITLE))
     right = p(sc.SO_FAR.format(n=len(seen)) if seen else sc.NONE_YET, DD_TITLE)
     return right, out
 

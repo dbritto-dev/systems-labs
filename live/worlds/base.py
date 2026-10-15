@@ -416,8 +416,9 @@ class World:
         run.data["goal_lines"] = (key, rows)
         return list(rows)
 
-    def next_check(self, variant: str, t: float) -> str:
-        """What will be judged next, without giving away future times."""
+    def next_check(self, variant: str, t: float, room: int | None = None) -> str:
+        """What will be judged next, without giving away future times. With `room`, the short form when the
+        long one is longer than that."""
         sc = self.screen
         inc = self.current_incident(variant, t)
         if inc is None:
@@ -426,16 +427,22 @@ class World:
         rows = self.goal_lines(variant, t)
         pending = [(g, r) for g, r in zip(self.goals, rows) if r.status == "wait"]
         if not pending:
-            return sc.NEXT_INCIDENT.format(incident=phrases.next)
+            return self._fit(sc, "NEXT_INCIDENT", room, incident=phrases.next)
         g, _ = pending[0]
         if g.phase == "before" and t < inc.t0:
-            return sc.NEXT_AT_START.format(rule=g.rule, incident=phrases.the)
+            return self._fit(sc, "NEXT_AT_START", room, rule=g.rule, incident=phrases.the)
         if g.phase == "during" and inc.t0 <= t < inc.t1:
-            return sc.NEXT_AT_END.format(rule=g.rule, incident=phrases.the)
+            return self._fit(sc, "NEXT_AT_END", room, rule=g.rule, incident=phrases.the)
         if t < max(inc.t0, inc.t1):
-            return sc.NEXT_AFTER.format(rule=g.rule, incident=phrases.the)
+            return self._fit(sc, "NEXT_AFTER", room, rule=g.rule, incident=phrases.the)
         return f"{clock(self._settle_time(g, inc))} {g.rule}"
 
+    @staticmethod
+    def _fit(sc, key: str, room: int | None, **values) -> str:
+        text = getattr(sc, key).format(**values)
+        if room is not None and len(text) > room:
+            return getattr(sc, f"{key}_SHORT").format(**values)
+        return text
     def stage_index(self, variant: str) -> int | None:
         """Which stage main.py is at, judged from the first incident's results."""
         run = self.runs.get(variant)
