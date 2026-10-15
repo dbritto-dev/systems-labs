@@ -138,7 +138,7 @@ GOALS = [
 
 class GracefulShutdownWorld(World):
     id = "graceful_shutdown"
-    view = "lanes"  # users → the load balancer → the fleet: what the users see during a deploy
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "request"), ([EXTRA1, EXTRA2, EXTRA3], "waits", "●"),
               (GREEN, "served"), (RED, "failed"), (BLUE, "serving", "◉"), (PURPLE, "starting", "◉"),

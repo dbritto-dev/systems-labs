@@ -168,7 +168,8 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("replication_lag", "reference", 1)
-    assert views_for(world) == ["cluster", "fanout", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["fanout", "cluster", "lanes"] and world.view == "fanout"  # opens with fanout
+    set_view(world, "cluster")  # the checks below are about the cluster picture
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights or frame.outcomes

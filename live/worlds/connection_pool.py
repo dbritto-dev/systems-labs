@@ -104,7 +104,7 @@ GOALS = [
 
 class ConnPoolWorld(World):
     id = "connection_pool"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "query"), (EXTRA1, "waits"), (EXTRA2, "opens"),
               (RED, "failed"), (GREEN, "served"), (BLUE, "idle_conn", "█"), (LIMIT, "limit", "┄"),

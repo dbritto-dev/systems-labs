@@ -156,7 +156,8 @@ def test_both_pictures_show_the_migration():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("zero_downtime_migration", "main", 1)
-    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+    set_view(world, "lanes")  # the checks below are about the lanes picture
     lane = adapter_for(world).frame("main", 21.0, 100)
     assert lane.closed and any(colour == RED for colour, _ in lane.outcomes)  # old instances fail
     set_view(world, "cluster")

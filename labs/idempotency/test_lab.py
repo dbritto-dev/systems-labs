@@ -170,7 +170,8 @@ def test_a_second_picture_shows_the_topology():
 
     def picture(v: str):
         world = build_world("idempotency", v, 1)
-        assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+        assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+        set_view(world, "lanes")  # the checks below are about the lanes picture
         set_view(world, "cluster")
         frame = adapter_for(world).frame(v, 25.0)  # in the first incident: a slow ledger
         assert len(frame.nodes) == 3 and any(src == -1 for src, _, _, _ in frame.flights)

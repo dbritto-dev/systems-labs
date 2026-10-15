@@ -310,7 +310,8 @@ def test_two_pictures_the_cluster_first():
         return frame, lanes
 
     worlds = {v: build_world(LAB, v, 1) for v in ("main", "reference")}
-    assert views_for(worlds["main"]) == ["cluster", "fanout", "lanes"] and worlds["main"].view == "cluster"
+    assert views_for(worlds["main"]) == ["fanout", "cluster", "lanes"] and worlds["main"].view == "fanout"  # opens with fanout
+    set_view(worlds["main"], "cluster")  # the checks below are about the cluster picture
     one = endpoint_node(0)
     for v in ("main", "reference"):
         frame, _ = picture(v, 30.0)

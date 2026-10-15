@@ -69,7 +69,7 @@ def _behind_colour(lag: float) -> tuple[int, int, int]:
 
 class ReplicationLagWorld(World):
     id = "replication_lag"
-    view = "cluster"
+    view = "fanout"  # opens with the fanout picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "fresh", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "down", "◉"),
               (WHITE, "read"), (BLUE, "replication"), (RED, "wrong"), (LIMIT, "limit", "┄")]

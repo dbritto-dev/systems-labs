@@ -116,7 +116,7 @@ GOALS = [
 
 class NPlusOneWorld(World):
     id = "n_plus_one_queries"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "list"), (EXTRA2, "per_item"), (EXTRA1, "batch"),
               (BLUE, "join"), (GREEN, "served"), (RED, "failed"), (INCIDENT_KEY, "incident", "█")]

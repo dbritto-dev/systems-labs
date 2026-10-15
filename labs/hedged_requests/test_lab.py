@@ -237,7 +237,8 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("hedged_requests", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes", "relay"] and world.view == "cluster"
+    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+    set_view(world, "cluster")  # the checks below are about the cluster picture
     frame = adapter_for(world).frame("reference", 25.0)
     assert len(frame.nodes) == 4 and frame.flights and frame.state[0]
     set_view(world, "lanes")

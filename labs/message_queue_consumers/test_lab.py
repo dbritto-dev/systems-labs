@@ -269,7 +269,8 @@ def test_two_pictures_the_cluster_first():
         return frame, lanes
 
     worlds = {v: build_world(LAB, v, 1) for v in ("main", "reference")}
-    assert views_for(worlds["main"]) == ["cluster", "lanes", "relay"] and worlds["main"].view == "cluster"
+    assert views_for(worlds["main"]) == ["relay", "cluster", "lanes"] and worlds["main"].view == "relay"  # opens with relay
+    set_view(worlds["main"], "cluster")  # the checks below are about the cluster picture
     # In the poison batch: the given code loses the poison (red); the reference parks it (purple).
     given = [picture("main", t) for t in (24.0, 27.0, 29.5)]
     solved = [picture("reference", t) for t in (32.0, 36.0, 40.0)]

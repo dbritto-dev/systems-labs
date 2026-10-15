@@ -227,7 +227,8 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("autoscaling", "reference", 1)
-    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+    set_view(world, "lanes")  # the checks below are about the lanes picture
     lane = adapter_for(world).frame("reference", 50.0, 100)
     assert lane.users and lane.flights and lane.state[0] and 0 < lane.fill < 1
     set_view(world, "cluster")

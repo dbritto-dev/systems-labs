@@ -90,7 +90,7 @@ GOALS = [
 
 class CacheWorld(World):
     id = "caching"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "hit"), (EXTRA1, "shared"), (EXTRA2, "first"),
               (EXTRA3, "dup"), (RED, "rejected"), (LIMIT, "limit", "┄"), (FLUSH_KEY, "flush", "█")]

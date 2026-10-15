@@ -141,10 +141,12 @@ peticiones van usuario → puerta → relevo → servidor; **abanico** hace que 
 varios servidores pequeños, cada uno con su indicador (un orquestador y sus servicios, un
 coordinador y sus fragmentos).
 
+Cada uno de estos laboratorios abre con ese dibujo.
+
 | Dibujo | Laboratorios |
 |---|---|
-| relevo | `load_balancing` (abre con él), `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
-| abanico | `saga_orchestration` (abre con él), `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
+| relevo | `load_balancing`, `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
+| abanico | `saga_orchestration`, `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
 
 Tráfico y fiabilidad:
 

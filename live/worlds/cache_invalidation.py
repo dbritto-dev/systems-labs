@@ -113,7 +113,7 @@ GOALS = [
 
 class CacheInvalidationWorld(World):
     id = "cache_invalidation"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "hit"), (EXTRA1, "miss"), (GREEN, "served"), (RED, "stale"),
               (BLUE, "write"), (EXTRA2, "refused"), (DOWN_KEY, "incident", "█")]

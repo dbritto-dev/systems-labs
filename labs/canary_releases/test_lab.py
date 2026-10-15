@@ -270,7 +270,8 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("canary_releases", "reference", 4, seed=1)
-    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+    set_view(world, "lanes")  # the checks below are about the lanes picture
     lane = adapter_for(world).frame("reference", 215.0, 100)  # seed 1's good build, on 25%
     assert lane.users and lane.flights and lane.state[0] and 0 < lane.fill < 1
     assert any(big for *_, big in lane.flights)  # the canary's requests stand out

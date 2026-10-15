@@ -110,7 +110,7 @@ GOALS = [
 
 class IdempotencyWorld(World):
     id = "idempotency"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first_try"), ([EXTRA1, EXTRA2, EXTRA3], "retries"),
               (RED, "double"), (GREEN, "answered"), (MUTED, "lost"), (LIMIT, "limit", "┄"),

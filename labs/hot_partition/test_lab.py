@@ -282,7 +282,8 @@ def test_two_pictures_the_cluster_first():
     from live.views import adapter_for, set_view, views_for
 
     worlds = {v: build_world(LAB, v, 1) for v in ("main", "reference")}
-    assert views_for(worlds["main"]) == ["cluster", "fanout", "lanes"] and worlds["main"].view == "cluster"
+    assert views_for(worlds["main"]) == ["fanout", "cluster", "lanes"] and worlds["main"].view == "fanout"  # opens with fanout
+    set_view(worlds["main"], "cluster")  # the checks below are about the cluster picture
 
     def pictures(v: str, t: float):
         world = worlds[v]

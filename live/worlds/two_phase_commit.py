@@ -127,7 +127,7 @@ GOALS = [
 
 class TwoPhaseCommitWorld(World):
     id = "two_phase_commit"
-    view = "cluster"
+    view = "fanout"  # opens with the fanout picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(WHITE, "prepare"), (BLUE, "yes"), (GREEN, "commit"), (MUTED, "abort"), (EXTRA1, "ask"),
               (EXTRA2, "doubt", "◉"), (RED, "partial"), (LIMIT, "limit", "┄"), (DOWN_KEY, "incident", "█")]

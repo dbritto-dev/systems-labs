@@ -107,7 +107,8 @@ def test_a_second_picture_shows_every_query():
 
     def queries(v: str) -> int:
         world = build_world("n_plus_one_queries", v, 1)
-        assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+        assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+        set_view(world, "lanes")  # the checks below are about the lanes picture
         set_view(world, "cluster")
         frame = adapter_for(world).frame(v, 10.0)
         assert len(frame.nodes) == 2 and any(src == -1 for src, _, _, _ in frame.flights)

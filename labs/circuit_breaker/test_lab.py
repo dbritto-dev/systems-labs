@@ -198,7 +198,8 @@ def test_a_second_picture_shows_the_topology():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("circuit_breaker", "reference", 1)
-    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+    set_view(world, "lanes")  # the checks below are about the lanes picture
     set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 25.0)
     assert len(frame.nodes) == 3 and frame.flights and frame.state[0]

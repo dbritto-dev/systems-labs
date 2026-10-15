@@ -110,7 +110,7 @@ GOALS = [
 
 class RateLimitWorld(World):
     id = "rate_limiting"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "normal"), (EXTRA2, "flooding"), (EXTRA3, "limited"),
               (RED, "failed"), (GREEN, "served"), (LIMIT, "limit", "┄"), (FLOOD_KEY, "flood", "█")]

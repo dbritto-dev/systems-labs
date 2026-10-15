@@ -107,7 +107,7 @@ GOALS = [
 
 class HedgedRequestsWorld(World):
     id = "hedged_requests"
-    view = "cluster"  # the copies going to another replica are the lesson: the cluster shows where they go
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first_call"), (EXTRA1, "slow_reply"), (EXTRA2, "copy"),
               (EXTRA3, "wasted"), (RED, "failed"), (GREEN, "served"), (LIMIT, "limit", "┄"),

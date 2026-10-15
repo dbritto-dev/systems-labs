@@ -125,7 +125,7 @@ GOALS = [
 
 class HotPartitionWorld(World):
     id = "hot_partition"
-    view = "cluster"  # one partition turning red while the others idle shows best as nodes
+    view = "fanout"  # opens with the fanout picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "cool", "◉"), ([EXTRA1, EXTRA2], "busy", "◉"), (RED, "melting", "◉"),
               (WHITE, "request"), (PURPLE, "hot_key"), (EXTRA2, "fan_in"), (BLUE, "cached"),

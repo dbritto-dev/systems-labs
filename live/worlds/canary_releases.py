@@ -205,7 +205,7 @@ EVENTS = {
 
 class CanaryReleasesWorld(World):
     id = "canary_releases"
-    view = "lanes"  # the users' view first: who gets the new build, and what it does to them
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "request"), ([EXTRA1, EXTRA2, EXTRA3], "waits", "●"),
               (GREEN, "served"), (FAILED_C, "failed"), (LIVE_C, "live", "◉"), (CANARY_C, "canary", "◉"),

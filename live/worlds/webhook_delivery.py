@@ -168,7 +168,7 @@ GOALS = [
 
 class WebhookWorld(World):
     id = "webhook_delivery"
-    view = "cluster"  # which endpoint is dead, and which workers are stuck on it, shows best as nodes
+    view = "fanout"  # opens with the fanout picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first"), ([EXTRA1, EXTRA2], "retry"), (GREEN, "delivered"),
               (EXTRA3, "out_of_order"), (RED, "failed"), (PURPLE, "gave_up"), (LIMIT, "limit", "┄"),

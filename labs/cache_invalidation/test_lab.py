@@ -255,7 +255,8 @@ def test_two_pictures_lanes_first():
 
     def picture(v, at: float):
         world = build_world("cache_invalidation", v, 1)
-        assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+        assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+        set_view(world, "lanes")  # the checks below are about the lanes picture
         lanes = [adapter_for(world).frame(v, at + k / 10, 60) for k in range(50)]
         set_view(world, "cluster")
         frames = [adapter_for(world).frame(v, at + k / 20) for k in range(100)]  # in the campaign

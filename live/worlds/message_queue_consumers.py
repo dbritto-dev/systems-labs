@@ -144,7 +144,7 @@ GOALS = [
 
 class MessageQueueWorld(World):
     id = "message_queue_consumers"
-    view = "cluster"  # worker processes crashing and poison moving to the DLQ show best as nodes
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first"), ([EXTRA1, EXTRA2], "redelivered"),
               (EXTRA3, "duplicate"), (GREEN, "acked"), (RED, "lost"), (PURPLE, "parked"),

@@ -198,7 +198,8 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("graceful_shutdown", EXIT, 1)
-    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # opens with relay
+    set_view(world, "lanes")  # the checks below are about the lanes picture
     lane = adapter_for(world).frame(EXIT, 22.0, 100)
     assert lane.users and lane.flights and lane.closed  # the balancer still sends to the dead instance
     set_view(world, "cluster")

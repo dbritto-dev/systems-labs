@@ -336,8 +336,8 @@ def test_two_pictures_cluster_first():
 
     def picture(v, t: float):
         world = world_of(v)
-        set_view(world, "cluster")
-        assert views_for(world) == ["cluster", "fanout", "lanes"] and world.view == "cluster"  # cluster opens first
+        assert views_for(world) == ["fanout", "cluster", "lanes"] and type(world).view == "fanout"  # opens with fanout
+        set_view(world, "cluster")  # the checks below are about the cluster picture
         frame = adapter_for(world).frame(v, t)
         assert len(frame.nodes) == 4
         text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))

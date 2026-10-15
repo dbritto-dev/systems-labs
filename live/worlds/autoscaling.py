@@ -187,7 +187,7 @@ GOALS = [
 
 class AutoscalingWorld(World):
     id = "autoscaling"
-    view = "lanes"  # the users' view first: does the fleet keep up with them?
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "request"), ([EXTRA1, EXTRA2, EXTRA3], "waits", "●"),
               (GREEN, "served"), (RED, "failed"), (WARM_C, "warm", "◉"), (WARMING_C, "warming", "◉"),

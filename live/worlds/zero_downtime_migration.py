@@ -145,7 +145,7 @@ GOALS = [
 
 class ZeroDowntimeMigrationWorld(World):
     id = "zero_downtime_migration"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "waiting"), (EXTRA2, "slow"), (GREEN, "served"), (RED, "failed"),
               (EXTRA3, "wrong"), (BACKFILL_KEY, "backfill", "█"), (TROUBLE_KEY, "trouble", "█")]

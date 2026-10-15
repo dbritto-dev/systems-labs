@@ -81,7 +81,7 @@ GOALS = [
 
 class QuorumWorld(World):
     id = "quorum_replication"
-    view = "cluster"
+    view = "fanout"  # opens with the fanout picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "in_sync", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "down", "◉"),
               (WHITE, "request"), (BLUE, "message"), (RED, "dropped"), (LIMIT, "limit", "┄")]

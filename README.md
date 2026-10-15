@@ -135,10 +135,12 @@ middle (a balancer, a gateway, a cache, a queue) with requests flying user → d
 server, and **fan-out** has the relay call a few small servers, each with its own gauge (an
 orchestrator and its services, a coordinator and its shards).
 
+Each of these labs opens with that picture.
+
 | Picture | Labs |
 |---|---|
-| relay | `load_balancing` (opens with it), `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
-| fan-out | `saga_orchestration` (opens with it), `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
+| relay | `load_balancing`, `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
+| fan-out | `saga_orchestration`, `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
 
 Traffic and reliability:
 

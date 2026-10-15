@@ -102,7 +102,7 @@ GOALS = [
 
 class CircuitBreakerWorld(World):
     id = "circuit_breaker"
-    view = "lanes"
+    view = "relay"  # opens with the relay picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "fast_call"), (EXTRA1, "waits_worker"),
               (EXTRA2, "slow_call"), (EXTRA3, "refused"), (RED, "failed"), (GREEN, "served"),
