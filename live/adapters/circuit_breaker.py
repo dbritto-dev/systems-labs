@@ -1,5 +1,6 @@
 """The pictures for lab circuit_breaker: lanes (the door is the breaker in front of the slow
-dependency) and cluster (the topology: clients → service → payments and recommendations)."""
+dependency), cluster (the topology: clients → service → payments and recommendations) and relay
+(users → our service, its breaker and bulkhead → the slow dependency)."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 SLOW_CALL = 0.1  # a call running longer than this colours its user "slow call"
 
@@ -135,3 +137,68 @@ class CircuitBreakerCluster(ClusterAdapter):
         topology = w.s("topology", a=w.dep_name(DEPS[0]), b=w.dep_name(DEPS[1]))
         return ClusterFrame(nodes=[service, *deps], flights=flights, drops=every(drops, 30),
                             state=(f"{words[key]}   {topology}", colour))
+
+
+@adapts("circuit_breaker", "relay")
+class CircuitBreakerRelay(RelayAdapter):
+    """Users → the door → our service (the relay) → the slow dependency (the server on the right).
+
+    The service's gauge is its workers busy, red when all are. Its outline and the word under it are the
+    breaker and the bulkhead in front of the dependency on the right: light orange while the bulkhead is
+    full (calls in flight at its limit, the rest refused), orange while half-open (a probe goes through,
+    the rest are refused), deep orange while open (every call refused at once), plain while closed.
+    Calls to the dependency fly white; a slow one (still running) parks by the dependency, orange, holding
+    a worker. A call the service refuses without calling (short-circuited) never leaves it: it stops at
+    the service's edge, deep orange. The dependency on the right is the one the incident slows (the next
+    one before any), its name under it orange while slow; its gauge is its calls in flight against the
+    workers."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.circuit_breaker import CALL_DEP, CALL_END, CALL_START, REQ_DEP, REQ_END, REQ_OUTCOME
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = CircuitBreakerLanes(w).frame(variant, t, users)  # the users, their requests and the answers
+        inc = w.current_incident(variant, t)
+        dep = DEPS.index(inc.kind) if inc is not None else 1
+        slow = inc is not None and inc.t0 <= t < inc.t1
+
+        span = run.max_dur.get("calls", 0.0)
+        calls = [c for c in run.rows("calls", t - span - 1e-9, t + 1e-9) if c[CALL_DEP] == dep]
+        running = [c for c in calls if c[CALL_END] > t]
+        hops = []
+        moving = [c for c in calls if t - FLY <= c[CALL_START] <= t and not (c in running and t - c[CALL_START] > SLOW_CALL)]
+        for c in every(moving, FLIGHTS):
+            hops.append(((t - c[CALL_START]) / FLY, WHITE, False))
+        parked = [c for c in running if t - c[CALL_START] > SLOW_CALL]
+        for c in every(parked, FLIGHTS):
+            place = 0.55 + 0.4 * ((int(c[CALL_START] * 1_000_003) * 2654435761) % 97) / 96  # a steady spot
+            hops.append((place, EXTRA2, False))
+        rspan = run.max_dur.get("requests", 0.0)
+        refused = [r for r in run.rows("requests", t - BACK - rspan, t + 1e-9)
+                   if t - BACK <= r[REQ_END] <= t and r[REQ_DEP] == dep and r[REQ_OUTCOME] == REFUSED]
+        hops += [(0.04 * j, EXTRA3, False) for j in range(min(3, len(refused) // 2 + bool(refused)))]
+
+        # The breaker and the bulkhead, as the requests show them: refused at once, with calls still going?
+        share = w.door_at(run, t, dep)
+        probing = any(t - 1 <= c[CALL_START] <= t for c in calls)
+        if share < 0.3:
+            key, colour = "relay_closed", OUTLINE
+        elif len(running) >= 3:
+            key, colour = "relay_bulkhead", EXTRA1
+        elif probing:
+            key, colour = "relay_half_open", EXTRA2
+        else:
+            key, colour = "relay_open", EXTRA3
+        busy = w.busy_at(run, t)
+        if busy >= w.workers:
+            key, colour = "relay_full", RED
+        gauge = RED if busy >= w.workers else EXTRA2 if busy >= w.workers * 0.8 else BLUE
+        relay = Relay(label=(w.s(key), WHITE if colour == OUTLINE else colour), fill=busy / w.workers,
+                      gauge=gauge, outline=colour)
+        state = (w.dep_name(DEPS[dep]), EXTRA2 if slow else GREEN)  # its name: orange while slow
+        return RelayFrame(users=lane.users, flights=lane.flights, outcomes=lane.outcomes,
+                          fill=len(running) / w.workers, gauge=EXTRA2 if slow else BLUE,
+                          outline=EXTRA2 if slow else OUTLINE, state=state, relay=relay, hops=hops)

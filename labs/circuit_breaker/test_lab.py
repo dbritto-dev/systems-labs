@@ -198,7 +198,30 @@ def test_a_second_picture_shows_the_topology():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("circuit_breaker", "reference", 1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
     set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 25.0)
     assert len(frame.nodes) == 3 and frame.flights and frame.state[0]
+
+
+@starting_code
+def test_the_relay_picture_shows_the_breaker():
+    from live.canvas import EXTRA2, EXTRA3, RED
+    from live.views import adapter_for, set_view
+
+    def relay(v: str, t: float):
+        world = build_world("circuit_breaker", v, 1)
+        set_view(world, "relay")
+        frame = adapter_for(world).frame(v, t, 100)
+        assert frame.users and frame.flights and frame.relay.label[0] and frame.state[0]
+        return world, frame
+
+    world, given = relay("main", 25.0)  # the first incident: Recs is slow
+    # No timeout, no breaker: the slow calls hold every worker, parked orange by the dependency.
+    assert given.relay.fill >= 1 and given.relay.outline == RED and given.relay.label[0] == world.s("relay_full")
+    assert any(colour == EXTRA2 for _, colour, _ in given.hops)
+    world, solved = relay("reference", 25.0)
+    # The breaker is open: calls stop at the service (deep orange) and the workers are free.
+    assert solved.relay.label[0] == world.s("relay_open") and solved.relay.fill < 0.5
+    assert any(colour == EXTRA3 and k < 0.1 for k, colour, _ in solved.hops)
+    assert not any(colour == EXTRA2 for _, colour, _ in solved.hops)

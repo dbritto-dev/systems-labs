@@ -75,6 +75,8 @@ STRINGS = {
     "head_pool": "Pool: {n} conexiones abiertas",
     "limit_max": "{n} máx",
     "note_chart": "Gráfica: conexiones abiertas (ocupadas, libres).",
+    # el dibujo relay: bajo el pool (~14 letras como máximo)
+    "relay_in_use": "pool: {n} en uso",
     # errores en tu código
     "closed": "consulta sobre una conexión cerrada",
     "too_many": "demasiadas conexiones ({n} abiertas)",

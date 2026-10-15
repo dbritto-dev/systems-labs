@@ -72,6 +72,12 @@ STRINGS = {
     "head_calm": "Both dependencies answer fast",
     "chart_limit": "{workers} workers",
     "note_chart": "The chart: busy workers each second.",
+    # the relay picture: the breaker and bulkhead in our service, under it (at most ~14 letters)
+    "relay_closed": "breaker closed",
+    "relay_open": "breaker open",
+    "relay_half_open": "half-open",
+    "relay_bulkhead": "bulkhead full",
+    "relay_full": "workers full",
     # errors in your code
     "stuck": "a request has been running for over {seconds:.0f} s: does Client.call wait for something that never finishes?",
 }

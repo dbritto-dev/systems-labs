@@ -73,6 +73,9 @@ STRINGS = {
     "head_hedged": "Copies hide the tail: p99 {p99}",
     "head_calm": "Replies are fast",
     "chart_limit": "{extra:.0%} extra",
+    # the relay picture: under the service and the replicas (at most ~14 letters)
+    "relay_extra": "copies +{extra:.0%}",
+    "relay_replicas": "{n} replicas",
     # errors in your code
     "stuck": "a read has been running for over {seconds:.0f} s: does Client.read wait for something that never finishes?",
 }

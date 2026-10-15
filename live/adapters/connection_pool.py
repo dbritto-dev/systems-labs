@@ -1,15 +1,17 @@
 """The pictures for lab connection_pool: lanes (the door is the pool, the server is the database) and
-cluster (the topology: clients → pool → database)."""
+cluster (the topology: clients → pool → database) and relay (users → the pool, its connections in use →
+the database)."""
 
 from __future__ import annotations
 
 from labs.connection_pool import lab as pool_lab
-from labs.connection_pool.scenario import TOO_MANY
+from labs.connection_pool.scenario import TIMED_OUT, TOO_MANY
 from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 
 @adapts("connection_pool", "lanes")
@@ -105,3 +107,61 @@ class ConnPoolCluster(ClusterAdapter):
             db, key, colour = BLUE, "healthy", GREEN
         state = f"{w.screen.STATES[key]}   {w.s('topology')}"
         return ClusterFrame(nodes=[pool, db], flights=flights, drops=drops, state=(state, colour))
+
+
+@adapts("connection_pool", "relay")
+class ConnPoolRelay(RelayAdapter):
+    """Users → the door → the app's connection pool (the relay) → the database (the server on the right).
+
+    The pool's gauge is its connections in use (lent to a request running its query), against the
+    database's limit of 50; the word under it is that count. Its outline is light orange while requests
+    wait for a connection, orange when over 20 wait, red while acquire() gives up (a pool timeout); users
+    waiting for a connection are orange (light: queued; deeper: opening a new one). Requests fly from the
+    pool to the database once they have a connection: white on a reused one, orange and bigger when it
+    opens a new one; a request the database refuses (too many connections) flies red. A request whose
+    acquire() timed out never leaves the pool: red, at its edge. The database is as in lanes: its gauge
+    is the connections open on it, red while it refuses them."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.connection_pool import REQ_END, REQ_FAIL, REQ_NEW, REQ_START, REQ_WAIT
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = ConnPoolLanes(w).frame(variant, t, users)  # the users, the database and its state
+        half = FLY / 2
+        flights = [(i, min(1.0, 2 * k), col, big) for i, k, col, big in lane.flights if k < 0.5]
+        span = run.max_dur.get("requests", 0.0)
+        recent = run.rows("requests", t - span - FLY - 1e-9, t + 1e-9)
+        hops, stuck = [], []
+        for r in recent:
+            if r[REQ_FAIL] == TIMED_OUT:  # gave up at the pool: it never reaches the database
+                if t - BACK <= r[REQ_END] <= t:
+                    stuck.append(r)
+                continue
+            got = max(r[REQ_START] + half, r[REQ_START] + r[REQ_WAIT])  # through the door, with a connection
+            if got <= t <= got + half:
+                refused = r[REQ_FAIL] == TOO_MANY
+                hops.append(((t - got) / half, RED if refused else EXTRA2 if r[REQ_NEW] else WHITE,
+                             bool(r[REQ_NEW]) or refused))
+        red = [h for h in hops if h[1] == RED]
+        hops = every(red, FLIGHTS // 2) + every([h for h in hops if h[1] != RED], FLIGHTS - min(len(red), FLIGHTS // 2))
+        hops += [(0.04 * j, RED, False) for j in range(min(3, len(stuck) // 2 + bool(stuck)))]
+
+        in_use = sum(1 for r in run.active("requests", t, REQ_END)
+                     if r[REQ_START] + r[REQ_WAIT] <= t and r[REQ_FAIL] == 0)
+        queued = len(w.waiting_at(run, t))
+        if stuck:
+            colour = RED
+        elif queued > 20:
+            colour = EXTRA2
+        elif queued:
+            colour = EXTRA1
+        else:
+            colour = OUTLINE
+        relay = Relay(label=(w.s("relay_in_use", n=in_use), WHITE if colour == OUTLINE else colour),
+                      fill=in_use / pool_lab.MAX_CONNECTIONS, gauge=BLUE if colour == OUTLINE else colour,
+                      outline=colour)
+        return RelayFrame(users=lane.users, flights=flights, outcomes=lane.outcomes, fill=lane.fill,
+                          gauge=lane.gauge, outline=lane.outline, state=lane.state, relay=relay, hops=hops)

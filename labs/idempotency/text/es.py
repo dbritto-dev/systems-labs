@@ -75,6 +75,9 @@ STRINGS = {
     "note": "Los puntos son una muestra de intentos, más lentos (estético).",
     "subtitle": "por segundo, último 1 s",
     "title": "Pagos",
+    # el dibujo relay: bajo la API de pagos (~14 letras como máximo)
+    "relay_api": "API de pagos",
+    "relay_replayed": "{n} repetidas",
     # errores en tu código
     "stuck": "un pago lleva más de {seconds:.0f} s: ¿charge() llega a devolver algo?",
 }

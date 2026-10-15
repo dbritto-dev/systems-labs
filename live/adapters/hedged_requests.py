@@ -1,5 +1,6 @@
 """The pictures for lab hedged_requests: cluster (the service and its 3 replicas, copies flying to a
-second replica) and lanes (users waiting; the door is the hedge budget in front of the replicas)."""
+second replica), lanes (users waiting; the door is the hedge budget in front of the replicas) and relay
+(users → the service, where copies add load → the replicas)."""
 
 from __future__ import annotations
 
@@ -9,6 +10,9 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
+
+RELAY_CALLS = 30  # calls in flight on the replicas that fill their gauge in the relay picture
 
 
 def _load_colour(extra: float | None):
@@ -141,3 +145,60 @@ class HedgedRequestsLanes(LaneAdapter):
         return LaneFrame(users=found, flights=flights, outcomes=outcomes, closed=closed, door_color=door,
                          fill=min(1.0, load / 2), gauge=_load_colour(extra),
                          outline=EXTRA2 if inc is not None else OUTLINE, state=(text, colour))
+
+
+@adapts("hedged_requests", "relay")
+class HedgedRequestsRelay(RelayAdapter):
+    """Users → the door (the hedge budget, as in lanes) → our service, where the Client sends the calls
+    (the relay) → the 3 replicas (the server on the right).
+
+    The service's gauge is the extra load the copies add (calls beyond the first, per read, in the last
+    second; full at 5x the allowed extra), orange past the allowed extra and red past 5x; the word under
+    it is that extra. Calls fly to the replicas: white for the first call, orange and bigger for a copy.
+    A call that is slow crawls the rest of the way: light orange while its read still waits for it, deep
+    orange once the other copy answered and nobody cancelled it (wasted work). The replicas turn orange
+    while one is slow; their gauge is the calls in flight on them."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from labs.hedged_requests import lab
+        from live.worlds.hedged_requests import CALL_COPY, CALL_END, CALL_START, REQ_END, SLOW, _slow_replicas
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = HedgedRequestsLanes(w).frame(variant, t, users)  # the users, the budget at the door, the answers
+        span = run.max_dur.get("calls", 0.0)
+        rspan = run.max_dur.get("requests", 0.0)
+        answered = {r[0]: r[REQ_END] for r in run.rows("requests", t - span - rspan - 1e-9, t + 1e-9)}
+        calls = run.rows("calls", t - span - 1e-9, t + 1e-9)
+        slow = [c for c in calls if c[CALL_END] > t and t - c[CALL_START] > SLOW]
+        moving = [c for c in calls if t - FLY <= c[CALL_START] <= t and c not in slow]
+        shown = every([c for c in moving if c[CALL_COPY] > 0], FLIGHTS // 2)
+        shown += every([c for c in moving if c[CALL_COPY] == 0], FLIGHTS - len(shown))
+        hops = [((t - c[CALL_START]) / FLY, EXTRA2 if c[CALL_COPY] > 0 else WHITE, c[CALL_COPY] > 0) for c in shown]
+        for c in every(slow, FLIGHTS):  # slow calls crawl to the replicas, and wait there
+            done = answered.get(c[1])
+            age = t - c[CALL_START]
+            hops.append((min(0.95, 0.4 + 0.55 * age / 0.4), EXTRA3 if done is not None and done <= t else EXTRA1,
+                         False))
+
+        _, extra = w.load_at(run, t)
+        top = 5 * lab.EXTRA_MAX
+        colour = _load_colour(extra)
+        label = (w.s("relay_extra", extra=extra or 0.0), WHITE if colour == BLUE else colour)
+        relay = Relay(label=label, fill=min(1.0, (extra or 0.0) / top), gauge=colour,
+                      outline=OUTLINE if colour == BLUE else colour)
+        inc = w.incident_at(variant, t)
+        sick = _slow_replicas(inc)
+        if inc is None:
+            state = (w.s("relay_replicas", n=REPLICAS), GREEN)
+        elif inc.kind == "all":
+            state = (w.s("title_all"), EXTRA2)
+        else:
+            state = (w.s("title_one", replica=w.replica_name(min(sick))), EXTRA2)
+        running = len(run.active("calls", t, CALL_END))
+        return RelayFrame(users=lane.users, flights=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, fill=min(1.0, running / RELAY_CALLS),
+                          gauge=EXTRA2 if sick else BLUE, outline=EXTRA2 if sick else OUTLINE, state=state,
+                          relay=relay, hops=hops)

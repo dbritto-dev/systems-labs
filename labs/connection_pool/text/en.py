@@ -75,6 +75,8 @@ STRINGS = {
     "head_pool": "Pool: {n} connections open",
     "limit_max": "{n} max",
     "note_chart": "The chart: open connections (busy, idle).",
+    # the relay picture: under the pool (at most ~14 letters)
+    "relay_in_use": "pool: {n} in use",
     # errors in your code
     "closed": "query on a closed connection",
     "too_many": "too many connections ({n} open)",
