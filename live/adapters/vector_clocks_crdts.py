@@ -1,12 +1,14 @@
-"""The pictures for lab vector_clocks_crdts: the replicas gossiping, and the devices reading their carts."""
+"""The pictures for lab vector_clocks_crdts: the replicas gossiping (peers: on a pentagon; cluster: on a grid),
+and the devices reading their carts (lanes)."""
 
 from __future__ import annotations
 
-from live.adapters.common import client_lanes, every, message_gauge
+from live.adapters.common import client_lanes, every, link_list, message_gauge, peer_traffic, sent_per_second
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, ORANGE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_peers import LINE, Leaf, PeersAdapter, PeersFrame
 
 DROP_FADE = 0.6  # seconds a dropped message stays on screen
 MAX_FLIGHTS = 80
@@ -104,3 +106,56 @@ class CartsLanes(LaneAdapter):
         return LaneFrame(users=waiting, flights=flights, outcomes=outcomes,
                          door_color=ORANGE if split else None, fill=fill, gauge=gauge,
                          outline=RED if wrong else OUTLINE, state=state)
+
+
+# ---------------------------------------------------------------- the peers picture: the replicas, and the devices
+
+FLASH = 1.0  # seconds a replica stays red after an add vanished there or a removed item came back
+
+
+@adapts("vector_clocks_crdts", "peers")
+class CartsPeers(PeersAdapter):
+    """The devices (the users, and the door: the replica next to them, orange while the replicas cannot all
+    talk) and the five replicas on a pentagon. A box's outline is blue while it holds the same carts as the
+    others, light to deep orange the more carts differ ("n0 12 differ"), red for a moment when an
+    acknowledged add vanished there or a removed item came back; a replica whose clock is off says by how
+    much ("n4 clock +5s"). Its gauge is the gossip it sends per second against its share of the 150/s goal. A
+    link is drawn while gossip runs along it (blue); a partition cuts every link between the groups (red ✕)
+    and drops what is sent across, and once it heals the links light up again with the catching up."""
+
+    def frame(self, variant: str, t: float, users: int) -> PeersFrame:
+        from labs.vector_clocks_crdts.lab import MSGS_MAX, NODES
+        from live.worlds.vector_clocks_crdts import MSG_ARRIVED, MSG_DEST, MSG_SENT, MSG_SRC, OP_NODE, OP_START
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return PeersFrame()
+        lane = CartsLanes(w).frame(variant, t, users)  # the devices, the door, the answers and the state
+        flights, drops, recent = peer_traffic(run, t, (MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED),
+                                              lambda m: BLUE, most=MAX_FLIGHTS)
+        for o in run.rows("ops", t - 0.12, t + 1e-9):  # device requests, from the door to a replica
+            flights.append((-1, o[OP_NODE], min(1.0, (t - o[OP_START]) / 0.1), WHITE))
+        behind = w.behind_at(run, t)
+        wrong = w.wrong_at(run, t, FLASH)
+        skew = w.skew_at(variant, t)
+        sent = sent_per_second(run, t, MSG_SRC)
+        share = MSGS_MAX / NODES
+        peers = []
+        for i, k in enumerate(behind):
+            node = f"n{i}"
+            colour = RED if i in wrong else _diverged(k)
+            if skew is not None and skew[0] == i:
+                label = w.s("peer_skew", node=node, s=skew[1])
+            elif k:
+                label = w.s("peer_differ", node=node, n=k)
+            else:
+                label = node
+            fill = sent.get(i, 0) / share
+            peers.append(Leaf(label=(label, colour), short=w.s("peer_differ_short", node=node, n=k) if k else node,
+                              tiny=node, fill=min(1.0, fill), gauge=EXTRA2 if fill > 1 else BLUE, outline=colour))
+        groups = w.groups_at(variant, t)
+        return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, state=lane.state, peers=peers,
+                          links=link_list(recent, groups, LINE), groups=groups,  # a partition: all its links cut
+                          flights=every(flights, MAX_FLIGHTS), drops=drops)

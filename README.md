@@ -133,7 +133,9 @@ There are 45 labs. Each has two pictures, **lanes** (users, a door, a server) an
 `v` to switch. Some have a variation of lanes too: **relay** puts a second server in the
 middle (a balancer, a gateway, a cache, a queue) with requests flying user → door → relay →
 server, and **fan-out** has the relay call a few small servers, each with its own gauge (an
-orchestrator and its services, a coordinator and its shards).
+orchestrator and its services, a coordinator and its shards). **peers** stands the nodes on a
+ring (a pentagon, an octagon), each a small box with its gauge and its name, with the links that
+carry messages right now between them, and a red ✕ on every link a partition cuts.
 
 Each of these labs opens with that picture.
 
@@ -141,6 +143,7 @@ Each of these labs opens with that picture.
 |---|---|
 | relay | `load_balancing`, `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
 | fan-out | `saga_orchestration`, `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
+| peers | `raft_consensus`, `paxos_consensus`, `failure_detection`, `vector_clocks_crdts` |
 
 Traffic and reliability:
 
@@ -227,7 +230,7 @@ labs/   <lab>/ main.py  reference.py  README.md     your files, in English
                scenario.py  lab.py (numbers, stage_of)  test_lab.py
 live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child processes, Feed)
         frame.py (header, chart, footer)  panel.py (dashboard)  text/ (the screen's words)
-        views/ (View, Adapter: lanes, cluster, and the lanes variations relay, fanout)
+        views/ (View, Adapter: lanes, cluster, and the lanes variations relay, fanout, peers)
         adapters/ (one module per lab)
         worlds/ (one World per lab)  viewer.py (the loop: play states, key commands, toasts,
         redraw only on change)  __main__.py  views/parts.py (the parts pictures are built from)

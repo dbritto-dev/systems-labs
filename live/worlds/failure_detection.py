@@ -104,7 +104,7 @@ GOALS = [
 
 class FailureWorld(World):
     id = "failure_detection"
-    view = "cluster"
+    view = "peers"  # the eight nodes on an octagon, the links that carried messages, and the clients
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "alive", "◉"), (ORANGE, "suspect", "◉"), (RED, "dead", "◉"), (MUTED, "crashed", "◉"),
               (BLUE, "probe"), (EXTRA1, "indirect"), (RED, "dropped"), (LIMIT, "limit", "┄")]

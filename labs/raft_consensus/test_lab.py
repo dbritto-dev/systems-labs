@@ -274,7 +274,7 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("raft_consensus", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["peers", "cluster", "lanes"]  # peers first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights or frame.outcomes
@@ -282,3 +282,32 @@ def test_a_second_picture_shows_what_the_clients_see():
     assert text and len(text) <= 13
     # there is a leader (the door is open), and no acknowledged command is uncommitted (red)
     assert not frame.closed and RED not in [c for c, _ in frame.outcomes]
+
+
+@starting_code
+def test_the_peers_picture_shows_no_leader_then_a_stale_leader_cut_off():
+    from live.canvas import GREEN, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for
+
+    def peers(v, t: float):
+        world = build_world("raft_consensus", v, 1)
+        assert world.view == "peers"
+        text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
+        return world, adapter_for(world).frame(v, t, 90), text
+
+    _, given, _ = peers("main", 25.0)  # the starting code: nobody leads, nothing passes between the nodes
+    assert len(given.peers) == 5 and not any(p.outline == GREEN for p in given.peers)
+    assert given.closed and not given.flights
+    world, split, text = peers("reference", 25.0)  # the first incident: the old leader is cut off with a follower
+    leaders = [i for i, p in enumerate(split.peers) if p.outline == GREEN]
+    assert len(leaders) == 2 and split.groups is not None  # the stale one, and the one the majority elected
+    stale = next(i for i in leaders if split.groups.count(split.groups[i]) < 3)
+    cut = [(a, b) for a, b, _ in split.links if split.groups[a] != split.groups[b]]
+    assert cut and any(stale in link for link in cut)  # its links to the majority are cut ...
+    assert any(a == stale for a, _, _ in split.drops)  # ... and what it sends there is lost
+    term = int(split.peers[stale].label[0].rsplit("t", 1)[1])
+    assert split.peers[stale].label[0] == world.s("peer_leader", node=f"n{stale}", term=term) and "✕" in text
+    assert not split.closed and RED not in [c for c, _ in split.outcomes]
+    _, after, _ = peers("reference", 40.0)  # healed: one leader again, the old one stepped down
+    assert sum(p.outline == GREEN for p in after.peers) == 1 and after.groups is None

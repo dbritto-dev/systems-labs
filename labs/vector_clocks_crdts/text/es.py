@@ -78,6 +78,10 @@ STRINGS = {
     "lanes_lost": "SE PIERDEN",
     "lanes_back": "REVIVEN",
     "lanes_skew": "RELOJ MAL",
+    # el dibujo de pares: bajo cada réplica, cuántos carritos difieren allí, o su reloj, corto
+    "peer_differ": "{node} {n} distintos",
+    "peer_differ_short": "{node} {n}",
+    "peer_skew": "{node} reloj {s:+.0f}s",
     # errores en tu código
     "no_items": "CartNode necesita un método items(cart) que devuelva los productos del carrito",
 }

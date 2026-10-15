@@ -78,6 +78,10 @@ STRINGS = {
     "lanes_lost": "ADDS LOST",
     "lanes_back": "ITEMS BACK",
     "lanes_skew": "CLOCK SKEW",
+    # the peers picture: under each replica, how many carts differ there, or its clock, short
+    "peer_differ": "{node} {n} differ",
+    "peer_differ_short": "{node} {n}",
+    "peer_skew": "{node} clock {s:+.0f}s",
     # errors in your code
     "no_items": "CartNode needs an items(cart) method that returns the cart's items",
 }

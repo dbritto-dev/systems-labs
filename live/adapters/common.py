@@ -61,3 +61,56 @@ def message_gauge(run, t: float, maximum: float) -> tuple[float, tuple[int, int,
     """The cluster's gauge: messages between nodes in the last second, against `maximum`."""
     fill = run.count("msgs", t - 1, t) / maximum
     return fill, EXTRA2 if fill > 0.8 else BLUE
+
+
+# ---- the peers picture: what passes between the nodes
+
+LINK_RECENT = 0.5  # seconds a link stays drawn after it carried a message
+LOST_FADE = 0.6  # seconds a lost message stays on screen
+
+
+def peer_traffic(run, t: float, cols: tuple[int, int, int, int], colour, longest: float = 0.0,
+                 most: int = 80) -> tuple[list, list, dict]:
+    """The messages between peers at t, for the peers picture: those in flight (src, dest, 0..1, colour),
+    those lost (src, dest, 0..1 faded), and each link that carried one in the last LINK_RECENT seconds, in
+    the colour of its latest message ({(low, high): colour}). `cols` are the columns of the msgs table that
+    hold when it was sent, its source, its destination and when it arrived (None: lost); `colour(row)` is a
+    message's colour; `longest` is how long a message may take, when that is more than LOST_FADE."""
+    sent, src, dest, arrived = cols
+    flights, drops, links = [], [], {}
+    for m in run.rows("msgs", t - max(LINK_RECENT, LOST_FADE, longest), t + 1e-9):
+        a, b, at = m[src], m[dest], m[arrived]
+        if at is None:
+            if t - m[sent] < LOST_FADE:
+                drops.append((a, b, (t - m[sent]) / LOST_FADE))
+        elif t < at:
+            flights.append((a, b, (t - m[sent]) / max(1e-6, at - m[sent]), colour(m)))
+        if t - m[sent] <= LINK_RECENT:  # the latest last
+            links.pop((min(a, b), max(a, b)), None)
+            links[(min(a, b), max(a, b))] = colour(m)
+    return every(flights, most), every(drops, 30), links
+
+
+def sent_per_second(run, t: float, src: int) -> dict[int, int]:
+    """Messages each node sent in the last second."""
+    out: dict[int, int] = {}
+    for m in run.rows("msgs", t - 1, t + 1e-9):
+        out[m[src]] = out.get(m[src], 0) + 1
+    return out
+
+
+def peer_gauge(fill: float) -> tuple[float, tuple[int, int, int]]:
+    """A peer's gauge: its fill (0..1), blue, orange past 80%."""
+    return max(0.0, min(1.0, fill)), EXTRA2 if fill > 0.8 else BLUE
+
+
+def link_list(links: dict, groups: list[int] | None = None, plain=(46, 52, 64)) -> list:
+    """The links to draw, from {(a, b): colour}; during a partition, every link between two groups too (plain
+    when it carried nothing), so the picture can cut them all."""
+    links = dict(links)
+    if groups is not None:
+        for a in range(len(groups)):
+            for b in range(a + 1, len(groups)):
+                if groups[a] != groups[b]:
+                    links.setdefault((a, b), plain)
+    return [(a, b, c) for (a, b), c in sorted(links.items())]

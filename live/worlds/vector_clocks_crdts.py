@@ -70,7 +70,7 @@ GOALS = [
 
 class CartsWorld(World):
     id = "vector_clocks_crdts"
-    view = "cluster"
+    view = "peers"  # the five replicas on a pentagon, the gossip between them, and the devices
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "in_sync", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "diverged", "◉"), (RED, "lost", "◉"),
               (WHITE, "request"), (BLUE, "gossip"), (RED, "dropped"), (LIMIT, "limit", "┄")]

@@ -1,12 +1,14 @@
-"""The pictures for lab failure_detection: the nodes as the cluster sees them, and the clients' view."""
+"""The pictures for lab failure_detection: the nodes as the cluster sees them (peers: on an octagon, the links
+that carried messages; cluster: on a grid), and the clients' view (lanes)."""
 
 from __future__ import annotations
 
-from live.adapters.common import client_lanes, every, message_gauge
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, ORANGE, RED, WHITE
+from live.adapters.common import client_lanes, every, message_gauge, peer_traffic, sent_per_second
+from live.canvas import BG, BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, ORANGE, RED, WHITE, mix
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_peers import Leaf, PeersAdapter, PeersFrame
 
 DROP_FADE = 0.6  # seconds a dropped message stays on screen
 MAX_FLIGHTS = 80
@@ -129,3 +131,64 @@ class FailureLanes(LaneAdapter):
             state = (w.screen.STATES["healthy"], GREEN)
         return LaneFrame(users=waiting, flights=flights, outcomes=outcomes, door_color=door, fill=fill,
                          gauge=gauge, outline=RED if unseen else OUTLINE, state=state)
+
+
+# ---------------------------------------------------------------- the peers picture: the octagon, and the clients
+
+FLAKY_LINK = mix(ORANGE, BG, 0.45)  # the links through the old switch, always drawn: dim orange
+MOST_LINKS = 8  # links drawn besides the flaky ones (the latest to carry a message): never the whole mesh
+
+
+@adapts("failure_detection", "peers")
+class FailurePeers(PeersAdapter):
+    """The clients (the users, and the door: their router, orange while it avoids a node, red while it still
+    sends to a crashed one) and the eight nodes on an octagon. A box's outline is the cluster's view of that
+    node: blue alive, orange suspected, red declared dead, grey crashed and not seen yet; its name says the
+    same in a word ("n2 dead"; "n1 FALSE" when a healthy node was declared dead). Its gauge is the messages it
+    sends per second against the 10/s goal (full and orange past it). The 4 flaky links are always drawn in
+    dim orange; the others while they carry a probe (blue), or a ping_req's two hops (light orange); a
+    message lost on the way stops short, red."""
+
+    def frame(self, variant: str, t: float, users: int) -> PeersFrame:
+        from labs.failure_detection.lab import MSGS_MAX, NODES
+        from labs.failure_detection.scenario import DEAD, FLAKY, SUSPECT
+        from live.worlds.failure_detection import (
+            MSG_ARRIVED, MSG_DEST, MSG_INDIRECT, MSG_SENT, MSG_SRC, REQ_NODE, REQ_START, VIEW_CRASHED, VIEW_MARKS,
+            name, view_at,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return PeersFrame()
+        lane = FailureLanes(w).frame(variant, t, users)  # the users, the router, the answers and the state
+        view = view_at(run, t)
+        marks = view[VIEW_MARKS] if view else (0,) * NODES
+        crashed = view[VIEW_CRASHED] if view else 0
+        flights, drops, recent = peer_traffic(run, t, (MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED),
+                                              lambda m: EXTRA1 if m[MSG_INDIRECT] else BLUE, longest=2.0,
+                                              most=MAX_FLIGHTS)  # a slow node's messages take longer
+        for r in run.rows("reqs", t - 0.06, t + 1e-9):  # client requests, from the router to a node
+            flights.append((-1, r[REQ_NODE], min(1.0, (t - r[REQ_START]) / 0.05), WHITE))
+        links = {tuple(sorted(f)): FLAKY_LINK for f in FLAKY}
+        latest = list(recent.items())[-MOST_LINKS:]  # in the order they were last used: the latest last
+        links.update(latest)
+        sent = sent_per_second(run, t, MSG_SRC)
+        peers = []
+        for i, m in enumerate(marks):
+            node, down = name(i), bool(crashed >> i & 1)
+            if m == DEAD:
+                colour, label = RED, w.s("peer_dead" if down else "peer_false", node=node)
+            elif down:
+                colour, label = MUTED, w.s("peer_down", node=node)
+            elif m == SUSPECT:
+                colour, label = ORANGE, w.s("peer_suspect", node=node)
+            else:
+                colour, label = BLUE, node
+            k = sent.get(i, 0) / MSGS_MAX
+            peers.append(Leaf(label=(label, colour), short=node, tiny=node, fill=min(1.0, k),
+                              gauge=EXTRA2 if k > 1 else BLUE, outline=colour))
+        return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, state=lane.state, peers=peers,
+                          links=[(a, b, c) for (a, b), c in sorted(links.items())],
+                          flights=every(flights, MAX_FLIGHTS), drops=every(drops, MOST_LINKS))

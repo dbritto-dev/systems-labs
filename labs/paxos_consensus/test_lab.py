@@ -394,15 +394,15 @@ def test_two_pictures_cluster_first():
 
     def picture(v, t: float):
         world = world_of(v)
+        assert views_for(world) == ["peers", "cluster", "lanes"] and world.view == "peers"  # peers opens first
         set_view(world, "cluster")
-        assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster opens first
         frame = adapter_for(world).frame(v, t)
         assert len(frame.nodes) == 5
         text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
         assert frame.state[0] in text  # the line under the grid fits the smallest screen
         set_view(world, "lanes")
         lanes = adapter_for(world).frame(v, t, 100)
-        set_view(world, "cluster")
+        set_view(world, "peers")  # back to the one it opens with (world_of keeps the world)
         return frame, lanes
 
     calm, _ = picture("reference", 15.0)
@@ -413,3 +413,27 @@ def test_two_pictures_cluster_first():
     split = next(e[0] for e in world_of(FIRST_WINS).runs[FIRST_WINS].rows("events", 0, 60))
     given, lanes = picture(FIRST_WINS, split + 0.1)
     assert RED in given.nodes and GREEN not in given.nodes  # no leader; a node that decided differently
+
+
+def test_the_peers_picture_shows_the_leader_the_crash_and_a_split_decision():
+    from live.canvas import GREEN, MUTED, RED
+    from live.views import adapter_for, set_view
+
+    def peers(v, t: float):
+        world = world_of(v)
+        assert type(world).view == "peers"
+        set_view(world, "peers")
+        return world, adapter_for(world).frame(v, t, 90)
+
+    world, crashed = peers("reference", 21.5)  # the leader crashed mid-round: another one leads
+    outlines = [p.outline for p in crashed.peers]
+    assert outlines.count(GREEN) == 1 and MUTED in outlines and RED not in outlines
+    i = outlines.index(GREEN)
+    ballot = int(crashed.peers[i].label[0].rsplit("b", 1)[1])
+    assert crashed.peers[i].label[0] == world.s("peer_leader", node=f"n{i}", ballot=ballot)  # "n3 leader b13"
+    assert crashed.links  # and the messages it sends
+    split = next(e[0] for e in world_of(FIRST_WINS).runs[FIRST_WINS].rows("events", 0, 60))
+    world, given = peers(FIRST_WINS, split + 0.1)  # no ballots: two nodes decide one slot two ways
+    outlines = [p.outline for p in given.peers]
+    assert RED in outlines and GREEN not in outlines
+    assert any(p.label[0] == world.s("peer_split", node=f"n{i}") for i, p in enumerate(given.peers))
