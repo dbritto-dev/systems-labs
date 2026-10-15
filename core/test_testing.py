@@ -9,9 +9,14 @@ def test_starting_code_turns_a_failure_into_a_skip_for_you_and_stays_strict_for_
         assert False, "main.py moved on"
 
     monkeypatch.setattr(testing, "REFERENCE", False)
+    monkeypatch.setattr(testing, "STRICT", False)
     with pytest.raises(pytest.skip.Exception):
         claims_the_starting_code_is_wrong()
     monkeypatch.setattr(testing, "REFERENCE", True)
+    with pytest.raises(AssertionError):
+        claims_the_starting_code_is_wrong()
+    monkeypatch.setattr(testing, "REFERENCE", False)
+    monkeypatch.setattr(testing, "STRICT", True)  # the repo's checks on the untouched main.py
     with pytest.raises(AssertionError):
         claims_the_starting_code_is_wrong()
 

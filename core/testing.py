@@ -12,6 +12,8 @@ import os
 import pytest
 
 REFERENCE = os.environ.get("LABS_REFERENCE", "") not in ("", "0")
+# The repo's own checks: tests about the starting code stay strict even on main.py (see starting_code).
+STRICT = os.environ.get("LABS_STRICT", "") not in ("", "0")
 
 
 def variant() -> str:
@@ -29,13 +31,14 @@ def your_code(stage: int, what: str):
 def starting_code(test):
     """Mark a test that shows what the *starting* main.py does wrong ("the starting code loses
     updates"). Once you change main.py those claims stop being true, which is the point: in your runs a
-    failure here becomes a skip that says so. With LABS_REFERENCE=1 (the repo's own checks, where
-    main.py is the untouched starting code) it stays a normal, strict test."""
+    failure here becomes a skip that says so. With LABS_REFERENCE=1 or LABS_STRICT=1 (the repo's own
+    checks, where main.py is the untouched starting code) it stays a normal, strict test, so a test that
+    is simply broken can never hide as a skip."""
     import functools
 
     @functools.wraps(test)
     def run(*args, **kwargs):
-        if REFERENCE:
+        if REFERENCE or STRICT:
             return test(*args, **kwargs)
         try:
             return test(*args, **kwargs)
