@@ -17,25 +17,13 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass, field
 
-from live.canvas import BG, BLUE, DIM, RED, RGB, WHITE, Canvas, mix
+from live.canvas import Canvas
 from live.views.base import Adapter, View, register
-from live.views.lanes import GRID_COLS, IDLE, LINE, OUTLINE, LaneFrame, _server
+from live.views.lanes import LaneFrame
 from live.views.lanes_relay import Relay
-
-LABEL_COLS = 10  # room for each small server's name, right of it
-
-
-@dataclass(slots=True)
-class Leaf:
-    """One of the small servers on the right."""
-
-    label: tuple[str, RGB] = ("", WHITE)  # its name, right of it (or a word about it: "#1 hangs")
-    fill: float = 0.0  # its gauge, 0..1, filling from the left
-    gauge: RGB = BLUE
-    outline: RGB = OUTLINE
-    short: str = ""  # the name written top to bottom, when given (instead of the full label) ...
-    tiny: str = ""  # ... and a tinier one, for when the short one does not fit
-
+from live.views.parts import (  # noqa: F401  (LABEL_COLS and Leaf: part of this view's interface)
+    LABEL_COLS, Caption, Door, FanHops, Flights, Leaf, Leaves, Outcomes, Server, Stage, UsersGrid, Wire, draw_parts,
+)
 
 @dataclass(slots=True)
 class FanoutFrame(LaneFrame):
@@ -47,14 +35,12 @@ class FanoutFrame(LaneFrame):
     hops: list[tuple[int, float, RGB, bool]] = field(default_factory=list)  # (leaf, 0..1, colour, back)
     vertical: bool = False  # write each name top to bottom in capitals, right of its server (the servers get wider)
 
-
 class FanoutAdapter(Adapter):
     """Feeds the fan-out view for one lab."""
 
     @abstractmethod
     def frame(self, variant: str, t: float, users: int) -> FanoutFrame:
         """The picture at t, for a grid of `users` circles (as for the lanes view)."""
-
 
 @register
 class FanoutView(View):
@@ -64,102 +50,23 @@ class FanoutView(View):
         assert isinstance(adapter, FanoutAdapter)
         draw_fanout(cv, lambda n: adapter.frame(variant, t, n))
 
-
-def _leaf(cv: Canvas, x0: float, x1: float, y0: float, y1: float, leaf: Leaf) -> None:
-    """A small server: a case, and a gauge that fills from the left."""
-    y0, y1 = int(y0), int(y1)
-    cv.line([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)], leaf.outline, 2)
-    right = x0 + 2 + (x1 - x0 - 4) * max(0.0, min(1.0, leaf.fill))
-    for y in range(y0 + 2, y1 - 1, 2):
-        for x in range(int(x0 + 2), int(right), 2):
-            cv.dot(x + (y & 1), y, leaf.gauge, 1)
-
-
 def draw_fanout(cv: Canvas, make) -> None:
-    h, cols = cv.rows, cv.cols
-    body0, body1 = 0, h - 2
-    gr = max(3, body1 - body0 + 1)
-    n = GRID_COLS * gr
-    fr = make(n)
-    ymid = (body0 + (body1 - body0 + 1) / 2) * 4
-    gx = (1 + GRID_COLS * 2) * 2  # the users grid's right edge, in dots
-    lx1 = (cols - (3 if fr.vertical else LABEL_COLS + 1)) * 2  # the small servers: their right edge ...
+    st = Stage.on(cv)
+    fr = make(st.n)
+    lx1 = (cv.cols - (3 if fr.vertical else LABEL_COLS + 1)) * 2  # the small servers: their right edge ...
     lx0 = lx1 - (18 if fr.vertical else 12)  # ... and left edge (wider when the names stand beside them)
-    xg = gx + (lx0 - gx) * 0.3  # the door
+    xg = st.gx + (lx0 - st.gx) * 0.3  # the door
     xm = xg + (lx0 - 10 - xg) * 0.55  # the relay's centre
-    for i in range(n):  # the users, as in the lanes view
-        r, c = body0 + i // GRID_COLS, 1 + (i % GRID_COLS) * 2
-        col, busy = fr.users.get(i, (IDLE, False))
-        cv.text(r, c, "●" if busy else "○", col)
-    for x0, x1 in ((gx + 2, xg - 2), (xg + 2, xm - 9)):  # users → door → relay
-        for x in range(int(x0), int(x1), 3):
-            cv.dot(x, ymid, LINE, 0)
-    if fr.closed:
-        for dx in (0, 1):
-            cv.line([(xg + dx, body0 * 4), (xg + dx, body1 * 4 + 3)], fr.door_color or RED, 2)
-    else:
-        for y in range(int(body0 * 4), int(body1 * 4 + 4), 3):
-            cv.dot(xg, y, fr.door_color or DIM, 1)
-    for i, k, col, big in fr.flights:  # users → door
-        y0 = (body0 + i // GRID_COLS) * 4 + 2
-        x = gx + (xg - 3 - gx) * k
-        y = y0 + (ymid - y0) * min(1.0, k / 0.2)
-        cv.blob(x, y, col, 6, 2 if big else 1)
-    for j, (col, age) in enumerate(fr.outcomes[:8]):
-        cv.blob(xg - 4, ymid + (j - 3.5) * 3, mix(col, BG, age), 6, 1)
-
-    # The small servers, stacked; a dotted line from the relay to each.
-    k = max(1, len(fr.leaves))
-    top, bottom = body0 * 4 + 1, body1 * 4 + 3
-    slot_h = (bottom - top) / k
-    mids = []
-    sx = xm + 10  # where the lines leave the relay
-    boxes = []  # (top dot, bottom dot) of each small server
-    for j in range(len(fr.leaves)):
-        y0 = top + j * slot_h + 1
-        y1 = top + (j + 1) * slot_h - 4  # a gap between them
-        boxes.append((y0, max(y1, y0 + 5)))  # never thinner than a gauge
-    rows = []  # the text rows each vertical name may take, a blank row between names
-    for j, (y0, y1) in enumerate(boxes):
-        r0 = max(int(y0 // 4), rows[-1][1] + 2 if rows else 0)
-        r1 = min(h - 2, int(y1 // 4))
-        if j + 1 < len(boxes) and int(boxes[j + 1][0] // 4) <= r1 + 1:
-            r1 -= 1  # the next box starts on the very next row
-        rows.append((r0, r1))
-    # One form for all the names, so they match: the short one if it fits every box, else the tiny one. (The
-    # full name is only for servers that have no short form.)
-    forms = [[w.upper() for w in ((lf.short, lf.tiny) if lf.short else (lf.label[0], lf.tiny))] for lf in fr.leaves]
-    pick = next((k for k in range(2) if all(f[k] and len(f[k]) <= r1 - r0 + 1 for f, (r0, r1) in zip(forms, rows))),
-                None)
-    for j, leaf in enumerate(fr.leaves):
-        y0, y1 = boxes[j]
-        ym = (y0 + y1) / 2
-        mids.append(ym)
-        steps = max(1, int((lx0 - 2 - sx) / 3))
-        for s in range(steps + 1):
-            p = s / steps
-            cv.dot(sx + (lx0 - 2 - sx) * p, ymid + (ym - ymid) * p, LINE, 0)
-        _leaf(cv, lx0, lx1, y0, y1, leaf)
-        text, col = leaf.label
-        if fr.vertical:  # one letter a row, in capitals, centred beside the server
-            r0, r1 = rows[j]
-            room = max(1, r1 - r0 + 1)
-            if pick is not None:
-                word = forms[j][pick]
-            else:  # nothing fits everywhere: the shortest form there is, cut
-                last = next((w for w in reversed(forms[j]) if w), "")
-                word = last if len(last) <= room else last[: max(0, room - 1)] + "…"
-            top_row = r0 + (room - len(word)) // 2
-            for k, ch in enumerate(word):
-                cv.text(top_row + k, lx1 // 2 + 1, ch, col)
-        else:
-            cv.text(min(h - 2, int(ym // 4)), lx1 // 2 + 2, text[:LABEL_COLS - 1], col)
-    for j, p, col, back in fr.hops:  # relay ⇄ a small server
-        if 0 <= j < len(mids):
-            p = 1 - p if back else p
-            cv.blob(sx + (lx0 - 3 - sx) * p, ymid + (mids[j] - ymid) * p, col, 6, 1)
     rl = fr.relay
-    _server(cv, xm, body0 * 4 + 2, body1 * 4 + 2, rl.outline, rl.fill, rl.gauge)
-    for (text, col), x in ((rl.label, xm), (fr.state, (lx0 + lx1) / 2)):
-        at = round((x + 0.5) / 2 - len(text) / 2)
-        cv.text(h - 1, max(0, min(at, cols - len(text))), text, col)
+    leaves = Leaves(fr.leaves, lx0, lx1, xm + 10, fr.vertical)  # the lines leave the relay at xm + 10
+    draw_parts(st, [
+        UsersGrid(fr.users),
+        Wire(st.gx + 2, xg - 2), Wire(xg + 2, xm - 9),  # users → door → relay
+        Door(xg, fr.closed, fr.door_color),
+        Flights(fr.flights, xg),
+        Outcomes(fr.outcomes, xg),
+        leaves,
+        FanHops(fr.hops, leaves),  # relay ⇄ a small server
+        Server(xm, rl.outline, rl.fill, rl.gauge),
+        Caption(*rl.label, xm), Caption(*fr.state, (lx0 + lx1) / 2),
+    ])

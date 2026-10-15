@@ -200,3 +200,15 @@ def test_fanout_names_read_top_to_bottom_in_one_form_that_fits():
     assert [w for w in names(28) if w] == ["PAY", "STOCK", "SHIP"]  # room: the short forms (never the full names)
     # Little room: the tiny forms, all of them; names never on consecutive rows (they would read as one word).
     assert [w for w in names(13) if w] == ["PAY", "STK", "SHP"]
+
+
+def test_a_new_picture_is_just_a_list_of_parts():
+    from live.canvas import RED, WHITE
+    from live.views.parts import Caption, Door, Server, Stage, UsersGrid, Wire, draw_parts
+
+    cv = Canvas(60, 20)
+    st = Stage.on(cv)
+    draw_parts(st, [UsersGrid({0: (WHITE, True)}), Wire(st.gx + 2, 60), Door(62, closed=True),
+                    Server(st.server_x, fill=0.5), Caption("DOWN", RED, st.server_x)])
+    lines = cv.plain()
+    assert lines[0].startswith(" ●") and "DOWN" in lines[-1] and all(len(line) <= 60 for line in lines)

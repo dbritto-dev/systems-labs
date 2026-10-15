@@ -16,9 +16,12 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass, field
 
-from live.canvas import BG, BLUE, DIM, RED, RGB, Canvas, mix
+from live.canvas import BLUE, DIM, RGB, Canvas
 from live.views.base import Adapter, View, register
-from live.views.lanes import GRID_COLS, IDLE, LINE, OUTLINE, LaneFrame, _server
+from live.views.lanes import LaneFrame
+from live.views.parts import (
+    OUTLINE, Caption, Door, Flights, Hops, Outcomes, Server, Stage, UsersGrid, Wire, draw_parts,
+)
 
 
 @dataclass(slots=True)
@@ -58,41 +61,20 @@ class RelayView(View):
 
 
 def draw_relay(cv: Canvas, make) -> None:
-    h, cols = cv.rows, cv.cols
-    body0, body1 = 0, h - 2  # the picture, then a row for the words under the two servers
-    gr = max(3, body1 - body0 + 1)
-    n = GRID_COLS * gr
-    fr = make(n)
-    ymid = (body0 + (body1 - body0 + 1) / 2) * 4
-    xc = (cols - 7) * 2 + 1  # the server's centre, in dots (where the lanes view has it)
-    gx = (1 + GRID_COLS * 2) * 2  # the users grid's right edge
-    xg = gx + (xc - 8 - gx) * 0.38  # the door
+    st = Stage.on(cv)
+    fr = make(st.n)
+    xc = st.server_x  # the server's centre, where the lanes view has it
+    xg = st.gx + (xc - 8 - st.gx) * 0.38  # the door
     xm = xg + (xc - 8 - xg) * 0.5  # the relay's centre
-    for i in range(n):  # the users, as in the lanes view
-        r, c = body0 + i // GRID_COLS, 1 + (i % GRID_COLS) * 2
-        col, busy = fr.users.get(i, (IDLE, False))
-        cv.text(r, c, "●" if busy else "○", col)
-    for x0, x1 in ((gx + 2, xg - 2), (xg + 2, xm - 9), (xm + 10, xc - 9)):  # the two lines (the door between)
-        for x in range(int(x0), int(x1), 3):
-            cv.dot(x, ymid, LINE, 0)
-    if fr.closed:  # the door
-        for dx in (0, 1):
-            cv.line([(xg + dx, body0 * 4), (xg + dx, body1 * 4 + 3)], fr.door_color or RED, 2)
-    else:
-        for y in range(int(body0 * 4), int(body1 * 4 + 4), 3):
-            cv.dot(xg, y, fr.door_color or DIM, 1)
-    for i, k, col, big in fr.flights:  # users → door
-        y0 = (body0 + i // GRID_COLS) * 4 + 2
-        x = gx + (xg - 3 - gx) * k
-        y = y0 + (ymid - y0) * min(1.0, k / 0.2)
-        cv.blob(x, y, col, 6, 2 if big else 1)
-    for j, (col, age) in enumerate(fr.outcomes[:8]):  # what happened, fading at the door
-        cv.blob(xg - 4, ymid + (j - 3.5) * 3, mix(col, BG, age), 6, 1)
-    for k, col, big in fr.hops:  # relay → server
-        cv.blob(xm + 10 + (xc - 11 - xm - 10) * k, ymid, col, 6, 2 if big else 1)
     rl = fr.relay
-    _server(cv, xm, body0 * 4 + 2, body1 * 4 + 2, rl.outline, rl.fill, rl.gauge)
-    _server(cv, xc, body0 * 4 + 2, body1 * 4 + 2, fr.outline, fr.fill, fr.gauge)
-    for (text, col), x in ((rl.label, xm), (fr.state, xc)):  # a word under each server
-        at = round((x + 0.5) / 2 - len(text) / 2)
-        cv.text(h - 1, max(0, min(at, cols - len(text))), text, col)
+    draw_parts(st, [
+        UsersGrid(fr.users),
+        Wire(st.gx + 2, xg - 2), Wire(xg + 2, xm - 9), Wire(xm + 10, xc - 9),  # the two lines (the door between)
+        Door(xg, fr.closed, fr.door_color),
+        Flights(fr.flights, xg),  # users → door
+        Outcomes(fr.outcomes, xg),
+        Hops(fr.hops, xm + 10, xc - 11),  # relay → server
+        Server(xm, rl.outline, rl.fill, rl.gauge),
+        Server(xc, fr.outline, fr.fill, fr.gauge),
+        Caption(*rl.label, xm), Caption(*fr.state, xc),  # a word under each server
+    ])
