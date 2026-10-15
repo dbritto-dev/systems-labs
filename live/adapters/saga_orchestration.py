@@ -10,6 +10,8 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_fanout import FanoutAdapter, FanoutFrame, Leaf
+from live.views.lanes_relay import Relay
 
 CALLS_MAX = 40.0  # calls in flight at once that fill the services' gauge
 RECENT = 2.0  # seconds a half-done order keeps the picture red
@@ -135,3 +137,51 @@ class SagaLanes(LaneAdapter):
             outline=RED if orphans else EXTRA2 if hit else OUTLINE, state=state,
         )
 
+
+
+@adapts("saga_orchestration", "fanout")
+class SagaFanout(FanoutAdapter):
+    """Orders arrive at the orchestrator (the door, shut in red while it is down; the relay in the middle,
+    its gauge the sagas still running) and it calls three services on the right: payments, stock and
+    shipping, each with its own gauge (its calls in flight). A step flies white, a compensation orange, a
+    definite no grey; a call that times out stops half way, red. A service turns orange while an incident
+    hits it and red while it holds money, items or a courier for an order left half done."""
+
+    def frame(self, variant: str, t: float, users: int) -> FanoutFrame:
+        from live.worlds.saga_orchestration import (
+            CALL_END, CALL_OUTCOME, CALL_START, CALL_SVC, CALL_UNDO, ORD_END, ORD_HELD, ORD_STATUS,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return FanoutFrame()
+        lane = SagaLanes(w).frame(variant, t, users)  # the users, the door and the outcomes, as in lanes
+        hops = []
+        for c in every(run.rows("calls", t - FLY, t + 1e-9), MAX_CALLS):
+            p = (t - c[CALL_START]) / FLY
+            if c[CALL_OUTCOME] not in (OK, DECLINED):  # a timeout: it never gets an answer
+                hops.append((c[CALL_SVC], min(p, 0.5), RED if p >= 0.5 else EXTRA2 if c[CALL_UNDO] else WHITE, False))
+            else:
+                hops.append((c[CALL_SVC], p, EXTRA2 if c[CALL_UNDO] else MUTED if c[CALL_OUTCOME] == DECLINED else WHITE,
+                             False))
+        span = run.max_dur.get("orders", 0.0)
+        held = 0
+        for o in run.rows("orders", t - RECENT - span, t + 1e-9):
+            if o[ORD_STATUS] == ORPHAN and t - RECENT <= o[ORD_END] <= t:
+                held |= o[ORD_HELD]
+        _, hit = _hit(w, variant, t)
+        in_flight = run.active("calls", t, CALL_END)
+        leaves = []
+        for i, key in enumerate(("fan_payments", "fan_stock", "fan_shipping")):
+            mine = [c for c in in_flight if c[CALL_SVC] == i]
+            colour = RED if held >> i & 1 else EXTRA2 if i in hit else OUTLINE
+            leaves.append(Leaf(label=(w.s(key), RED if held >> i & 1 else EXTRA2 if i in hit else WHITE),
+                               fill=len(mine) / (CALLS_MAX / 3),
+                               gauge=EXTRA2 if any(c[CALL_UNDO] for c in mine) else BLUE, outline=colour))
+        down = w.down_at(variant, t)
+        running = len(run.active("orders", t, ORD_END))
+        relay = Relay(label=(w.s("fan_orchestrator"), RED if down else OUTLINE), fill=running / CALLS_MAX,
+                      gauge=BLUE, outline=RED if down else OUTLINE)
+        return FanoutFrame(users=lane.users, flights=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                           door_color=lane.door_color, state=lane.state, relay=relay, leaves=leaves, hops=hops)

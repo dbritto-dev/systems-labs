@@ -161,3 +161,23 @@ def test_the_relay_variation_draws_two_servers_and_two_lines():
         assert all(len(line) <= cols for line in lines)
         assert "4 balancers" in lines[-1] and "BUSY" in lines[-1]  # a word under each server
         assert lines[-1].index("4 balancers") < lines[-1].index("BUSY")  # the relay stands left of the server
+
+
+def test_the_fanout_variation_draws_a_relay_and_its_small_servers():
+    from live.canvas import RED, WHITE
+    from live.views.lanes_fanout import FanoutFrame, Leaf, draw_fanout
+    from live.views.lanes_relay import Relay
+
+    fr = FanoutFrame(users={0: (WHITE, True)}, relay=Relay(label=("orchestrator", WHITE)),
+                     leaves=[Leaf(("payments", WHITE), 0.5), Leaf(("stock", RED), 1.0, outline=RED),
+                             Leaf(("shipping", WHITE))],
+                     hops=[(0, 0.5, WHITE, False), (2, 0.3, WHITE, True)], state=("HALF DONE", RED))
+    for cols, rows in ((50, 14), (68, 28)):
+        cv = Canvas(cols, rows)
+        draw_fanout(cv, lambda n: fr)
+        lines = cv.plain()
+        text = "\n".join(lines)
+        assert all(len(line) <= cols for line in lines) and len(lines) == rows
+        assert all(name in text for name in ("payments", "stock", "shipping", "orchestrator", "HALF DONE"))
+        rows_of = [next(r for r, line in enumerate(lines) if name in line) for name in ("payments", "stock", "shipping")]
+        assert rows_of == sorted(rows_of)  # stacked top to bottom, in order

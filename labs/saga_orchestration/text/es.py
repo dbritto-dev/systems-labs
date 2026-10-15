@@ -54,6 +54,10 @@ LEGEND = {"idle": "en reposo", "step": "paso", "retry": "tras un timeout", "undo
           "done": "completo", "orphan": "a medias", "limit": "pedidos", "incident": "incidente"}
 
 STRINGS = {
+    "fan_orchestrator": "orquestador",
+    "fan_payments": "pagos",
+    "fan_stock": "inventario",
+    "fan_shipping": "envíos",
     # incidentes
     "timeouts_start": "el {share:.0%} de las llamadas da timeout: {cause}",
     "timeouts_end": "las respuestas vuelven a llegar a tiempo",

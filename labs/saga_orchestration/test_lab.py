@@ -259,7 +259,7 @@ def test_two_pictures_cluster_first():
 
     def picture(v, t: float):
         world = build_world("saga_orchestration", v, 1)
-        assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster opens first
+        assert views_for(world) == ["cluster", "fanout", "lanes"] and world.view == "cluster"  # cluster opens first
         frame = adapter_for(world).frame(v, t)
         assert len(frame.nodes) == 4 and any(src == -1 for src, _, _, _ in frame.flights)
         text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
@@ -276,3 +276,19 @@ def test_two_pictures_cluster_first():
     # with them, compensations fly in orange and nothing is held.
     assert RED in given.nodes[1:]
     assert RED not in solved.nodes and any(c == EXTRA2 for _, _, _, c in solved.flights)
+
+
+def test_the_fanout_picture_shows_each_service():
+    from live.canvas import RED
+    from live.views import adapter_for, set_view
+
+    def fan(v, t: float):
+        world = build_world("saga_orchestration", v, 1)
+        set_view(world, "fanout")
+        return adapter_for(world).frame(v, t, 100)
+
+    given, solved = fan("main", 23.0), fan("reference", 23.0)
+    assert [leaf.label[0] for leaf in given.leaves] and len(given.leaves) == 3 and given.hops
+    assert any(leaf.outline == RED for leaf in given.leaves)  # a service holds something for a half-done order
+    assert not any(leaf.outline == RED for leaf in solved.leaves)
+    assert fan("main", 27.0).closed  # the orchestrator is down: the door is shut
