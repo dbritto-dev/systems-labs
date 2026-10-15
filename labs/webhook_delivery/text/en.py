@@ -102,6 +102,12 @@ STRINGS = {
     "state_poison": "#{n} POISON",
     "state_burst": "BURST",
     "pic_state": "{state} · workers {busy}/{of}",
+    "fan_dispatcher": "dispatcher",
+    "fan_endpoint": "#{n}",
+    "fan_down": "#{n} down",
+    "fan_hang": "#{n} hangs",
+    "fan_slow": "#{n} slow",
+    "fan_poison": "#{n} poison",
     "note": "Endpoints: red dead, orange slow. Dots are a sample (cosmetic).",
 }
 

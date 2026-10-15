@@ -1,6 +1,6 @@
 """The pictures for lab webhook_delivery: cluster (the dispatcher, four worker nodes of six workers each and
-the 20 customer endpoints as nodes) and lanes (the events waiting on the left, the dispatcher as the door,
-the worker pool as the server)."""
+the 20 customer endpoints as nodes), lanes (the events waiting on the left, the dispatcher as the door,
+the worker pool as the server) and fanout (the dispatcher in the middle, five endpoints on the right)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,9 @@ from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, SLOW, every
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
-from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes import GRID_COLS, OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_fanout import LABEL_COLS, FanoutAdapter, FanoutFrame, Leaf
+from live.views.lanes_relay import Relay
 
 SIDE = 5  # the grid is 5 x 5: column 0 the dispatcher and the workers, columns 1-4 the endpoints
 DISPATCHER = 2 * SIDE  # row 2, column 0
@@ -173,3 +175,80 @@ class WebhookLanes(LaneAdapter):
             fill=busy / WORKERS, gauge=EXTRA2 if busy > 0.8 * WORKERS else BLUE,
             outline=RED if stuck >= WORKERS // 2 else OUTLINE, state=(word, colour),
         )
+
+
+LEAVES = 5  # endpoints drawn on the right: the one in trouble first, then the biggest customers
+LEAVES_SMALL = 4  # ... on a short picture (under 20 rows), so each keeps room for its gauge
+
+
+@adapts("webhook_delivery", "fanout")
+class WebhookFanout(FanoutAdapter):
+    """New events fly from the shop to the door (white); the dispatcher stands in the middle, its gauge the share
+    of the 24 delivery workers busy, red (gauge and outline) while half of them or more are stuck on one
+    endpoint. On the right, five of the 20 endpoints (four on a short screen): the one in trouble first (red
+    while down or hanging, orange while slow, purple while it gets malformed events), then the biggest customers.
+    Each endpoint's gauge is the workers busy with it (full at half the pool). Attempts fly to their endpoint,
+    white the first, oranges for retries; an attempt still waiting for an answer stays near its endpoint, so
+    workers stuck on a dead one pile up by it. Answers fly back green (deep orange delivered out of order); a
+    failure dies red by the endpoint."""
+
+    def frame(self, variant: str, t: float, users: int) -> FanoutFrame:
+        from live.worlds.webhook_delivery import (
+            AT_END, AT_ENDPOINT, AT_ID, AT_N, AT_OK, AT_START, EV_CREATED, EV_ID, SM_BUSY, attempt_colour, sick,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return FanoutFrame()
+        lane = WebhookLanes(w).frame(variant, t, users)  # the events, the door and the outcomes, as in lanes
+        flights = [(slot(e[EV_ID], users), (t - e[EV_CREATED]) / FLY, WHITE, False)
+                   for e in every(run.rows("events", t - FLY, t + 1e-9), FLIGHTS)]
+        inc = w.incident_at(run, t)
+        bad = sick(inc)
+        most = LEAVES if users // GRID_COLS >= 20 else LEAVES_SMALL
+        shown = ([bad] if bad >= 0 else []) + [e for e in range(ENDPOINTS) if e != bad][:most - (bad >= 0)]
+        at = {e: k for k, e in enumerate(shown)}
+
+        hops = []
+        flying = [r for r in run.rows("attempts", t - FLY, t + 1e-9) if r[AT_ENDPOINT] in at]
+        for r in every(flying, FLIGHTS):
+            hops.append((at[r[AT_ENDPOINT]], min((t - r[AT_START]) / FLY, 0.95), attempt_colour(r[AT_N]), False))
+        in_flight = w.in_flight(run, t)
+        waiting = [r for r in in_flight if r[AT_START] < t - FLY and r[AT_ENDPOINT] in at]
+        for r in every(waiting, FLIGHTS):  # still waiting for an answer: it waits near its endpoint
+            waited = t - r[AT_START]
+            colour = EXTRA1 if waited < 1.0 else EXTRA2 if waited < 2.0 else EXTRA3
+            hops.append((at[r[AT_ENDPOINT]], 0.6 + 0.35 * (r[AT_ID] * 0.618 % 1), colour, False))
+        ended = [r for r in w.ended(run, t, BACK) if r[AT_ENDPOINT] in at]
+        late = _ooo_ids(run, ended)
+        failed = [r for r in ended if not r[AT_OK]]
+        for r in every(failed, OUTCOMES) + every([r for r in ended if r[AT_OK]], OUTCOMES):
+            p = (t - r[AT_END]) / BACK
+            if r[AT_OK]:
+                hops.append((at[r[AT_ENDPOINT]], p, EXTRA3 if r[AT_ID] in late else GREEN, True))
+            else:
+                hops.append((at[r[AT_ENDPOINT]], 0.95, RED, False))
+
+        colours = _endpoint_colours(w, run, t)
+        busy_on = [0] * ENDPOINTS
+        for r in in_flight:
+            busy_on[r[AT_ENDPOINT]] += 1
+        leaves = []
+        for e in shown:
+            hurt = colours[e] != BLUE
+            word = w.s(f"fan_{inc.kind}", n=e + 1) if hurt else w.s("fan_endpoint", n=e + 1)
+            if len(word) > LABEL_COLS - 1:  # "#10 poison": the number alone, its colour says the rest
+                word = w.s("fan_endpoint", n=e + 1)
+            stuck = busy_on[e] >= WORKERS // 2
+            leaves.append(Leaf(label=(word, colours[e] if hurt else WHITE), fill=busy_on[e] / (WORKERS // 2),
+                               gauge=RED if stuck else BLUE, outline=colours[e] if hurt else OUTLINE))
+        sample = w.sample_at(run, t)
+        busy = sample[SM_BUSY] if sample else 0
+        stuck = w.stuck_on(run, t, bad) >= WORKERS // 2
+        relay = Relay(label=(w.s("fan_dispatcher"), RED if stuck else OUTLINE), fill=busy / WORKERS,
+                      gauge=RED if stuck else EXTRA2 if busy > 0.8 * WORKERS else BLUE,
+                      outline=RED if stuck else OUTLINE)
+        return FanoutFrame(users=lane.users, flights=flights, outcomes=lane.outcomes, closed=lane.closed,
+                           door_color=lane.door_color, state=w.state(run, variant, t), relay=relay, leaves=leaves,
+                           hops=hops)

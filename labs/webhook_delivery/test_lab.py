@@ -310,7 +310,7 @@ def test_two_pictures_the_cluster_first():
         return frame, lanes
 
     worlds = {v: build_world(LAB, v, 1) for v in ("main", "reference")}
-    assert views_for(worlds["main"]) == ["cluster", "lanes"] and worlds["main"].view == "cluster"  # cluster first
+    assert views_for(worlds["main"]) == ["cluster", "fanout", "lanes"] and worlds["main"].view == "cluster"
     one = endpoint_node(0)
     for v in ("main", "reference"):
         frame, _ = picture(v, 30.0)
@@ -322,3 +322,35 @@ def test_two_pictures_the_cluster_first():
     assert waiting(given) >= 10 and waiting(solved) <= 1
     _, lanes = picture("main", 30.0)
     assert lanes.outline == RED  # half the pool or more stuck on one endpoint
+
+
+@starting_code
+def test_the_fanout_picture_shows_the_endpoint_in_trouble():
+    from live.canvas import RED, plain
+    from live.frame import compose
+    from live.views import adapter_for, set_view
+
+    world = None
+
+    def fan(v: str, t: float, users: int = 100):
+        nonlocal world
+        world = build_world(LAB, v, 1)
+        set_view(world, "fanout")
+        frame = adapter_for(world).frame(v, t, users)
+        text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
+        assert frame.relay.label[0] in text and frame.state[0] in text  # both words fit the smallest screen
+        return frame
+
+    calm = fan("main", 10.0)
+    assert [leaf.label[0] for leaf in calm.leaves] == ["#1", "#2", "#3", "#4", "#5"]  # the biggest customers
+    assert len(fan("main", 10.0, 60).leaves) == 4  # a short screen draws four
+    # #1 hangs: the given code lets every worker wait on it (its gauge full, the dispatcher red, attempts
+    # piled by it); the reference caps it, so the dispatcher stays calm and the others still get answers.
+    given, solved = fan("main", 30.0), fan("reference", 30.0)
+    for frame in (given, solved):
+        assert frame.leaves[0].label[0] == world.s("fan_hang", n=1) and frame.leaves[0].outline == RED
+    assert given.relay.outline == RED and given.leaves[0].fill >= 1.0
+    assert solved.relay.outline != RED and solved.leaves[0].fill < 0.5
+    waiting = lambda fr: sum(1 for j, p, _, back in fr.hops if j == 0 and not back and p >= 0.6)  # noqa: E731
+    assert waiting(given) >= 10 and waiting(solved) <= 4
+    assert any(back and j > 0 for j, _, _, back in solved.hops)  # answers come back from the healthy ones
