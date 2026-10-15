@@ -168,10 +168,29 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("replication_lag", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["cluster", "fanout", "lanes"]  # cluster first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights or frame.outcomes
     text, colour = frame.state
     assert text and len(text) <= 13
     assert RED not in [c for c, _ in frame.outcomes]  # reads go to a fresh replica: green, never stale (red)
+
+
+def test_the_fanout_picture_shows_where_each_read_goes():
+    from live.canvas import RED
+    from live.views import adapter_for, set_view
+
+    def fan(v, t: float):
+        world = build_world("replication_lag", v, 1)
+        set_view(world, "fanout")
+        return adapter_for(world).frame(v, t, 100)
+
+    given, solved = fan("main", 27.0), fan("reference", 27.0)  # r2 is ~6 s behind (0:20-0:30)
+    assert len(given.leaves) == 5 and all(0 < len(leaf.label[0]) <= 9 for leaf in given.leaves)
+    assert "r2" in given.leaves[2].label[0] and given.leaves[2].outline != given.leaves[1].outline  # r2 is behind
+    # Reading any replica hands out stale reads from r2 (red); the solution sends hardly any reads there.
+    assert any(c == RED and j == 2 for j, _, c, _ in given.hops) and given.relay.outline == RED
+    assert not any(c == RED for _, _, c, _ in solved.hops) and solved.relay.outline != RED
+    assert solved.leaves[2].fill < given.leaves[2].fill
+    assert solved.relay.fill <= 0.35  # the router keeps the primary's share under the limit

@@ -71,6 +71,11 @@ STRINGS = {
     # the lanes picture (the clients' view): states under the cluster, at most 13 letters
     "lanes_stale": "STALE READS",
     "lanes_unanswered": "UNANSWERED",
+    # the fan-out picture: the coordinator, and a sick replica's label (at most 9 letters)
+    "fan_coordinator": "coordinator",
+    "fan_down": "{node} down",
+    "fan_cut": "{node} cut",
+    "fan_slow": "{node} slow",
     # errors in your code
     "no_store": "QuorumNode must keep its data in self.store",
 }

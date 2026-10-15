@@ -70,6 +70,11 @@ STRINGS = {
     "lanes_stale": "STALE READS",
     "lanes_primary": "PRIMARY {share:.0%}",
     "lanes_lag": "LAG {lag:.1f}s",
+    # the fan-out picture: the router and each node's label (at most 9 letters)
+    "fan_router": "router",
+    "fan_primary": "primary",
+    "fan_lag": "{name} +{lag}",
+    "fan_down": "{name} down",
     # errors in your code
     "bad_pick": "Router.pick returned {name!r}: use 'primary' or one of r1..r{last}",
     "stuck": "a read has been waiting for over {seconds:.0f} s",
