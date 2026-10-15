@@ -295,7 +295,8 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("distributed_lock", LEASES, 1)
-    assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"
+    assert views_for(world) == ["fanin", "cluster", "lanes"] and world.view == "fanin"
+    set_view(world, "cluster")
     first = world.runs[LEASES].incidents[0]
     late = [w for w in world.runs[LEASES].tables["writes"] if w[4] and w[5]]  # accepted, stale
     assert late and first.t1 <= late[0][3] < first.t1 + 1
@@ -305,6 +306,27 @@ def test_both_pictures():
     set_view(world, "lanes")
     lanes = adapter_for(world).frame(LEASES, t, 60)
     assert lanes.state[1] == RED and len(lanes.state[0]) <= 13 and RED in [c for c, _ in lanes.outcomes]
+
+
+@starting_code
+def test_the_fan_in_picture_shows_the_late_write_landing_at_the_storage():
+    from live.canvas import EXTRA2, GREEN, RED
+    from live.views import adapter_for
+
+    world = build_world("distributed_lock", "main", 1)  # no lease: the frozen holder keeps the lock
+    assert world.view == "fanin"
+    frame = adapter_for(world).frame("main", 27.0, 60)
+    assert frame.closed and frame.door_color == RED and frame.leaves[2].outline == EXTRA2  # w3 frozen
+    for v, colour in ((LEASES, RED), ("reference", EXTRA2)):  # accepted over newer data / refused by fencing
+        world = build_world("distributed_lock", v, 1)
+        late = [w for w in world.runs[v].tables["writes"] if w[5]]  # stale
+        assert late
+        fr = adapter_for(world).frame(v, late[0][3] + 0.5, 60)
+        assert sum(1 for _, p, c, _ in fr.joins if c == colour and p > 0.85) >= 3  # a burst by the storage
+        assert fr.state[1] == colour and "token" in fr.state[0]  # the fencing token, under the storage
+    held = [adapter_for(world).frame("reference", t / 2, 60) for t in range(10, 30)]
+    held = [fr for fr in held if fr.closed]  # someone holds the lock: the door is a bar, the holder green
+    assert held and all(fr.door_color == GREEN and GREEN in [lf.outline for lf in fr.leaves] for fr in held)
 
 
 def test_main_and_reference_share_the_numbers():

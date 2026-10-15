@@ -180,9 +180,32 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("grow_only_counter", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["fanin", "cluster", "lanes"]  # fan-in first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights
     text, colour = frame.state
     assert text and len(text) <= 13
+
+
+@starting_code
+def test_the_fan_in_picture_shows_nodes_that_never_ask_seq_kv():
+    from live.canvas import RED
+    from live.views import adapter_for
+    from live.views.parts import OUTLINE
+
+    def picture(v):
+        world = build_world("grow_only_counter", v, 1)
+        assert world.view == "fanin"
+        return adapter_for(world).frame(v, 25.0, 90)
+
+    given = picture("main")  # the count in memory: nothing goes to seq-kv, every node's reads are off
+    assert not given.joins and given.fill == 0
+    assert all(lf.outline != OUTLINE and lf.label[0] != lf.short for lf in given.leaves)
+    ref = picture("reference")  # one key per node in seq-kv: requests go, answers come back, reads are right
+    assert {c for _, _, c, back in ref.joins if not back} and {c for _, _, c, back in ref.joins if back}
+    assert all(lf.outline == OUTLINE for lf in ref.leaves) and ref.fill > 0
+    cas = module(CompareAndSwap)  # stage 2: one shared key, so most compare-and-swaps conflict
+    world = build_world("grow_only_counter", cas, 1)
+    fr = adapter_for(world).frame(cas, 25.0, 90)
+    assert RED in [c for _, _, c, back in fr.joins if back] and fr.state[1] == RED

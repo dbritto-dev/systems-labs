@@ -9,6 +9,7 @@ from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_fanin import FaninAdapter, FaninFrame, Leaf
 
 DROP_FADE = 0.6  # seconds a dropped message stays on screen
 BURST = 0.8  # seconds a corrupt or refused write stays by the storage
@@ -140,3 +141,92 @@ class DistributedLockLanes(LaneAdapter):
         return LaneFrame(users=waiting, flights=flights, outcomes=outcomes, closed=closed, door_color=door,
                          fill=min(1.0, accepted / GAUGE_MAX), gauge=BLUE, outline=outline,
                          state=w.state_at(variant, t, short=True))
+
+
+# ---------------------------------------------------------------- the fan-in picture: lock, workers, storage
+
+TOKEN_KEEP = 0.95  # how far along its line a write stops while it is still in flight
+LANDED = 1.5  # seconds a late write's burst stays at the storage (as long as the state says so)
+
+
+@adapts("distributed_lock", "fanin")
+class DistributedLockFanin(FaninAdapter):
+    """Jobs wait (the users) for the lock service (the door: dotted while the lock is free, a solid bar
+    while someone holds it, orange, then red, while it is stuck), which hands the lock to one of the
+    workers w1..w4 (green while it holds it, orange while frozen, red when crashed or cut off). Lock
+    messages (acquire, renew, release and their answers) fly blue between the door and a worker. Every
+    worker writes to the one storage (the store, its gauge the writes it accepts): writes fly white, light
+    orange while one sits in the network, and wait just outside a frozen worker. A late write from a lost
+    lock bursts red at the storage when it was accepted, orange when fencing refused it. The fencing token
+    the lock handed out last is under the storage."""
+
+    def frame(self, variant: str, t: float, users: int) -> FaninFrame:
+        from labs.distributed_lock import lab
+        from labs.distributed_lock.scenario import LOCK, LOCK_MSG, STORAGE, WORKERS, WRITE_REPLY
+        from live.worlds.distributed_lock import (
+            G_SEQ, JOB_END, JOB_WORKER, MSG_ARRIVED, MSG_DEST, MSG_KIND, MSG_SENT, MSG_SRC, SLOW_STALL,
+            W_ARRIVED, W_LEFT, W_WORKER, corrupt, name, refused, stall_at,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return FaninFrame()
+        lane = DistributedLockLanes(w).frame(variant, t, users)  # the jobs waiting, and the storage's gauge
+        leaf = {wk: j for j, wk in enumerate(WORKERS)}
+        hops, joins = [], []
+        for m in run.rows("msgs", t - DROP_FADE - 1, t + 1e-9):
+            if m[MSG_ARRIVED] is None:
+                continue
+            p = _flight(t, m[MSG_SENT], m[MSG_ARRIVED])
+            if p is None:
+                continue
+            src, dst, kind = m[MSG_SRC], m[MSG_DEST], m[MSG_KIND]
+            if kind == LOCK_MSG and LOCK in (src, dst):
+                other = dst if src == LOCK else src
+                if other in leaf:
+                    hops.append((leaf[other], p, BLUE, src != LOCK))  # worker → lock flies back along the line
+            elif kind == WRITE_REPLY and src == STORAGE and dst in leaf:
+                joins.append((leaf[dst], p, DIM, True))
+        span = run.max_dur.get("writes", 0.0)
+        for x in run.rows("writes", t - span - LANDED - 1e-9, t + 1e-9):
+            j = leaf.get(x[W_WORKER])
+            if j is None:
+                continue
+            if t < x[W_LEFT]:  # held by a frozen worker, just outside it
+                joins.append((j, HELD, EXTRA2, False))
+                continue
+            p = _flight(t, x[W_LEFT], x[W_ARRIVED])
+            if p is not None:
+                late = x[W_ARRIVED] - x[W_LEFT] > 1.0  # it sits in the network
+                joins.append((j, min(p, TOKEN_KEEP), EXTRA1 if late else WHITE, False))
+            elif x[W_ARRIVED] <= t < x[W_ARRIVED] + LANDED and (corrupt(x) or refused(x)):
+                colour = RED if corrupt(x) else EXTRA2
+                joins += [(j, d, colour, False) for d in (0.86, 0.9, 0.94, 0.98)]  # a burst at the storage
+
+        holder = w.holder_at(run, t)
+        sick = w.sick_at(variant, t)
+        busy = {r[JOB_WORKER] for r in run.active("jobs", t, JOB_END)}
+        leaves = []
+        for wk in WORKERS:
+            node = name(wk)
+            label, colour = (node, WHITE), OUTLINE
+            if holder is not None and holder[1] == wk:
+                label, colour = (w.s("fan_holds", worker=node), GREEN), GREEN
+            if sick is not None and sick[0] == wk and sick[1] != "delay":
+                key = {"pause": "fan_frozen", "crash": "fan_down"}.get(sick[1], "fan_cut")
+                colour = EXTRA2 if sick[1] == "pause" else RED
+                label = (w.s(key, worker=node), colour)
+            leaves.append(Leaf(label, short=node, fill=1.0 if wk in busy else 0.0, gauge=BLUE, outline=colour))
+
+        stuck = stall_at(run, t)
+        lock_colour = RED if stuck > lab.STUCK_MAX else EXTRA2 if stuck > SLOW_STALL else GREEN if holder else DIM
+        grants = run.rows("grants", t - 120, t + 1e-9)
+        text, colour = w.state_at(variant, t, short=True)
+        if grants:
+            text = w.s("fan_token", state=text, n=grants[-1][G_SEQ])
+        who = w.s("nobody") if holder is None else name(holder[1])
+        return FaninFrame(users=lane.users, flights=[f for f in lane.flights if not f[3]], outcomes=lane.outcomes,
+                          closed=holder is not None, door_color=lock_colour, fill=lane.fill, gauge=lane.gauge,
+                          outline=lane.outline, state=(text, colour), leaves=leaves, hops=hops,
+                          joins=every(joins, MAX_FLIGHTS), door_label=(w.s("state_lock", worker=who), lock_colour))

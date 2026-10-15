@@ -89,7 +89,7 @@ GOALS = [
 
 class KafkaLogWorld(World):
     id = "kafka_style_log"
-    view = "cluster"
+    view = "fanin"
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "node", "◉"), (PURPLE, "lin_kv", "◉"), (RED, "anomaly", "◉"), (WHITE, "client_request"),
               (BLUE, "node_message"), (EXTRA1, "kv_message"), (LIMIT, "limit", "┄")]

@@ -127,7 +127,7 @@ GOALS = [
 
 class DistributedLockWorld(World):
     id = "distributed_lock"
-    view = "cluster"  # who holds the lock, and where the late write lands, is the lesson
+    view = "fanin"  # who holds the lock, and where the late write lands, is the lesson
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(GREEN, "holder", "◉"), (EXTRA2, "frozen", "◉"), (RED, "down", "◉"), (BLUE, "lock_msg"),
               (WHITE, "write"), (EXTRA1, "late_write"), (RED, "corrupt"), (EXTRA2, "refused")]

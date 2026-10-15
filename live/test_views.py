@@ -310,3 +310,51 @@ def test_the_peers_variation_cuts_the_links_between_groups_and_shows_what_flies(
     assert door_flight  # a request on its way from the door to n0
     r, c = door_flight[0]
     assert c < spots[0].col and r < 14  # between the door (left, middle) and n0 (top)
+def test_the_fanin_variation_draws_nodes_between_the_door_and_one_store():
+    from live.canvas import RED, WHITE
+    from live.views.lanes_fanin import FaninFrame, Leaf, draw_fanin, geometry
+    from live.views.parts import Stage
+
+    leaves = [Leaf(("c0", WHITE), 0.5), Leaf(("c1 down", RED), outline=RED, short="c1"), Leaf(("c2", WHITE))]
+    fr = FaninFrame(users={0: (WHITE, True)}, leaves=leaves, hops=[(0, 0.5, WHITE, False)],
+                    joins=[(2, 0.5, RED, False)], door_label=("router", WHITE), state=("OVERLOADED", RED))
+    for cols, rows in ((50, 12), (54, 14), (61, 20), (68, 28)):
+        cv = Canvas(cols, rows)
+        draw_fanin(cv, lambda n: fr)
+        lines = cv.plain()
+        text = "\n".join(lines)
+        assert all(len(line) <= cols for line in lines) and len(lines) == rows
+        assert "router" in lines[-1] and "OVERLOADED" in lines[-1]
+        assert lines[-1].index("router") < lines[-1].index("OVERLOADED")  # the door's word left of the store's
+        assert all(name in text for name in ("c0", "c1", "c2"))
+        g = geometry(Stage.on(cv))
+        assert g["xg"] < g["lx0"] < g["lx1"] < g["xc"] - 8  # users, door, nodes, store: left to right
+        at = [next(r for r, line in enumerate(lines) if name in line) for name in ("c0", "c1", "c2")]
+        assert at == sorted(at)  # stacked top to bottom, in order
+        col = int(g["col"])
+        assert all(lines[r][col:col + 2] in ("c0", "c1", "c2") for r in at)  # the names right of the nodes
+        assert ("c1 down" in lines[at[1]]) == (g["room"] >= 7)  # the full word when it fits, else "c1"
+        # a red dot on node 2's line to the store, which stands where every lanes picture has its server
+        assert any(cv.cell(r, c)[1] == RED for r in range(rows - 1) for c in range(col + 3, int(g["xc"] - 8) // 2))
+        assert g["xc"] == Stage.on(cv).server_x and lines[0].rstrip().endswith("⢤")  # the store's top right corner
+    cv = Canvas(50, 12)  # cramped: the short name, never cut, never over the join line
+    draw_fanin(cv, lambda n: fr)
+    assert "c1 down" not in "\n".join(cv.plain())
+
+
+def test_fanin_names_fit_and_a_cross_line_joins_the_nodes():
+    from live.canvas import BLUE, WHITE
+    from live.views.lanes_fanin import FaninFrame, Leaf, draw_fanin, fit, geometry
+    from live.views.parts import Stage
+
+    lf = Leaf(("n1 reads off", WHITE), short="n1", tiny="1")
+    assert fit(lf, 13) == "n1 reads off" and fit(lf, 5) == "n1" and fit(lf, 1) == "1"
+    assert fit(Leaf(("payments", WHITE)), 3) == "pay"  # no shorter form: cut
+    fr = FaninFrame(leaves=[Leaf(("n0", WHITE)), Leaf(("n1", WHITE))], peers=True, cross=[(0, 1, 0.5, BLUE)])
+    cv = Canvas(68, 28)
+    draw_fanin(cv, lambda n: fr)
+    g = geometry(Stage.on(cv), peers=True)
+    x = int(g["cross"]) // 2
+    column = [cv.cell(r, x) for r in range(27)]
+    assert sum(ch != " " for ch, _ in column) >= 8 and BLUE in [c for _, c in column]  # n0 → n1, half way
+    assert x < g["col"] - 1  # a blank column between the line and the names

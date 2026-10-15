@@ -77,6 +77,10 @@ STRINGS = {
     # the lanes picture (the clients' view): states under the cluster, at most 13 letters
     "lanes_conflicts": "CONFLICTS",
     "lanes_kv_slow": "KV SLOW",
+    # the fan-in picture: the network (the door), the nodes, seq-kv (the store)
+    "fan_network": "network",
+    "fan_off": "{node} reads off",
+    "fan_conflicts": "CONFLICTS {share:.0%}",
 }
 
 LESSON = Lesson(

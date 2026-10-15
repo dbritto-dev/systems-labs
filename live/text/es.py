@@ -14,6 +14,7 @@ MENU = {"pause": "pausa/sigue", "restart": "reinicia", "rerun": "repite", "view"
 VIEW = "vista: {name}"
 HUD = "fotograma {ms:.1f} ms · {fps:.0f} fps · dibujó {drawn}/{ticks} · {ahead:.0f} s por delante"  # tecla d
 VIEWS = {"lanes": "carriles", "cluster": "clúster", "relay": "relevo", "fanout": "abanico", "peers": "pares"}
+VIEWS = {"lanes": "carriles", "cluster": "clúster", "relay": "relevo", "fanout": "abanico", "fanin": "embudo"}
 NO_VIEW = "{lab} no tiene la vista {name!r} (tiene: {views})"
 
 # ---- el dibujo: el estado bajo el servidor o el clúster

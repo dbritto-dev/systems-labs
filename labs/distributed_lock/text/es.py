@@ -90,6 +90,12 @@ STRINGS = {
     "state_delayed": "DEMORADA",
     "state_lock": "cerrojo: {worker}",
     "nobody": "libre",
+    # el dibujo en embudo: el servicio de cerrojos (la puerta), los workers, el almacenamiento (el almacén)
+    "fan_holds": "{worker} lo tiene",
+    "fan_frozen": "{worker} congelado",
+    "fan_down": "{worker} caído",
+    "fan_cut": "{worker} aislado",
+    "fan_token": "{state}  token {n}",
 }
 
 LESSON = Lesson(
