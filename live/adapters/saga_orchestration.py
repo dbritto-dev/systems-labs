@@ -184,4 +184,5 @@ class SagaFanout(FanoutAdapter):
         relay = Relay(label=(w.s("fan_orchestrator"), RED if down else OUTLINE), fill=running / CALLS_MAX,
                       gauge=BLUE, outline=RED if down else OUTLINE)
         return FanoutFrame(users=lane.users, flights=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
-                           door_color=lane.door_color, state=lane.state, relay=relay, leaves=leaves, hops=hops)
+                           door_color=lane.door_color, state=lane.state, relay=relay, leaves=leaves, hops=hops,
+                           vertical=True)  # payments, stock, shipping: read top to bottom

@@ -43,6 +43,7 @@ class FanoutFrame(LaneFrame):
     relay: Relay = field(default_factory=Relay)
     leaves: list[Leaf] = field(default_factory=list)
     hops: list[tuple[int, float, RGB, bool]] = field(default_factory=list)  # (leaf, 0..1, colour, back)
+    vertical: bool = False  # write each name top to bottom, right of its server (the servers get wider)
 
 
 class FanoutAdapter(Adapter):
@@ -80,8 +81,8 @@ def draw_fanout(cv: Canvas, make) -> None:
     fr = make(n)
     ymid = (body0 + (body1 - body0 + 1) / 2) * 4
     gx = (1 + GRID_COLS * 2) * 2  # the users grid's right edge, in dots
-    lx1 = (cols - LABEL_COLS - 1) * 2  # the small servers: their right edge ...
-    lx0 = lx1 - 12  # ... and left edge
+    lx1 = (cols - (3 if fr.vertical else LABEL_COLS + 1)) * 2  # the small servers: their right edge ...
+    lx0 = lx1 - (18 if fr.vertical else 12)  # ... and left edge (wider when the names stand beside them)
     xg = gx + (lx0 - gx) * 0.3  # the door
     xm = xg + (lx0 - 10 - xg) * 0.55  # the relay's centre
     for i in range(n):  # the users, as in the lanes view
@@ -124,7 +125,15 @@ def draw_fanout(cv: Canvas, make) -> None:
             cv.dot(sx + (lx0 - 2 - sx) * p, ymid + (ym - ymid) * p, LINE, 0)
         _leaf(cv, lx0, lx1, y0, y1, leaf)
         text, col = leaf.label
-        cv.text(min(h - 2, int(ym // 4)), lx1 // 2 + 2, text[:LABEL_COLS - 1], col)
+        if fr.vertical:  # one letter a row, centred beside the server, as many as its height allows
+            r0, r1 = int(y0 // 4), min(h - 2, int(y1 // 4))
+            room = max(1, r1 - r0 + 1)
+            word = text if len(text) <= room else text[: max(0, room - 1)] + "…"
+            top_row = r0 + (room - len(word)) // 2
+            for k, ch in enumerate(word):
+                cv.text(top_row + k, lx1 // 2 + 1, ch, col)
+        else:
+            cv.text(min(h - 2, int(ym // 4)), lx1 // 2 + 2, text[:LABEL_COLS - 1], col)
     for j, p, col, back in fr.hops:  # relay ⇄ a small server
         if 0 <= j < len(mids):
             p = 1 - p if back else p
