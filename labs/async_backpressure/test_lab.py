@@ -298,14 +298,15 @@ def test_stage2_first_incident_every_goal():
 
 
 @starting_code
-def test_two_pictures_lanes_first():
+def test_the_lanes_and_cluster_pictures():
     from live.canvas import MUTED, RED, plain
     from live.frame import compose
     from live.views import adapter_for, set_view, views_for
 
     def picture(v, a, b):
         world = build_world("async_backpressure", v, 1)
-        assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+        assert views_for(world) == ["pipeline", "cluster", "lanes"] and world.view == "pipeline"  # opens with it
+        set_view(world, "lanes")  # the checks below are about the lanes and cluster pictures
         times = [a + k * (b - a) / 40 for k in range(40)]
         lanes = [adapter_for(world).frame(v, t, 60) for t in times]
         set_view(world, "cluster")
@@ -323,3 +324,35 @@ def test_two_pictures_lanes_first():
     ref_lanes, _ = picture("reference", 25.0, 35.0)
     assert MUTED in [c for f in ref_lanes for c, _ in f.outcomes]  # LOW events shed at the door
     assert all(f.fill < 0.8 for f in ref_lanes) and RED not in [c for f in ref_lanes for c, _ in f.outcomes]
+
+
+@starting_code
+def test_the_pipeline_picture_shows_memory_piling_up_in_front_of_the_slow_sink():
+    from live.canvas import EXTRA2, MUTED, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for
+
+    def frames(v):
+        world = build_world("async_backpressure", v, 1)
+        assert world.view == "pipeline"
+        out = [adapter_for(world).frame(v, 20.0 + k * 0.1, 60) for k in range(160)]  # the slow sink
+        assert all(len(f.boxes) == 4 for f in out)  # A parse, B enrich, C write, the sink
+        text = "\n".join(plain(line) for line in compose(world, v, 30.0, 92, 30))
+        assert out[100].state[0] in text and "C " in text  # the state and the names fit the smallest screen
+        return out
+
+    given = frames("main")
+    # The starting code reads everything: stage C (in front of the slow sink) fills, every box turns
+    # orange above 80% of the memory, then red: the OOM kill. Its events die where they were, the door
+    # shuts red while the process restarts and events pile up upstream (the users).
+    assert max(f.boxes[2].fill for f in given) > 0.8
+    assert any(f.boxes[0].outline == EXTRA2 for f in given) and any(f.boxes[0].outline == RED for f in given)
+    assert any(f.drops for f in given) and any(f.closed and f.door_color == RED for f in given)
+    assert any(len(f.users) > 10 for f in given)
+    solved = frames("reference")
+    # The reference bounds its queues and sheds LOW events: C stays low, nothing turns red, and the
+    # shed events fly back to the door in grey.
+    assert max(f.boxes[2].fill for f in solved) < 0.5
+    assert not any(f.drops for f in solved) and not any(b.outline == RED for f in solved for b in f.boxes)
+    assert any(back and colour == MUTED for f in solved for _, _, colour, back in f.hops)
+    assert MUTED in [c for f in solved for c, _ in f.outcomes]

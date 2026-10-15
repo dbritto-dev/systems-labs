@@ -235,7 +235,8 @@ def test_both_pictures_show_the_flow():
 
     def pictures(v: str):
         world = build_world("transactional_outbox", v, 1)
-        assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster opens first
+        assert views_for(world) == ["pipeline", "cluster", "lanes"] and world.view == "pipeline"  # opens with it
+        set_view(world, "cluster")  # the checks below are about the cluster and lanes pictures
         frames = {}
         for t in (20.5, 22.02, 25.0, 40.0):  # in the crash loop, and after it
             frame = adapter_for(world).frame(v, t)
@@ -264,3 +265,34 @@ def test_both_pictures_show_the_flow():
     assert any(src == 2 and dest == 4 for src, dest, _, _ in flights)
     assert not any(src == 0 and dest == 4 for src, dest, _, _ in flights)
     assert not any(colour in (RED, EXTRA3) for _, dest, _, colour in flights if dest == 3)
+
+
+@starting_code
+def test_the_pipeline_picture_shows_the_dual_write_skip_the_database():
+    from live.canvas import BLUE, EXTRA3, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for
+
+    def frames(v):
+        world = build_world("transactional_outbox", v, 1)
+        assert world.view == "pipeline"
+        out = [adapter_for(world).frame(v, 15.0 + k * 0.05, 60) for k in range(300)]  # before and in the crash loop
+        assert all(len(f.boxes) == 5 for f in out)  # service, db, relay, broker, shipping
+        text = "\n".join(plain(line) for line in compose(world, v, 22.0, 92, 30))
+        assert out[140].state[0] in text
+        return out
+
+    given = frames("main")
+    # The dual write: the service publishes straight to the broker, on an arc over the database and the
+    # relay, and the events lost in the crash loop die half way along it in red.
+    assert any(src == 0 and dest == 3 for f in given for src, dest, _, _ in f.skips)
+    assert any(p == 0.5 and colour[0] > colour[2] for f in given for _, _, p, colour in f.skips)
+    assert not any(k == 3 for f in given for k, *_ in f.hops)  # no relay: nothing between it and the broker
+    assert any(f.boxes[0].outline == RED for f in given)  # the kill
+    solved = frames("reference")
+    # With the outbox the arc is gone: every event goes through the database, the relay polls it (blue)
+    # and publishes, and shipping never ships an order twice or one that was never saved.
+    assert not any(f.skips for f in solved)
+    assert any(k == 2 and colour == BLUE for f in solved for k, _, colour, _ in f.hops)
+    assert any(k == 3 for f in solved for k, *_ in f.hops)
+    assert not any(k == 4 and colour in (RED, EXTRA3) for f in solved for k, _, colour, _ in f.hops)

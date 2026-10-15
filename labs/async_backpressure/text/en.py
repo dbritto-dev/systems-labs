@@ -112,6 +112,8 @@ STRINGS = {
     "lbl_down": "DOWN",
     "lbl_slow": "{n:.0f}x slow",
     "lbl_rate": "{n}/s",
+    "lbl_sink": "sink {state}",
+    "lbl_sink_tiny": "sink",
     "pic_state": "memory {pct} · {state}",
     # errors in your code
     "returned": "Pipeline.run() returned: it must run forever (await the stages in a TaskGroup)",

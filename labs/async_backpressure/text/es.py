@@ -112,6 +112,8 @@ STRINGS = {
     "lbl_down": "CAÍDO",
     "lbl_slow": "{n:.0f}x lento",
     "lbl_rate": "{n}/s",
+    "lbl_sink": "destino {state}",
+    "lbl_sink_tiny": "dest.",
     "pic_state": "memoria {pct} · {state}",
     # errores en tu código
     "returned": "Pipeline.run() terminó: debe correr para siempre (espera a las etapas en un TaskGroup)",

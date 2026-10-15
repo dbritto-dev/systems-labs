@@ -370,9 +370,12 @@ class _Sim:
                             behind[self.index[n]] += 1
             down = sum(1 << i for i, n in enumerate(self.ids) if not self.alive(n))
             joining = sum(1 << self.index[n] for n in self.joining)
-            inflight = sum(len(getattr(self.nodes[n], "sent", ()) or ()) for n in live[:-1])
+            sent = [0] * lab.NODES  # per node: writes passed down, not yet acknowledged
+            for n in live[:-1]:
+                sent[self.index[n]] = len(getattr(self.nodes[n], "sent", ()) or ())
+            inflight = sum(sent)
             self.state.append((t, tuple(self.index[n] for n in self.chain), down, joining, tuple(behind),
-                               self.index[self.slow] if self.slow else -1, inflight))
+                               self.index[self.slow] if self.slow else -1, inflight, tuple(sent)))
 
     # ---- handing out a minute
 
@@ -429,7 +432,7 @@ def stream(variant="main", seed: int = 1, rate: float = 20.0) -> Iterator[dict]:
                     # (sent, src, dest, arrived or None if lost, kind); -1 = the clients
                     "msgs": s.messages(a, b),
                     # (time, chain as node indices, down bits, joining bits, behind per node, slow node or -1,
-                    #  writes in flight down the chain)
+                    #  writes in flight down the chain, the same per node)
                     "state": _take(s.state, 0, a, b),
                     # (time found, key, value): acknowledged writes no live node in the chain holds
                     "lost": _take(s.lost_rows, 0, a, b),

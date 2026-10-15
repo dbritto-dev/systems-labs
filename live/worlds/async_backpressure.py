@@ -181,7 +181,7 @@ GOALS = [
 
 class AsyncBackpressureWorld(World):
     id = "async_backpressure"
-    view = "lanes"
+    view = "pipeline"
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "event"), ([EXTRA1, EXTRA2, EXTRA3], "waiting"),
               (GREEN, "written"), (MUTED, "shed"), (RED, "lost"), (LIMIT, "limit", "┄"),

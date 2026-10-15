@@ -7,6 +7,7 @@ fan-out, are just different lists:
     lanes   UsersGrid, Wire, Door, Flights, Outcomes, Server, Caption
     relay   UsersGrid, Wire×3, Door, Flights, Outcomes, Hops, Server×2, Caption×2
     fan-out UsersGrid, Wire×2, Door, Flights, Outcomes, Leaves, FanHops, Server, Caption×2
+    pipeline UsersGrid, Wire, Door, Flights, Outcomes, Boxes, Skip, SegHops, Caption
 
 A new variation is a new list (and, rarely, a new part), not another copy of the drawing code.
 Positions are in Braille dots (2 per column, 4 per row) unless a name says rows or cols.
@@ -14,6 +15,7 @@ Positions are in Braille dots (2 per column, 4 per row) unless a name says rows 
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from live.canvas import BG, BLUE, DIM, RED, RGB, WHITE, Canvas, mix
@@ -289,6 +291,172 @@ class FanHops:
             if 0 <= j < len(mids):
                 p = 1 - p if back else p
                 st.cv.blob(sx + (x0 - 3 - sx) * p, st.ymid + (mids[j] - st.ymid) * p, col, 6, 1)
+
+
+# ---------------------------------------------------------------- pipeline: small servers in a row
+
+
+def draw_box(cv: Canvas, xc: float, y0: float, y1: float, rgb: RGB, fill: float, fill_rgb: RGB, rx: float) -> None:
+    """A small server `rx` dots either side of xc: a case (no drive bays) and a gauge that fills from the
+    bottom, like a queue."""
+    x0, x1 = xc - rx, xc + rx
+    y0, y1 = int(y0), int(y1)
+    cv.line([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)], rgb, 2)
+    inner = (y1 - 2) - (y0 + 2)
+    top = (y1 - 2) - inner * max(0.0, min(1.0, fill))
+    y = y1 - 2
+    while y > top:
+        for x in range(int(x0 + 2), int(x1 - 1), 2):
+            cv.dot(x + (y & 1), y, fill_rgb, 1)
+        y -= 2
+
+
+GAP_SLOTS = 0.5  # the gap before the boxes that are out of the line, in slots
+
+
+@dataclass(slots=True)
+class Boxes:
+    """Small servers in a row, from the door (x0) to x1: segment k runs from box k - 1 (the door when k
+    is 0) to box k. Each box is a slot wide: a segment, then the box. The boxes after `gap_after` are
+    out of the line: drawn after a gap, dimmed. Their names go on the two rows under the picture
+    (the last one only from column `free_from`, after the state): the full label if it fits, else the
+    short form, else the tiny one."""
+
+    boxes: list[Leaf]
+    x0: float
+    x1: float
+    gap_after: int | None = None
+    free_from: int = 0
+    xs: list[float] = field(default_factory=list)  # each box's centre (set when made)
+    rx: float = 0.0  # half a box's width
+
+    def __post_init__(self) -> None:
+        n = len(self.boxes)
+        out = self.gap_after is not None and self.gap_after < n - 1
+        slot = (self.x1 - self.x0) / max(1, n + (GAP_SLOTS if out else 0))
+        w = max(4.0, min(16.0, slot - 6))
+        self.rx = float(int(w / 2))  # whole dots, so both sides of every box look the same
+        gap = [slot * GAP_SLOTS if out and j > self.gap_after else 0.0 for j in range(n)]
+        self.xs = [float(round(self.x0 + slot * (j + 1) - w / 2 + gap[j])) for j in range(n)]  # a segment, then the box
+
+    def dimmed(self, j: int) -> bool:
+        return self.gap_after is not None and j > self.gap_after
+
+    def seg(self, k: int) -> tuple[float, float]:
+        """Where segment k starts and ends, in dots (the first and last dot a request is drawn at)."""
+        left = self.x0 + 2 if k == 0 else self.xs[k - 1] + self.rx + 2
+        return left, self.xs[k] - self.rx - 3
+
+    def x_of(self, j: int) -> float:
+        """Box j's centre (-1: the door)."""
+        return self.x0 if j < 0 else self.xs[j]
+
+    @staticmethod
+    def span(st: Stage) -> tuple[int, int]:
+        """A box's top and bottom, in dots: room above for the arcs, and a row below for the names."""
+        return st.top + 8, st.bottom - 4
+
+    def draw(self, st: Stage) -> None:
+        cv = st.cv
+        y0, y1 = self.span(st)
+        last = self.gap_after if self.gap_after is not None else len(self.boxes) - 1
+        for k in range(min(last + 1, len(self.boxes))):  # the dotted line between the door and each box
+            a, b = self.seg(k)
+            for x in range(int(a), int(b) + 1, 3):
+                cv.dot(x, st.ymid, LINE, 0)
+        for j, box in enumerate(self.boxes):
+            outline, gauge = box.outline, box.gauge
+            if self.dimmed(j):
+                outline, gauge = mix(outline, BG, 0.45), mix(gauge, BG, 0.45)
+            draw_box(cv, self.xs[j], y0, y1, outline, box.fill, gauge, self.rx)
+        self._names(st)
+
+    def _names(self, st: Stage) -> None:
+        cv = st.cv
+        rows = (cv.rows - 2, cv.rows - 1)
+        lo = {rows[0]: int(self.x0 // 2) + 2, rows[1]: self.free_from}  # clear of the door, and of the state
+        taken: dict[int, list[tuple[int, int]]] = {r: [] for r in rows}
+
+        def place(row: int, word: str, c: int) -> int | None:
+            at = max(lo[row], min(round(c - len(word) / 2), cv.cols - len(word)))
+            if not word or at + len(word) > cv.cols or not at <= c < at + len(word) + 1:
+                return None  # it does not fit, or it would not stand under its box
+            if any(at < b + 1 and a < at + len(word) + 1 for a, b in taken[row]):
+                return None  # it would touch a name already there
+            return at
+
+        for j, box in enumerate(self.boxes):
+            text, col = box.label
+            if self.dimmed(j):
+                col = mix(col, BG, 0.3)
+            c = int((self.xs[j] + 0.5) // 2)  # the column the box's centre is in
+            forms = list(dict.fromkeys(w for w in (text, box.short, box.tiny) if w))
+            spot = next(((row, word, at) for word in forms for row in rows
+                         if (at := place(row, word, c)) is not None), None)
+            if spot is None and forms:  # nothing fits: the shortest form there is, cut to the room under it
+                word, room = forms[-1], int(self.rx) + 2
+                word = word if len(word) <= room else word[: room - 1] + "…"
+                spot = (rows[0], word, max(0, min(c - len(word) // 2, cv.cols - len(word))))
+            if spot is not None:
+                row, word, at = spot
+                taken[row].append((at, at + len(word)))
+                cv.text(row, at, word, col)
+
+
+@dataclass(slots=True)
+class SegHops:
+    """Requests along the segments between the boxes (0..1 of the way, or back)."""
+
+    hops: list[tuple[int, float, RGB, bool]]  # (segment, 0..1, colour, back)
+    boxes: Boxes
+
+    def draw(self, st: Stage) -> None:
+        for k, p, col, back in self.hops:
+            if 0 <= k < len(self.boxes.xs):
+                a, b = self.boxes.seg(k)
+                p = 1 - p if back else p
+                st.cv.blob(a + (b - a) * max(0.0, min(1.0, p)), st.ymid, col, 6, 1)
+
+
+@dataclass(slots=True)
+class Skip:
+    """Requests that skip boxes: each pair (from, to) gets a dotted arc over the boxes, on the band
+    above them, and its requests are dots along it (0..1 from `from` to `to`; -1 is the door)."""
+
+    skips: list[tuple[int, int, float, RGB]]  # (from, to, 0..1, colour)
+    boxes: Boxes
+
+    def _arcs(self, st: Stage) -> dict[tuple[int, int], object]:
+        """Each pair's arc, as a function from 0..1 to (x, y): the longer the arc, the higher it stands
+        (so arcs that share an end can be told apart)."""
+        n = len(self.boxes.xs)
+        pairs = dict.fromkeys((a, b) for a, b, _, _ in self.skips if -1 <= a < n and -1 <= b < n and a != b)
+        base = Boxes.span(st)[0] - 1
+        most = base - st.top - 1  # the band's height
+        spans = sorted({abs(self.boxes.x_of(b) - self.boxes.x_of(a)) for a, b in pairs})
+        out = {}
+        for a, b in pairs:
+            xa, xb = self.boxes.x_of(a), self.boxes.x_of(b)
+            rank = spans.index(abs(xb - xa))
+            lift = most - (most - 3) * (len(spans) - 1 - rank) / max(1, len(spans) - 1)
+
+            def at(p: float, xa=xa, xb=xb, lift=lift) -> tuple[float, float]:
+                x = xa + (xb - xa) * max(0.0, min(1.0, p))
+                d = min(abs(x - xa), abs(x - xb))
+                return x, base - lift * math.sin(min(1.0, d / 6) * math.pi / 2)
+
+            out[(a, b)] = at
+        return out
+
+    def draw(self, st: Stage) -> None:
+        arcs = self._arcs(st)
+        for (a, b), at in arcs.items():
+            steps = max(2, int(abs(self.boxes.x_of(b) - self.boxes.x_of(a)) / 3))
+            for s in range(steps + 1):
+                st.cv.dot(*at(s / steps), LINE, 0)
+        for a, b, p, col in self.skips:
+            if (a, b) in arcs:
+                st.cv.blob(*arcs[(a, b)](p), col, 6, 1)
 
 
 def draw_parts(st: Stage, parts: list) -> None:

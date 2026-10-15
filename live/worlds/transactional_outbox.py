@@ -131,7 +131,7 @@ GOALS = [
 
 class OutboxWorld(World):
     id = "transactional_outbox"
-    view = "cluster"
+    view = "pipeline"
     stage_colours = (RED, EXTRA3, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "event"), (EXTRA1, "republished"), (EXTRA3, "twice"),
               (RED, "bad"), (GREEN, "shipped"), (MUTED, "skipped"), (LIMIT, "limit", "┄"),

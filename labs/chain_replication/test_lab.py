@@ -153,10 +153,11 @@ def test_stage2_repair():
 
 def test_the_cluster_picture_shows_the_chain_left_to_right():
     from live.canvas import RED
-    from live.views import adapter_for, views_for
+    from live.views import adapter_for, set_view, views_for
 
     world = build_world("chain_replication", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["pipeline", "cluster", "lanes"] and world.view == "pipeline"  # opens with it
+    set_view(world, "cluster")  # the checks below are about the cluster picture
     before = adapter_for(world).frame("reference", 10.0)
     assert before.columns == 4 and [w for w, _ in before.labels][0].startswith("n0")
     down = adapter_for(world).frame("reference", 20.5)  # n1 died; the master has not noticed yet
@@ -177,3 +178,39 @@ def test_a_second_picture_shows_what_the_clients_see():
     text, _ = frame.state
     assert text and len(text) <= 13
     assert RED not in [c for c, _ in frame.outcomes]  # no stale reads, no lost writes
+
+
+@starting_code
+def test_the_pipeline_picture_shows_writes_flowing_down_the_chain_and_reads_at_the_tail():
+    from live.canvas import BLUE, GREEN, MUTED, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for
+
+    def frames(v):
+        world = build_world("chain_replication", v, 1)
+        assert world.view == "pipeline"
+        calm = [adapter_for(world).frame(v, 5.0 + k * 0.1, 60) for k in range(100)]
+        text = "\n".join(plain(line) for line in compose(world, v, 25.0, 92, 30))
+        assert "n0" in text and adapter_for(world).frame(v, 25.0, 60).state[0] in text
+        return world, calm
+
+    world, given = frames("main")
+    # Primary-backup: the primary writes to every backup at once (arcs over the nodes in between),
+    # nothing comes back, and reads go to any backup.
+    assert any(src >= 0 and dest > src + 1 for f in given for src, dest, _, _ in f.skips)
+    assert not any(back for f in given for *_, back in f.hops)
+    assert len({dest for f in given for src, dest, _, c in f.skips if src == -1 and c == MUTED}) > 1
+    world, solved = frames("reference")
+    # A chain: writes hop node to node (blue), the tail's acknowledgements hop back (green), and every
+    # read goes to the tail, on an arc from the clients.
+    assert not any(src >= 0 for f in solved for src, *_ in f.skips)
+    assert any(colour == BLUE and not back and k >= 2 for f in solved for k, _, colour, back in f.hops)
+    assert any(colour == GREEN and back for f in solved for _, _, colour, back in f.hops)
+    assert {dest for f in solved for src, dest, _, c in f.skips if src == -1 and c == MUTED} == {3}
+    # n1 dies: its box turns red and the door shuts while the chain reconfigures; then it is out of
+    # the chain, after a gap.
+    down = adapter_for(world).frame("reference", 20.5, 60)
+    assert down.boxes[1].outline == RED and down.closed
+    after = adapter_for(world).frame("reference", 25.0, 60)
+    assert after.gap_after == 2 and after.boxes[-1].label[0].startswith("n1")
+    assert [b.label[0].split()[0] for b in after.boxes[:3]] == ["n0", "n2", "n3"]
