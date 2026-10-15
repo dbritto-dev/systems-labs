@@ -197,6 +197,6 @@ def test_fanout_names_read_top_to_bottom_in_one_form_that_fits():
         column = [line[-2] for line in cv.plain()[:-1]]  # the column right of the servers
         return "".join(ch if ch != " " else "|" for ch in column).split("|")
 
-    assert [w for w in names(28) if w] == ["PAYMENTS", "STOCK", "SHIPPING"]  # room: the full names
+    assert [w for w in names(28) if w] == ["PAY", "STOCK", "SHIP"]  # room: the short forms (never the full names)
     # Little room: the tiny forms, all of them; names never on consecutive rows (they would read as one word).
     assert [w for w in names(13) if w] == ["PAY", "STK", "SHP"]

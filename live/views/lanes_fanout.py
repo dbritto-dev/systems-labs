@@ -33,8 +33,8 @@ class Leaf:
     fill: float = 0.0  # its gauge, 0..1, filling from the left
     gauge: RGB = BLUE
     outline: RGB = OUTLINE
-    short: str = ""  # a shorter name, for when the full one does not fit (written top to bottom) ...
-    tiny: str = ""  # ... and a tinier one still, for the smallest screens
+    short: str = ""  # the name written top to bottom, when given (instead of the full label) ...
+    tiny: str = ""  # ... and a tinier one, for when the short one does not fit
 
 
 @dataclass(slots=True)
@@ -126,9 +126,10 @@ def draw_fanout(cv: Canvas, make) -> None:
         if j + 1 < len(boxes) and int(boxes[j + 1][0] // 4) <= r1 + 1:
             r1 -= 1  # the next box starts on the very next row
         rows.append((r0, r1))
-    # One form for all the names: the longest that fits every one (full, short, tiny), so they match.
-    forms = [[w.upper() for w in (lf.label[0], lf.short, lf.tiny)] for lf in fr.leaves]
-    pick = next((k for k in range(3) if all(f[k] and len(f[k]) <= r1 - r0 + 1 for f, (r0, r1) in zip(forms, rows))),
+    # One form for all the names, so they match: the short one if it fits every box, else the tiny one. (The
+    # full name is only for servers that have no short form.)
+    forms = [[w.upper() for w in ((lf.short, lf.tiny) if lf.short else (lf.label[0], lf.tiny))] for lf in fr.leaves]
+    pick = next((k for k in range(2) if all(f[k] and len(f[k]) <= r1 - r0 + 1 for f, (r0, r1) in zip(forms, rows))),
                 None)
     for j, leaf in enumerate(fr.leaves):
         y0, y1 = boxes[j]

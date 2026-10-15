@@ -56,7 +56,7 @@ LEGEND = {"idle": "en reposo", "step": "paso", "retry": "tras un timeout", "undo
 STRINGS = {
     "fan_orchestrator": "orquestador",
     "fan_payments": "pagos",
-    "fan_stock": "invent.",
+    "fan_stock": "inventario",
     "fan_shipping": "envíos",
     "fan_payments_short": "pago",
     "fan_stock_short": "inv",
