@@ -126,7 +126,7 @@ def test_a_stuck_run_says_which_line_of_your_code_it_is_stuck_on(tmp_path):
     src = Path("labs/retry_storm/reference.py").read_text()
     stuck = tmp_path / "stuck.py"
     stuck.write_text(src.replace("return await self.service.call(payload)", "while True:\n                    pass"))
-    line = next(n for n, text in enumerate(stuck.read_text().splitlines(), 1) if text.strip() == "pass")
+    line = next(n for n, text in enumerate(stuck.read_text().splitlines(), 1) if text.strip() == "while True:")
     job = StreamJob("labs.retry_storm.scenario:stream", str(stuck), {}, timeout=2.0)
     status, message = job.next_sync()
     assert status == "error" and f"stuck.py:{line}" in message
