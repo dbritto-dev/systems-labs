@@ -146,3 +146,18 @@ def test_client_lanes_colours_answers_and_can_put_red_ones_first():
     assert first[0][0] == RED and EXTRA2 in [c for c, _ in first]  # ... unless red goes first
     _, _, old = client_lanes(Run(), 10.0, 60, "ops", 0, 1, bad=lambda o: o[2] != "ok")
     assert {c for c, _ in old} <= {RED, GREEN}
+
+
+def test_the_relay_variation_draws_two_servers_and_two_lines():
+    from live.canvas import WHITE
+    from live.views.lanes_relay import Relay, RelayFrame, draw_relay
+
+    fr = RelayFrame(users={0: (WHITE, True)}, flights=[(0, 0.5, WHITE, False)], hops=[(0.5, WHITE, True)],
+                    relay=Relay(label=("4 balancers", WHITE), fill=0.5), fill=0.8, state=("BUSY", WHITE))
+    for cols in (50, 68):
+        cv = Canvas(cols, 20)
+        draw_relay(cv, lambda n: fr)
+        lines = cv.plain()
+        assert all(len(line) <= cols for line in lines)
+        assert "4 balancers" in lines[-1] and "BUSY" in lines[-1]  # a word under each server
+        assert lines[-1].index("4 balancers") < lines[-1].index("BUSY")  # the relay stands left of the server

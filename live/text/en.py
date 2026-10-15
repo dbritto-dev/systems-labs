@@ -11,7 +11,7 @@ EDIT_AND_SAVE = "Edit {file} and save: this window reruns it."
 ERROR = "error: {error}"
 MENU = {"pause": "pause/resume", "restart": "restart", "rerun": "rerun", "view": "view", "quit": "quit"}
 VIEW = "view: {name}"  # shown when a lab has more than one picture
-VIEWS = {"lanes": "lanes", "cluster": "cluster"}
+VIEWS = {"lanes": "lanes", "cluster": "cluster", "relay": "relay"}
 NO_VIEW = "{lab} has no {name!r} view (it has: {views})"
 
 # ---- the picture: the state under the server or the cluster

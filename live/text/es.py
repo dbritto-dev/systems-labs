@@ -11,7 +11,7 @@ EDIT_AND_SAVE = "Edita {file} y guarda: esta ventana lo vuelve a ejecutar."
 ERROR = "error: {error}"
 MENU = {"pause": "pausa/sigue", "restart": "reinicia", "rerun": "repite", "view": "vista", "quit": "sal"}
 VIEW = "vista: {name}"
-VIEWS = {"lanes": "carriles", "cluster": "clúster"}
+VIEWS = {"lanes": "carriles", "cluster": "clúster", "relay": "relevo"}
 NO_VIEW = "{lab} no tiene la vista {name!r} (tiene: {views})"
 
 # ---- el dibujo: el estado bajo el servidor o el clúster

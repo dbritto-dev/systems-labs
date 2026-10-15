@@ -144,13 +144,17 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("load_balancing", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster opens first
+    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # relay opens first
+    set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 25.0)
     assert len(frame.nodes) == scenario.BALANCERS + scenario.SERVERS and frame.flights
     assert frame.nodes[scenario.BALANCERS + scenario.FIRST_SERVER] != frame.nodes[-1]  # the slow one stands out
     set_view(world, "lanes")
     lane = adapter_for(world).frame("reference", 25.0, 100)
     assert lane.users and lane.flights and lane.state[0]
+    set_view(world, "relay")  # the balancers as a server of their own, between the door and the fleet
+    relay = adapter_for(world).frame("reference", 25.0, 100)
+    assert relay.users and relay.flights and relay.hops and relay.relay.label[0] and relay.state[0]
 
 
 # ------------------------------------------------------------- your code

@@ -10,6 +10,7 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 QUEUE_FULL = 4 * WORKERS  # requests in flight on one server that fill the gauge
 
@@ -105,4 +106,48 @@ class LoadBalancingLanes(LaneAdapter):
             users=waiting, flights=flights, outcomes=outcomes, closed=timeouts,
             door_color=EXTRA2 if herding and not timeouts else None,
             fill=busiest / QUEUE_FULL, gauge=gauge, outline=PURPLE if sick >= 0 else OUTLINE, state=state,
+        )
+
+
+@adapts("load_balancing", "relay")
+class LoadBalancingRelay(RelayAdapter):
+    """The lanes picture with the balancers as a server of their own: users → the door → the 4 balancers →
+    the fleet of servers. The balancers' gauge is how much one of them herds (sends most of its requests to
+    one server), orange when it does. Requests fly user → door, then balancer → server; those to the slow
+    server fly big and purple. The server on the right is the fleet, as in the lanes picture."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.load_balancing import HERD, REQ_END, REQ_OK, REQ_SICK, REQ_START
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        waiting, _, outcomes = client_lanes(run, t, users, "requests", REQ_START, REQ_END,
+                                            colour=lambda r: GREEN if r[REQ_OK] else RED, rare_first=True)
+        flying = run.rows("requests", t - FLY, t + 1e-9)
+        shown = every([r for r in flying if r[REQ_SICK]], FLIGHTS // 2)
+        shown += every([r for r in flying if not r[REQ_SICK]], FLIGHTS - len(shown))
+        flights, hops = [], []  # the first half of the way: user → door; the second: balancer → server
+        for r in shown:
+            p = (t - r[REQ_START]) / FLY
+            if p < 0.5:
+                flights.append((slot(op_id(r[REQ_START]), users), 2 * p, WHITE, False))
+            else:
+                hops.append((2 * p - 1, PURPLE if r[REQ_SICK] else WHITE, bool(r[REQ_SICK])))
+
+        sick = w.sick_at(run, t)
+        busiest = max(w.loads_at(run, t))
+        span = run.max_dur.get("requests", 0.0)
+        timeouts = any(t - BACK <= r[REQ_END] <= t and not r[REQ_OK]
+                       for r in run.rows("requests", t - BACK - span, t + 1e-9))
+        herd = max(w.herding(run, t))
+        herding = herd >= HERD
+        relay = Relay(label=(w.s("lanes_balancers"), EXTRA2 if herding else OUTLINE), fill=herd,
+                      gauge=EXTRA2 if herding else BLUE, outline=EXTRA2 if herding else OUTLINE)
+        gauge = RED if busiest >= QUEUE_FULL else EXTRA2 if busiest > 2 * WORKERS else BLUE
+        return RelayFrame(
+            users=waiting, flights=flights, outcomes=outcomes, closed=timeouts,
+            fill=busiest / QUEUE_FULL, gauge=gauge, outline=PURPLE if sick >= 0 else OUTLINE,
+            state=_state(w, run, t, sick, timeouts), relay=relay, hops=hops,
         )

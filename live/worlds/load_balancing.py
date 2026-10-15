@@ -105,7 +105,7 @@ GOALS = [
 
 class LoadBalancingWorld(World):
     id = "load_balancing"
-    view = "cluster"  # where each request goes is the lesson: 4 balancers, 8 servers
+    view = "relay"  # users → the balancers (a server of their own) → the fleet: where requests go, and what herding does
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "request"), ([EXTRA1, EXTRA2, EXTRA3], "waits", "●"),
               (GREEN, "served"), (RED, "timed_out"), (BLUE, "server", "◉"), (PURPLE, "slow_server", "◉"),
