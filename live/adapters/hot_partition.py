@@ -1,14 +1,17 @@
 """The pictures for lab hot_partition: cluster (the six partitions, coloured by how busy they are,
-with requests flying to them) and lanes (the users' operations, your Counters as the door, the
-store as the server)."""
+with requests flying to them), lanes (the users' operations, your Counters as the door, the
+store as the server) and fan-out (Counters in the middle, each partition on its own on the right)."""
 
 from __future__ import annotations
 
+from labs.hot_partition.api import CAPACITY
 from live.adapters.common import client_lanes, every
-from live.canvas import BLUE, EXTRA2, GREEN, PURPLE, RED
+from live.canvas import BLUE, EXTRA2, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_fanout import FanoutAdapter, FanoutFrame, Leaf
+from live.views.lanes_relay import Relay
 
 FLY = 0.3  # seconds a request takes to reach its partition (cosmetic: it takes ~1 ms)
 DROP_FADE = 0.5  # seconds a throttled request stays on screen
@@ -96,3 +99,51 @@ class HotPartitionLanes(LaneAdapter):
                          door_color=PURPLE if state_colour == PURPLE else None,
                          outline=RED if busiest >= lab.BUSY_MAX else OUTLINE, state=(word, state_colour))
 
+
+
+FANIN_MAX = CAPACITY  # fan-in reads a second that fill the relay's gauge
+
+
+@adapts("hot_partition", "fanout")
+class HotPartitionFanout(FanoutAdapter):
+    """Users' operations reach your `Counters` (the door; the relay in the middle) and it sends requests to
+    the six partitions on the right, p0 ... p5, each with its gauge: its utilisation against its capacity
+    over the last second (orange from 70%, red from 90%, when the partition throttles). The partition the
+    hot key hashes to is named "hot". Each request flies from Counters to its partition: white a usual one,
+    purple one on the hot key (a salted sub-key write lands on another partition), orange an extra request a
+    read makes to fan in over sub-keys, blue folding sub-keys back; a throttled one stops half way, red.
+    The relay's gauge (orange) is the fan-in requests it makes a second, the price of salting."""
+
+    def frame(self, variant: str, t: float, users: int) -> FanoutFrame:
+        from labs.hot_partition import lab
+        from labs.hot_partition.api import FAN
+        from live.worlds.hot_partition import KIND_COLOURS, REQ_KIND, REQ_OK, REQ_P, REQ_T, util_colour
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return FanoutFrame()
+        lane = HotPartitionLanes(w).frame(variant, t, users)  # the users, the door, the outcomes, the state
+        rows = run.rows("reqs", t - DROP_FADE, t + 1e-9)
+        hops = []
+        for r in every([r for r in rows if r[REQ_OK] and t - r[REQ_T] <= FLY], MAX_FLIGHTS):
+            hops.append((r[REQ_P], (t - r[REQ_T]) / FLY, KIND_COLOURS[r[REQ_KIND]], False))
+        for r in every([r for r in rows if not r[REQ_OK]], MAX_DROPS):  # throttled: half way, then red
+            p = (t - r[REQ_T]) / FLY
+            hops.append((r[REQ_P], min(p, 0.5), RED if p >= 0.5 else KIND_COLOURS[r[REQ_KIND]], False))
+        utils = w.utils(variant, t)
+        inc = w.incident_at(variant, t)
+        named = w.key_of(run, inc.index) if inc else None
+        hot = named[1] if named else None
+        leaves = []
+        for p, u in enumerate(utils):
+            melting = u >= lab.BUSY_MAX
+            label = w.s("fan_hot", p=p) if p == hot else w.s("fan_part", p=p, util=u)
+            leaves.append(Leaf(label=(label, RED if melting else PURPLE if p == hot else WHITE), fill=u,
+                               gauge=util_colour(u),
+                               outline=RED if melting else PURPLE if p == hot else OUTLINE))
+        fanin = sum(1 for r in run.rows("reqs", t - 1.0, t) if r[REQ_KIND] == FAN)
+        relay = Relay(label=(w.s("fan_counters"), EXTRA2 if fanin else OUTLINE), fill=fanin / FANIN_MAX,
+                      gauge=EXTRA2, outline=EXTRA2 if fanin else OUTLINE)
+        return FanoutFrame(users=lane.users, flights=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                           door_color=lane.door_color, state=lane.state, relay=relay, leaves=leaves, hops=hops)

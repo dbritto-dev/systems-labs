@@ -53,6 +53,9 @@ LEGEND = {"cool": "bajo 50%", "busy": "cargada", "melting": "sobre 90%", "reques
           "throttled": "rechazada", "limit": "capacidad"}
 
 STRINGS = {
+    "fan_counters": "Counters",
+    "fan_part": "p{p} {util:.0%}",
+    "fan_hot": "p{p} calor",
     # incidentes
     "title_viral": "Publicación viral",
     "title_link": "Enlace viral",

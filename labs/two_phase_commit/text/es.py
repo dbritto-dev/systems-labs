@@ -52,6 +52,9 @@ LEGEND = {"prepare": "preparar", "yes": "vota sí", "commit": "consolidar", "abo
           "incident": "incidente"}
 
 STRINGS = {
+    "fan_coordinator": "coordinador",
+    "fan_down": "{shard} caído",
+    "fan_state_shard": "{shard} CAÍDO",
     # incidentes
     "overload_start": "{shard} va lento: el {share:.0%} de las preparaciones dan timeout de bloqueo: {cause}",
     "overload_end": "{shard} vuelve a responder a tiempo",
