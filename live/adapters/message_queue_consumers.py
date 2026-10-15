@@ -1,6 +1,6 @@
 """The pictures for lab message_queue_consumers: cluster (the queue, seven worker processes and the
-dead-letter queue as nodes) and lanes (the messages on the left, the queue as the door, the workers
-as the server)."""
+dead-letter queue as nodes), lanes (the messages on the left, the queue as the door, the workers
+as the server) and relay (producers → the queue as a server of its own → the workers)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED,
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 OLD = 20.0  # seconds: a message this old is stuck (poison retried forever; the DLQ takes ~15 s)
 
@@ -183,3 +184,62 @@ class QueueLanes(LaneAdapter):
             gauge=EXTRA2 if slots and busy / slots > 0.8 else BLUE,
             outline=RED if down else OUTLINE, state=(word, colour),
         )
+
+
+QUEUE_FULL = mq.PROCESSES * mq.SLOTS  # messages in the queue (waiting or hidden) that fill its gauge
+
+
+def _poison_back(run, t: float) -> int:
+    """Poison messages back in the queue at t: a try of theirs has failed, and the job is not over."""
+    from live.worlds.message_queue_consumers import JOB_END, TRY_END, TRY_ID, TRY_POISON
+
+    span = run.max_dur.get("tries", 0.0) + run.max_dur.get("jobs", 0.0)
+    failed = [r for r in run.rows("tries", t - span - 1e-9, t + 1e-9) if r[TRY_POISON] and r[TRY_END] <= t]
+    jobs = _jobs_of(run, failed)
+    return len({r[TRY_ID] for r in failed
+                if (j := jobs.get(r[TRY_ID])) is not None and (j[JOB_END] is None or j[JOB_END] > t)})
+
+
+@adapts("message_queue_consumers", "relay")
+class QueueRelay(RelayAdapter):
+    """The lanes picture with the queue as a server of its own: producers → the door → the queue → the worker
+    pool. New messages fly from the producers to the door (white). The queue's gauge is how many messages it
+    holds (waiting, or hidden while a worker has them), blue while the oldest is under 1 s old, orange over it,
+    red over 20 s; its outline turns purple while poison that failed is back in it waiting to come round again,
+    and its label counts the messages parked in the DLQ. Deliveries fly from the queue to the workers: white the
+    first, oranges redelivered, deep orange a job a second worker takes while another is still on it; poison
+    flies big. A job lost at the workers (acked, then crashed or failed) sits red at their door. The server on
+    the right is the worker pool, as in the lanes picture."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.message_queue_consumers import (
+            DEP_INFLIGHT, DEP_OLDEST, DEP_VISIBLE, JOB_ID, JOB_SENT, TRY_END, TRY_POISON, TRY_START, try_colour,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = QueueLanes(w).frame(variant, t, users)  # the messages, the outcomes and the workers, as in lanes
+        flights = [(slot(j[JOB_ID], users), (t - j[JOB_SENT]) / FLY, WHITE, False)
+                   for j in every(run.rows("jobs", t - FLY, t + 1e-9), FLIGHTS)]
+        flying = run.rows("tries", t - FLY, t + 1e-9)
+        rare = every([r for r in flying if r[TRY_POISON]], FLIGHTS // 2)  # a few poison among many good
+        shown = rare + every([r for r in flying if not r[TRY_POISON]], FLIGHTS - len(rare))
+        hops = [((t - r[TRY_START]) / FLY, try_colour(r), bool(r[TRY_POISON])) for r in shown]
+        ended = _ended(w, run, t)
+        gone = _jobs_of(run, ended)
+        for r in every([r for r in ended if _outcome(r, gone) == RED], OUTCOMES):  # lost at the workers' door
+            hops.append((0.9 + 0.1 * (t - r[TRY_END]) / BACK, RED, True))
+
+        dep = w.depth_at(run, t)
+        held = (dep[DEP_VISIBLE] + dep[DEP_INFLIGHT]) if dep else 0
+        oldest = dep[DEP_OLDEST] if dep else 0.0
+        parked = int(run.total("parked", t + 1))
+        poison = _poison_back(run, t)
+        gauge = RED if oldest > OLD else EXTRA2 if oldest > mq.AGE_MAX else BLUE
+        relay = Relay(label=(w.s("relay_queue", n=parked), PURPLE if parked else OUTLINE),
+                      fill=held / QUEUE_FULL, gauge=gauge, outline=PURPLE if poison else OUTLINE)
+        return RelayFrame(users=lane.users, flights=flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, fill=lane.fill, gauge=lane.gauge, outline=lane.outline,
+                          state=lane.state, relay=relay, hops=hops)

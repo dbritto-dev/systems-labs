@@ -98,6 +98,7 @@ STRINGS = {
     "state_blip": "FALLANDO",
     "state_old": "MENSAJES VIEJOS",
     "pic_state": "cola → workers → DLQ: {state}",
+    "relay_queue": "cola · DLQ {n}",
     "note": "Los puntos son una muestra de trabajos, más lentos (estético).",
     # errores en tu código
     "stuck": "una llamada a process() lleva más de {seconds:.0f} s: arranca el latido como tarea, "

@@ -269,7 +269,7 @@ def test_two_pictures_the_cluster_first():
         return frame, lanes
 
     worlds = {v: build_world(LAB, v, 1) for v in ("main", "reference")}
-    assert views_for(worlds["main"]) == ["cluster", "lanes"] and worlds["main"].view == "cluster"  # cluster first
+    assert views_for(worlds["main"]) == ["cluster", "lanes", "relay"] and worlds["main"].view == "cluster"
     # In the poison batch: the given code loses the poison (red); the reference parks it (purple).
     given = [picture("main", t) for t in (24.0, 27.0, 29.5)]
     solved = [picture("reference", t) for t in (32.0, 36.0, 40.0)]
@@ -278,3 +278,28 @@ def test_two_pictures_the_cluster_first():
     assert any(dest == 5 and c == PURPLE for frame, _ in solved for _, dest, _, c in frame.flights)
     assert any(dest == 3 and c == GREEN for frame, _ in solved for _, dest, _, c in frame.flights)
     assert not any(frame.drops for frame, _ in solved)
+
+
+@starting_code
+def test_the_relay_picture_shows_the_queue():
+    from live.canvas import BLUE, PURPLE, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for, set_view
+
+    def relay(v: str, t: float):
+        world = build_world(LAB, v, 1)
+        set_view(world, "relay")
+        frame = adapter_for(world).frame(v, t, 100)
+        text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
+        assert frame.relay.label[0] in text and frame.state[0] in text  # both words fit the smallest screen
+        return frame
+
+    # Acked on receipt, the queue holds nothing and poison dies at the workers (red); acked after the work,
+    # failed poison waits in the queue (purple outline, gauge past blue as it ages), then goes to the DLQ.
+    given = [relay("main", t) for t in (24.0, 26.0, 28.0)]
+    solved = [relay("reference", t) for t in (28.0, 40.0)]
+    assert any(c == RED for f in given for _, c, _ in f.hops)
+    assert all(f.relay.fill < 0.1 and f.relay.outline != PURPLE for f in given)
+    assert all(f.relay.outline == PURPLE and f.relay.gauge != BLUE for f in solved)
+    assert not any(c == RED for f in solved for _, c, _ in f.hops)
+    assert "DLQ 0" in given[-1].relay.label[0] and "DLQ 0" not in solved[-1].relay.label[0]

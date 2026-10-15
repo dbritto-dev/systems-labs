@@ -102,6 +102,12 @@ STRINGS = {
     "state_poison": "#{n} VENENO",
     "state_burst": "PICO",
     "pic_state": "{state} · workers {busy}/{of}",
+    "fan_dispatcher": "despachador",
+    "fan_endpoint": "#{n}",
+    "fan_down": "#{n} caído",
+    "fan_hang": "#{n} cuelga",
+    "fan_slow": "#{n} lento",
+    "fan_poison": "#{n} veneno",
     "note": "Destinos: rojo muerto, naranja lento. Los puntos son una muestra (estético).",
 }
 

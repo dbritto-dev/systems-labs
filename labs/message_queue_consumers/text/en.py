@@ -97,6 +97,7 @@ STRINGS = {
     "state_blip": "FAILING",
     "state_old": "OLD MESSAGES",
     "pic_state": "queue → workers → DLQ: {state}",
+    "relay_queue": "queue · DLQ {n}",
     "note": "Dots are a sample of jobs, slowed down (cosmetic).",
     # errors in your code
     "stuck": "a process() call has been running for over {seconds:.0f} s: start the heartbeat as a task, "
