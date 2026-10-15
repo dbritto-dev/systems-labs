@@ -146,11 +146,26 @@ def _card(rows: list[str], width: int, height: int) -> list[str]:
     return (out + [""] * height)[:height]
 
 
-def loading_card(world, step: str, elapsed: float, width: int, height: int, style: Style) -> list[str]:
+def edit_file(world, variant: str = "main") -> str:
+    """The file the window runs, as you would type it: your main.py (in your language), the reference, or the
+    file you gave with --variant."""
+    from core.contract import ROOT, module_path
+
+    if variant == "main" or not world.id:
+        return world.files[0] if world.files else f"labs/{world.id}/main.py"
+    path = module_path(world.id, variant)
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def loading_card(world, step: str, elapsed: float, width: int, height: int, style: Style,
+                 variant: str = "main") -> list[str]:
     """What is happening while the first minute is simulated: each step, ticked off as it is done."""
     p = style.paint
     sc = screen_text()
-    files = world.files[0] if world.files else f"labs/{world.id}/main.py"
+    files = edit_file(world, variant)
     spin = p(spinner(elapsed), BLUE)
     done, todo = p("✔", GREEN), p("·", DIM)
     loaded = step != "starting"
@@ -237,7 +252,7 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
             out += error_card(world, error, W, area, style)
         else:
             step, elapsed = loading or ("starting", 0.0)
-            out += loading_card(world, step, elapsed, W, area, style)
+            out += loading_card(world, step, elapsed, W, area, style, variant)
     else:
         cv = Canvas(L["picture"], body)
         render(world, cv, variant, t)  # the lab's picture (lanes), fed by its adapter
@@ -249,7 +264,7 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
         out.append("")
 
     # The footer: where your code lives, then the keys (or what is going on).
-    files = world.files[0] if world.files else f"labs/{world.id}/main.py"
+    files = edit_file(world, variant)
     out.append(p(" " + sc.EDIT_AND_SAVE.format(file=files), MUTED))
     if error and run is not None:
         out.append(" " + p(sc.ERROR.format(error=error)[: W - 2], RED))

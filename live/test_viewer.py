@@ -23,7 +23,7 @@ class FakeFeed:
 
 @pytest.fixture
 def v(monkeypatch):
-    monkeypatch.setattr(vw, "mtimes", lambda lab: {"main.py": 1.0})
+    monkeypatch.setattr(vw, "mtimes", lambda lab, variant="main": {"main.py": 1.0})
     world = build_world("retry_storm", "reference", 1)
     return vw.Viewer(world, FakeFeed(), "retry_storm", Style("none"))
 
@@ -84,7 +84,7 @@ def test_playing_frames_follow_the_clock(v):
 
 def test_saving_a_file_reruns(v, monkeypatch):
     restarts = v.feed.restarts
-    monkeypatch.setattr(vw, "mtimes", lambda lab: {"main.py": 2.0})
+    monkeypatch.setattr(vw, "mtimes", lambda lab, variant="main": {"main.py": 2.0})
     v.update(10.0)
     assert v.feed.restarts == restarts + 1 and v.reason == "reran"
 
@@ -100,3 +100,10 @@ def test_the_debug_overlay_shows_what_a_frame_costs(v):
     assert " ms · " in text and " fps · " in text  # frame time and frames a second, over the footer
     v.handle("d", 1.1)
     assert v.hud is False
+
+
+def test_the_variant_file_is_watched_too(tmp_path):
+    mine = tmp_path / "my_try.py"
+    mine.write_text("x = 1\n")
+    files = vw.mtimes("retry_storm", str(mine))
+    assert str(mine.resolve()) in files and any(f.endswith("retry_storm/main.py") for f in files)

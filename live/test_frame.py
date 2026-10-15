@@ -31,7 +31,7 @@ def test_nothing_overflows(world, size):
             assert len(lines) <= rows and all(vis(line) <= width for line in lines)
         text = "\n".join(frame(world, t, cols, rows))
         assert "Baseline ok" in text and "Load < 1.5x" in text  # the goals stay on screen
-        assert "Edit labs/retry_storm/main.py" in text
+        assert "Edit labs/retry_storm/reference.py" in text  # the footer names the file the window runs
 
 
 def test_small_terminal_gets_one_line(world):

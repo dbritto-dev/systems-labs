@@ -16,6 +16,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 from core.contract import ROOT
@@ -31,11 +32,13 @@ STATUS_SECONDS = 4.0
 FOREVER = float("inf")
 
 
-def mtimes(lab: str) -> dict[str, float]:
-    """Every file of the lab you might edit, in every language (labs/<lab>/*.py, labs/<lab>/es/*.py)."""
+def mtimes(lab: str, variant: str = "main") -> dict[str, float]:
+    """Every file of the lab you might edit, in every language (labs/<lab>/*.py, labs/<lab>/es/*.py), and
+    the file you gave with --variant, wherever it is."""
     out = {}
     folder = ROOT / "labs" / lab
-    for p in [*folder.glob("*.py"), *folder.glob(f"{lang()}/*.py")]:
+    extra = [Path(variant).resolve()] if variant.endswith(".py") else []
+    for p in [*folder.glob("*.py"), *folder.glob(f"{lang()}/*.py"), *extra]:
         if p.stem.isidentifier():  # not a Finder/iCloud copy like "main 2.py"
             try:
                 out[str(p)] = p.stat().st_mtime
@@ -112,7 +115,7 @@ class Viewer:
     def __post_init__(self) -> None:
         self.sc = screen_text()
         self.views = len(views_for(self.world))
-        self.seen = mtimes(self.lab)
+        self.seen = mtimes(self.lab, self.feed.variant)
         self.toasts.post(self.sc.RUNNING_YOUR_CODE, MUTED)
         self.feed.restart()
 
@@ -154,7 +157,7 @@ class Viewer:
             mode = "simulating"
         if now >= self.next_poll:  # event: you saved a file
             self.next_poll = now + 0.5
-            current = mtimes(self.lab)
+            current = mtimes(self.lab, self.feed.variant)
             if current != self.seen:
                 self.seen = current
                 self.rerun("reran")
