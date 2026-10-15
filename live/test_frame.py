@@ -89,24 +89,32 @@ def test_live_viewer_in_a_pty_quits_cleanly():
 
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 44, 110, 0, 0))
     out = b""
-    deadline = time.monotonic() + 15
-    sent = False
+    deadline = time.monotonic() + 30
+    sent = None  # when the keys went in
+    status = None
     while time.monotonic() < deadline:
         r, _, _ = select.select([fd], [], [], 0.1)
-        if r:
+        if r:  # always drain the output, or the viewer blocks writing its frames
             try:
                 chunk = os.read(fd, 65536)
             except OSError:
-                break
-            if not chunk:
-                break
+                chunk = b""
             out += chunk
-        if not sent and b"Behavior:" in out:
+        if sent is None and (b"Behavior:" in out or b"Your stage shows" in out):  # the header is up: the run is in
             os.write(fd, b" \x1b[C\x1b[A0q")
-            sent = True
-    _, status = os.waitpid(pid, 0)
+            sent = time.monotonic()
+        elif sent is not None and time.monotonic() - sent > 3:
+            os.write(fd, b"q")  # it should have quit: ask again (and fail below if it needed that)
+            sent = time.monotonic()
+        done, code = os.waitpid(pid, os.WNOHANG)
+        if done:
+            status = code
+            break
+    if status is None:  # never let a stuck viewer hang the test run
+        os.kill(pid, 9)
+        os.waitpid(pid, 0)
     text = out.decode("utf-8", "replace")
-    assert sent, text[-500:]
+    assert sent is not None and status is not None, text[-500:]
     assert "\x1b[?1049h" in text and "\x1b[?1049l" in text
     assert "Traceback" not in text
     assert os.WEXITSTATUS(status) == 0

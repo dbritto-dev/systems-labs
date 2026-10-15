@@ -7,6 +7,7 @@ SIMULATING = "simulating"
 LOADING = "loading"
 STOPPED = "stopped"
 BEHAVIOR = "Behavior:"
+STAGE_AT = "Your stage shows at {clock}, once the first incident is judged · ↑ speeds up"
 EDIT_AND_SAVE = "Edit {file} and save: this window reruns it."
 ERROR = "error: {error}"
 MENU = {"pause": "pause/resume", "restart": "restart", "rerun": "rerun", "view": "view", "quit": "quit"}

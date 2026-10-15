@@ -7,6 +7,7 @@ SIMULATING = "simulando"
 LOADING = "cargando"
 STOPPED = "detenido"
 BEHAVIOR = "Ahora:"
+STAGE_AT = "Tu etapa aparece a las {clock}, al evaluar el primer incidente · ↑ acelera"
 EDIT_AND_SAVE = "Edita {file} y guarda: esta ventana lo vuelve a ejecutar."
 ERROR = "error: {error}"
 MENU = {"pause": "pausa/sigue", "restart": "reinicia", "rerun": "repite", "view": "vista", "quit": "sal"}

@@ -235,14 +235,16 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
     else:
         right = p(f"{spinner(loading[1] if loading else 0)} {sc.LOADING}", BLUE)
     out.append(split_row(title, right, W - 1))
-    stage = world.stage(variant) if run else None
+    verdict = world.verdict_at(variant) if run else None
+    stage = world.stage(variant) if run and (verdict is None or t >= verdict) else None  # not before its time
     if stage:
         out.append(p(f" {stage.story}"[:W], MUTED))
         lead = f"{sc.BEHAVIOR} "
         out.append(" " + p(lead, MUTED) + style.bold(p(stage.label, stage.colour))
                    + p(f"   → {stage.next}"[: max(0, W - len(stage.label) - len(lead) - 3)], MUTED))
     else:
-        out += [p(f" {_about(world)[0]}"[:W], MUTED), ""]
+        hint = sc.STAGE_AT.format(clock=clock(verdict)) if run and verdict is not None else ""
+        out += [p(f" {_about(world)[0]}"[:W], MUTED), p(f" {hint}"[:W], MUTED) if hint else ""]
     out.append("")
 
     body = L["body"]
@@ -265,7 +267,8 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
 
     # The footer: where your code lives, then the keys (or what is going on).
     files = edit_file(world, variant)
-    out.append(p(" " + sc.EDIT_AND_SAVE.format(file=files), MUTED))
+    footer = " " + sc.EDIT_AND_SAVE.format(file=files)
+    out.append(p(footer if len(footer) <= W else footer[: W - 1] + "…", MUTED))  # a long path never overflows
     if error and run is not None:
         out.append(" " + p(sc.ERROR.format(error=error)[: W - 2], RED))
     elif run is None:

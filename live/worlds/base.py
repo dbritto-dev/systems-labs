@@ -455,6 +455,14 @@ class World:
         i = self.stage_index(variant)
         return None if i is None else self.stages[i]
 
+    def verdict_at(self, variant: str) -> float | None:
+        """When your stage is known: the last goal of the first incident settles then (None: no incident yet)."""
+        run = self.runs.get(variant)
+        if run is None or not run.incidents:
+            return None
+        first = run.incidents[0]
+        return max((self._settle_time(g, first) for g in self.goals), default=first.t1)
+
     def timeline(self, variant: str) -> list[TimelineEvent]:
         run = self.runs.get(variant)
         return run.timeline if run else []
