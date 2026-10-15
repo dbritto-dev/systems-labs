@@ -28,6 +28,6 @@ Spanish comments and hints.
 | 2 | single-flight loads + jittered TTLs | one load per key after a flush; every goal OK |
 
 Goals, judged per flush: hit ratio ≥ 80% (15 s before), duplicate loads < 5% of
-database reads (first 5 s), p99 read time < 100 ms (reads started in the 10 s after).
+database reads (first 5 s), p99 read time < 200 ms (reads started in the 10 s after).
 
 **Pictures:** `lanes` (the default) and `cluster`: clients → the app, which asks the cache (right) and reads the database (below) on a miss; the cache turns orange while it is empty. Press `v` to switch, or start with `--view cluster`.

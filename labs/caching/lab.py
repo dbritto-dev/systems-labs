@@ -15,7 +15,7 @@ AFTER_WINDOW = 10.0  # reads started this long after a flush are timed
 
 HIT_MIN = 0.80  # hit ratio before the flush
 DUP_MAX = 0.05  # duplicate loads as a share of database reads after the flush
-P99_MAX = 0.100  # seconds
+P99_MAX = 0.200  # seconds: one hot-key build (160 ms) plus a short queue; no single-flight is 0.5-2 s
 
 def stage_of(hit_ok: bool, dup_ok: bool, p99_ok: bool) -> int:
     """Judge the stage from what the first flush did: 0 no cache, 1 cache-aside, 2 stampede-safe."""

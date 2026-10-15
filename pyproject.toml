@@ -24,6 +24,9 @@ module-name = ["core", "labs", "live"]
 testpaths = ["core", "labs", "live"]
 pythonpath = ["."]
 python_files = ["test_*.py"]
+markers = [
+    "slow: long runs (minutes of simulated time per lab); skipped unless LABS_SLOW=1",
+]
 
 [dependency-groups]
 dev = [

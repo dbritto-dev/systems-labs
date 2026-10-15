@@ -21,6 +21,7 @@ uv run python -m live retry_storm --lang es          # abre uno; edita su es/mai
 uv run python -m live caching --lang es --lesson       # el concepto, enlaces y una lista de comprobación
 uv run python -m live caching --lang es --at 90 --size 110x44 --color   # imprime un fotograma
 LABS_LANG=es uv run pytest                           # x = tu código aún no está, X = hecho
+LABS_SLOW=1 uv run pytest labs/test_long_runs.py     # cada solución, 30 minutos con 3 semillas
 LABS_LANG=es LABS_REFERENCE=1 uv run pytest          # comprueba las soluciones de referencia
 LABS_LANG=es LABS_STRICT=1 uv run pytest             # el control del repo: los tests del código inicial siguen estrictos
 ```

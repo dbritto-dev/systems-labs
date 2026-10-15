@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
+
 from core.i18n import strings
 from labs.broadcast import lab
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
+    KEEP, PIECE, Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
 )
 
 OP_START, OP_KIND, OP_NODE, OP_VALUE, OP_END, OP_OK = range(6)
@@ -29,8 +31,28 @@ def _window(inc: Incident) -> tuple[float, float]:
     return inc.t0 - lab.BEFORE[0], inc.t0 - lab.BEFORE[1]
 
 
+def _order(run: Run) -> tuple[list[float], list[int]]:
+    """When each number was sent, and the number, in time order (the pieces come in order)."""
+    return run.data.setdefault("order", ([], []))
+
+
 def _values(run: Run, a: float, b: float) -> list[int]:
-    return [v for v, t in _sent(run).items() if a <= t < b]
+    """The numbers sent in [a, b), oldest first."""
+    times, values = _order(run)
+    return values[bisect_left(times, a):bisect_left(times, b)]
+
+
+def _forget(run: Run) -> None:
+    """Forget numbers sent before anything the goals or the pictures can still look at: the raw rows
+    (KEEP s back) and the 30 s the tiles look behind them, with a minute to spare."""
+    times, values = _order(run)
+    i = bisect_left(times, run.end - KEEP - 2 * PIECE)
+    if i:
+        sent, reach = _sent(run), _reach(run)
+        for v in values[:i]:
+            sent.pop(v, None)
+            reach.pop(v, None)
+        del times[:i], values[:i]
 
 
 def _spread(run: Run, a: float, b: float, upto: float) -> list[float]:
@@ -143,10 +165,14 @@ class BroadcastWorld(World):
 
     def ingest(self, run: Run, tables, piece) -> None:
         sent, reach = _sent(run), _reach(run)
+        times, values = _order(run)
         for t, v in tables["values"]:
             sent[v] = t
+            times.append(t)
+            values.append(v)
         for t, v, ok in tables["done"]:
             reach[v] = (t, ok)
+        _forget(run)
         for m in tables["msgs"]:
             run.add("msgs", m[MSG_SENT])
             run.add("delivered" if m[MSG_ARRIVED] is not None else "dropped", m[MSG_SENT])

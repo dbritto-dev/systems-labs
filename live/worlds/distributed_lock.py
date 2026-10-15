@@ -38,26 +38,35 @@ def landed(run: Run, a: float, b: float) -> list[tuple]:
     return [w for w in run.rows("writes", a - DRAIN, b) if a <= w[W_ARRIVED] < b]
 
 
-def stall(run: Run, a: float, b: float) -> float:
-    """The longest stretch in [a, b] with jobs waiting and none finishing (a job's end after b is unknown yet)."""
+def stall(run: Run, a: float, b: float, skip: int | None = None) -> float:
+    """The longest stretch in [a, b] with jobs waiting and none finishing (a job's end after b is unknown yet).
+
+    Jobs on worker `skip` never count as waiting: the worker an incident froze, killed or cut off
+    cannot finish its own jobs whatever the lock does, and while nobody else waits nothing is stuck.
+    (One of them that does finish still shows the lock moving.)
+    """
     events = []
     for r in run.rows("jobs", a - JOB_DEADLINE - 1, b):
         s, e = r[JOB_START], r[JOB_END]
         if e < a:
             continue
-        events.append((max(s, a), 1, False))
+        counted = r[JOB_WORKER] != skip
+        if counted:
+            events.append((max(s, a), 1, False, True))
         if e <= b:
-            events.append((e, -1, r[JOB_OK]))
+            events.append((e, -1, r[JOB_OK], counted))
     events.sort(key=lambda x: (x[0], -x[1]))
     open_, since, longest = 0, a, 0.0
-    for t, step, ok in events:
+    for t, step, ok, counted in events:
         if step > 0:
             open_ += 1
             if open_ == 1:
                 since = t
             continue
-        if ok:
+        if ok and open_ > 0:
             longest, since = max(longest, t - since), t
+        if not counted:
+            continue
         open_ -= 1
         if open_ == 0:
             if not ok:
@@ -99,7 +108,7 @@ def _stuck(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     if upto <= a:
         return None, "–"
-    v = stall(run, a, min(b, upto))
+    v = stall(run, a, min(b, upto), skip=run.data.get("victims", {}).get(inc.t0))
     return v, f"{v:.1f}s"
 
 
@@ -156,6 +165,7 @@ class DistributedLockWorld(World):
         super().append(variant, piece)
 
     def ingest(self, run: Run, tables, piece) -> None:
+        run.data.setdefault("victims", {}).update(piece.get("victims", {}))  # for the goals, per run
         for r in tables["jobs"]:
             run.add("asked", r[JOB_START])
             run.add("served" if r[JOB_OK] else "failed", r[JOB_END])

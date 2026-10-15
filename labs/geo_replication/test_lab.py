@@ -353,3 +353,18 @@ def test_stage2_first_incident_every_goal():
     world = build_world(LAB, variant(), 1)
     assert statuses(world, variant())[0] == [True] * 5
     assert world.stage_index(variant()) == 2
+
+
+def test_session_tokens_answer_like_a_dict_and_never_grow():
+    tokens = scenario._Tokens(600, 600)
+    size = len(tokens._floats)
+    assert tokens.get((3, "u7"), 0) == 0
+    tokens[(3, "u7")] = 12.5
+    tokens[(3, "u8")] = 0
+    tokens[(4, "u7")] = 7  # another code's integer versions come back as they went in
+    tokens[(5, "x")] = 2.0  # a key the table has no room for
+    assert tokens.get((3, "u7"), 0) == 12.5 and type(tokens.get((3, "u8"), 0)) is int
+    assert tokens.get((4, "u7"), 0) == 7 and type(tokens.get((4, "u7"), 0)) is int
+    assert tokens.get((5, "x"), 0) == 2.0 and tokens.get((599, "u599"), 0) == 0
+    tokens[(4, "u7")] = 9.0
+    assert tokens.get((4, "u7"), 0) == 9.0 and len(tokens._floats) == size

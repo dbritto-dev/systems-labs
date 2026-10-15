@@ -25,6 +25,7 @@ uv run pytest                             # x = your code is not there yet, X = 
 LABS_REFERENCE=1 uv run pytest            # check the reference solutions
 LABS_STRICT=1 uv run pytest               # the repo's own check: starting-code tests stay strict
 LABS_LANG=es uv run pytest                # your Spanish files (es/main.py)
+LABS_SLOW=1 uv run pytest labs/test_long_runs.py   # every reference, 30 minutes on 3 seeds
 ```
 
 More options: `--set name=value` changes a lab parameter (`--set rate=150`),

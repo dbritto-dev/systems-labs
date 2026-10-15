@@ -10,7 +10,8 @@ write spike puts every replica behind. The first one is always replica r2 fallin
 behind at 0:20-0:30.
 
 The checker knows the truth: for every read it records whether the session missed its own
-write (read-your-writes) or saw an older version than it had already seen (monotonic reads).
+write (read-your-writes) or saw an older version than it had already seen (monotonic reads), both
+judged against what was known when the read started.
 """
 
 from __future__ import annotations
@@ -162,6 +163,9 @@ class _Sim:
         start = now()
         self.open[k] = start
         must_see = self.last_write.get(session, 0)  # writes after the read started do not count
+        # Nor do reads that end after this one started: two reads in flight at once are not in
+        # any order, so neither may be judged against what the other saw.
+        seen_before = self.seen.get((session, key), 0)
         try:
             name = self.router.pick(session, key, list(self.snapshot))
             if name not in NAMES_OF:
@@ -181,7 +185,7 @@ class _Sim:
             v = self.version(key, applied)
             own = key == f"u{session}"
             ryw = own and must_see > v
-            mono = v < self.seen.get((session, key), 0)
+            mono = v < seen_before
             self.seen[(session, key)] = max(v, self.seen.get((session, key), 0))
             self.router.saw(session, key, name, v)
             self.reads.append((start, session, node, now(), True, ryw, mono, self.lsn - applied))

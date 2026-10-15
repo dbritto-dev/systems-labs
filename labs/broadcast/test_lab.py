@@ -164,3 +164,16 @@ def test_a_second_picture_shows_what_the_clients_see():
     assert frame.users or frame.flights
     text, colour = frame.state
     assert text and len(text) <= 13
+
+
+def test_the_world_keeps_numbers_in_time_order_and_forgets_old_ones():
+    from live.worlds.base import KEEP, PIECE
+    from live.worlds.broadcast import _order, _sent, _values
+
+    world = build_world("broadcast", "reference", 8)
+    run = world.runs["reference"]
+    times, values = _order(run)
+    assert times == sorted(times) and min(times) >= run.end - KEEP - 2 * PIECE  # the first minute is gone
+    assert set(values) == set(_sent(run))
+    a, b = run.end - 100, run.end - 40
+    assert _values(run, a, b) == [v for v, t in _sent(run).items() if a <= t < b]

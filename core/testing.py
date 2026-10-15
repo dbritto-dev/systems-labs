@@ -12,6 +12,8 @@ import os
 import pytest
 
 REFERENCE = os.environ.get("LABS_REFERENCE", "") not in ("", "0")
+# Long runs (labs/test_long_runs.py): minutes of simulated time per lab, skipped unless LABS_SLOW=1.
+SLOW = os.environ.get("LABS_SLOW", "") not in ("", "0")
 # The repo's own checks: tests about the starting code stay strict even on main.py (see starting_code).
 STRICT = os.environ.get("LABS_STRICT", "") not in ("", "0")
 
@@ -62,3 +64,19 @@ def build_world(lab: str, variant, minutes: int, params: dict | None = None, see
         world.append(variant, piece)
     pieces.close()
     return world
+
+
+def settled_alerts(lab: str, variant: str, minutes: int, seed: int) -> list[str]:
+    """Simulate `minutes` of a run and list every settled goal that is not ok (empty: all ok).
+
+    A module-level function so a process pool can run many of them at once."""
+    world = build_world(lab, variant, minutes, seed=seed)
+    run = world.runs[variant]
+    keys = [g.key or g.rule for g in world.goals]
+    out = []
+    for inc in run.incidents:
+        for key, r in zip(keys, run.settled.get(inc.index, ())):
+            if r is not None and not r.ok:
+                out.append(f"{lab} seed {seed}: #{inc.index + 1} {inc.kind} ({inc.cause}) at {inc.t0:.0f}s, "
+                           f"{key} = {r.value}")
+    return out

@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import random
+from array import array
 from collections.abc import Iterator
 
 from core.contract import load
@@ -169,6 +170,44 @@ class _Net(Network):
             self.nodes[msg.dest]._deliver(msg)
 
 
+class _Tokens:
+    """(user, key) -> the session token: the newest version of that profile the user has written or
+    read (0 if none). Every user reads everybody's profile, so a long run fills in all 600 x 600;
+    as a dict that is ~70 MB, as an array of floats 2.9 MB from the start. A version that is not a
+    float (some other code's counter) is kept as it is, in a dict."""
+
+    __slots__ = ("_n", "_floats", "_other")
+
+    def __init__(self, users: int, keys: int) -> None:
+        self._n = keys
+        self._floats = array("d", [0.0]) * (users * keys)  # 0.0: none
+        self._other: dict = {}
+
+    def _at(self, user: int, key: str) -> int | None:
+        k = int(key[1:]) if key[:1] == "u" and key[1:].isdigit() else -1
+        return user * self._n + k if 0 <= k < self._n and 0 <= user < len(self._floats) // self._n else None
+
+    def get(self, uk: tuple[int, str], default=0):
+        i = self._at(*uk)
+        if i is None or i in self._other:
+            return self._other.get(uk if i is None else i, default)
+        return self._floats[i] or default
+
+    def __setitem__(self, uk: tuple[int, str], value) -> None:
+        i = self._at(*uk)
+        if i is None:
+            self._other[uk] = value
+        elif type(value) is float and value > 0:
+            self._floats[i] = value
+            self._other.pop(i, None)
+        else:
+            self._floats[i] = 0.0
+            if type(value) is int and value == 0:
+                self._other.pop(i, None)  # 0 is what get answers for none
+            else:
+                self._other[i] = value
+
+
 class _Sim:
     def __init__(self, code, seed: int, rate: float) -> None:
         self.code, self.seed, self.rate = code, seed, rate
@@ -187,7 +226,7 @@ class _Sim:
         self.hits: dict[float, int] = {}
         self.busy: set[int] = set()  # users with a request in flight (an app does one at a time)
         self.avoid: dict[tuple[int, int], dict[int, float]] = {}  # (user, read/write) -> {region: until}
-        self.tokens: dict[tuple[int, str], float] = {}  # (user, key) -> the session token
+        self.tokens = _Tokens(3 * USERS, 3 * USERS)  # (user, key) -> the session token
         self.acked: dict[int, int] = {}  # user -> the value of their last acknowledged write
         self.newest: dict[str, int] = {}  # key -> its newest acknowledged value
         self.pending: set[str] = set()  # keys whose newest acknowledged value is not yet in 2 regions
