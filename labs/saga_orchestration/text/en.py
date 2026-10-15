@@ -58,6 +58,12 @@ STRINGS = {
     "fan_payments": "payments",
     "fan_stock": "stock",
     "fan_shipping": "shipping",
+    "fan_payments_short": "pay",
+    "fan_stock_short": "stock",
+    "fan_shipping_short": "ship",
+    "fan_payments_tiny": "pay",
+    "fan_stock_tiny": "stk",
+    "fan_shipping_tiny": "shp",
     # incidents
     "timeouts_start": "{share:.0%} of calls time out: {cause}",
     "timeouts_end": "answers come back in time again",

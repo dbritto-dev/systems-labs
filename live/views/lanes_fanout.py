@@ -33,6 +33,8 @@ class Leaf:
     fill: float = 0.0  # its gauge, 0..1, filling from the left
     gauge: RGB = BLUE
     outline: RGB = OUTLINE
+    short: str = ""  # a shorter name, for when the full one does not fit (written top to bottom) ...
+    tiny: str = ""  # ... and a tinier one still, for the smallest screens
 
 
 @dataclass(slots=True)
@@ -43,7 +45,7 @@ class FanoutFrame(LaneFrame):
     relay: Relay = field(default_factory=Relay)
     leaves: list[Leaf] = field(default_factory=list)
     hops: list[tuple[int, float, RGB, bool]] = field(default_factory=list)  # (leaf, 0..1, colour, back)
-    vertical: bool = False  # write each name top to bottom, right of its server (the servers get wider)
+    vertical: bool = False  # write each name top to bottom in capitals, right of its server (the servers get wider)
 
 
 class FanoutAdapter(Adapter):
@@ -112,11 +114,24 @@ def draw_fanout(cv: Canvas, make) -> None:
     slot_h = (bottom - top) / k
     mids = []
     sx = xm + 10  # where the lines leave the relay
-    for j, leaf in enumerate(fr.leaves):
+    boxes = []  # (top dot, bottom dot) of each small server
+    for j in range(len(fr.leaves)):
         y0 = top + j * slot_h + 1
         y1 = top + (j + 1) * slot_h - 4  # a gap between them
-        if y1 - y0 < 5:  # never thinner than a gauge
-            y1 = y0 + 5
+        boxes.append((y0, max(y1, y0 + 5)))  # never thinner than a gauge
+    rows = []  # the text rows each vertical name may take, a blank row between names
+    for j, (y0, y1) in enumerate(boxes):
+        r0 = max(int(y0 // 4), rows[-1][1] + 2 if rows else 0)
+        r1 = min(h - 2, int(y1 // 4))
+        if j + 1 < len(boxes) and int(boxes[j + 1][0] // 4) <= r1 + 1:
+            r1 -= 1  # the next box starts on the very next row
+        rows.append((r0, r1))
+    # One form for all the names: the longest that fits every one (full, short, tiny), so they match.
+    forms = [[w.upper() for w in (lf.label[0], lf.short, lf.tiny)] for lf in fr.leaves]
+    pick = next((k for k in range(3) if all(f[k] and len(f[k]) <= r1 - r0 + 1 for f, (r0, r1) in zip(forms, rows))),
+                None)
+    for j, leaf in enumerate(fr.leaves):
+        y0, y1 = boxes[j]
         ym = (y0 + y1) / 2
         mids.append(ym)
         steps = max(1, int((lx0 - 2 - sx) / 3))
@@ -125,10 +140,14 @@ def draw_fanout(cv: Canvas, make) -> None:
             cv.dot(sx + (lx0 - 2 - sx) * p, ymid + (ym - ymid) * p, LINE, 0)
         _leaf(cv, lx0, lx1, y0, y1, leaf)
         text, col = leaf.label
-        if fr.vertical:  # one letter a row, centred beside the server, as many as its height allows
-            r0, r1 = int(y0 // 4), min(h - 2, int(y1 // 4))
+        if fr.vertical:  # one letter a row, in capitals, centred beside the server
+            r0, r1 = rows[j]
             room = max(1, r1 - r0 + 1)
-            word = text if len(text) <= room else text[: max(0, room - 1)] + "…"
+            if pick is not None:
+                word = forms[j][pick]
+            else:  # nothing fits everywhere: the shortest form there is, cut
+                last = next((w for w in reversed(forms[j]) if w), "")
+                word = last if len(last) <= room else last[: max(0, room - 1)] + "…"
             top_row = r0 + (room - len(word)) // 2
             for k, ch in enumerate(word):
                 cv.text(top_row + k, lx1 // 2 + 1, ch, col)

@@ -181,3 +181,22 @@ def test_the_fanout_variation_draws_a_relay_and_its_small_servers():
         assert all(name in text for name in ("payments", "stock", "shipping", "orchestrator", "HALF DONE"))
         rows_of = [next(r for r, line in enumerate(lines) if name in line) for name in ("payments", "stock", "shipping")]
         assert rows_of == sorted(rows_of)  # stacked top to bottom, in order
+
+
+def test_fanout_names_read_top_to_bottom_in_one_form_that_fits():
+    from live.canvas import WHITE
+    from live.views.lanes_fanout import FanoutFrame, Leaf, draw_fanout
+
+    leaves = [Leaf(("payments", WHITE), short="pay", tiny="pay"), Leaf(("stock", WHITE), short="stock", tiny="stk"),
+              Leaf(("shipping", WHITE), short="ship", tiny="shp")]
+    fr = FanoutFrame(leaves=leaves, vertical=True)
+
+    def names(rows: int) -> list[str]:
+        cv = Canvas(68, rows)
+        draw_fanout(cv, lambda n: fr)
+        column = [line[-2] for line in cv.plain()[:-1]]  # the column right of the servers
+        return "".join(ch if ch != " " else "|" for ch in column).split("|")
+
+    assert [w for w in names(28) if w] == ["PAYMENTS", "STOCK", "SHIPPING"]  # room: the full names
+    # Little room: the tiny forms, all of them; names never on consecutive rows (they would read as one word).
+    assert [w for w in names(13) if w] == ["PAY", "STK", "SHP"]

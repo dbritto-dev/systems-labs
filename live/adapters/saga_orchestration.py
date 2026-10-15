@@ -177,6 +177,7 @@ class SagaFanout(FanoutAdapter):
             mine = [c for c in in_flight if c[CALL_SVC] == i]
             colour = RED if held >> i & 1 else EXTRA2 if i in hit else OUTLINE
             leaves.append(Leaf(label=(w.s(key), RED if held >> i & 1 else EXTRA2 if i in hit else WHITE),
+                               short=w.s(f"{key}_short"), tiny=w.s(f"{key}_tiny"),
                                fill=len(mine) / (CALLS_MAX / 3),
                                gauge=EXTRA2 if any(c[CALL_UNDO] for c in mine) else BLUE, outline=colour))
         down = w.down_at(variant, t)
