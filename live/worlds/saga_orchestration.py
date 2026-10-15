@@ -117,7 +117,7 @@ GOALS = [
 
 class SagaWorld(World):
     id = "saga_orchestration"
-    view = "cluster"
+    view = "fanout"  # the orchestrator and the three services it calls, each with its own state
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "step"), (EXTRA1, "retry"), (EXTRA2, "undo"),
               (GREEN, "done"), (RED, "orphan"), (LIMIT, "limit", "┄"), (DOWN_KEY, "incident", "█")]

@@ -252,14 +252,15 @@ def test_stage2_first_incident_every_goal():
 
 
 @starting_code
-def test_two_pictures_cluster_first():
+def test_the_cluster_and_lanes_pictures():
     from live.canvas import EXTRA2, RED, plain
     from live.frame import compose
     from live.views import adapter_for, set_view, views_for
 
     def picture(v, t: float):
         world = build_world("saga_orchestration", v, 1)
-        assert views_for(world) == ["cluster", "fanout", "lanes"] and world.view == "cluster"  # cluster opens first
+        assert views_for(world) == ["fanout", "cluster", "lanes"] and world.view == "fanout"  # fan-out opens first
+        set_view(world, "cluster")
         frame = adapter_for(world).frame(v, t)
         assert len(frame.nodes) == 4 and any(src == -1 for src, _, _, _ in frame.flights)
         text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
