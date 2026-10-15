@@ -255,7 +255,7 @@ def test_two_pictures_lanes_first():
 
     def picture(v, at: float):
         world = build_world("cache_invalidation", v, 1)
-        assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+        assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
         lanes = [adapter_for(world).frame(v, at + k / 10, 60) for k in range(50)]
         set_view(world, "cluster")
         frames = [adapter_for(world).frame(v, at + k / 20) for k in range(100)]  # in the campaign
@@ -275,3 +275,21 @@ def test_two_pictures_lanes_first():
     assert any(f[3] == REFUSED for f in world.runs["reference"].rows("fills", 20.0, 25.0))
     assert EXTRA2 in [c for f in leased for _, _, _, c in f.flights]  # refused fills, in orange
     assert RED not in [f.nodes[scenario.APPS] for f in leased]
+
+
+def test_the_relay_picture_shows_stale_fills():
+    from live.canvas import EXTRA2, RED
+    from live.views import adapter_for, set_view
+
+    def relay(v):
+        world = build_world("cache_invalidation", v, 1)
+        set_view(world, "relay")
+        return [adapter_for(world).frame(v, 20.0 + k / 10, 60) for k in range(100)]  # in the campaign
+
+    racy, leased = relay(WRITE_DELETE), relay("reference")
+    assert all(f.relay.label[0] and f.state[0] for f in racy + leased)
+    # A slow fill puts an old price back: it flies red from the database, and the cache is outlined red
+    # while it holds the stale key. With leases the late fill is refused (orange) and nothing is stale.
+    assert RED in [c for f in racy for _, c, _ in f.hops] and RED in [f.relay.outline for f in racy]
+    assert EXTRA2 in [c for f in leased for _, c, _ in f.hops] and RED not in [f.relay.outline for f in leased]
+    assert any(k < 0.5 for f in racy for k, _, _ in f.hops)  # misses and writes fly on to the database

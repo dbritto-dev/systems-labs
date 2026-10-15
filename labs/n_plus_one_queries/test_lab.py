@@ -107,7 +107,7 @@ def test_a_second_picture_shows_every_query():
 
     def queries(v: str) -> int:
         world = build_world("n_plus_one_queries", v, 1)
-        assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+        assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
         set_view(world, "cluster")
         frame = adapter_for(world).frame(v, 10.0)
         assert len(frame.nodes) == 2 and any(src == -1 for src, _, _, _ in frame.flights)
@@ -116,3 +116,23 @@ def test_a_second_picture_shows_every_query():
         return sum(1 for src, dest, _, _ in frame.flights if (src, dest) == (0, 1))
 
     assert queries("main") >= 4 * queries("reference")  # N+1 is a swarm of round trips, a join one each
+
+
+@starting_code
+def test_the_relay_picture_shows_every_query():
+    from live.views import adapter_for, set_view
+
+    def relay(v):
+        world = build_world("n_plus_one_queries", v, 1)
+        set_view(world, "relay")
+        return [adapter_for(world).frame(v, 10.0 + k / 10, 100) for k in range(50)]
+
+    n1, batched, joined = relay("main"), relay(BATCH), relay("reference")
+    assert all(f.flights and f.relay.label[0] and f.state[0] for f in n1)
+    hops = [sum(len(f.hops) for f in fs) for fs in (n1, batched, joined)]
+    # Every query flies from the app to the database: N+1 is a swarm, a batched IN two a page, a JOIN one.
+    assert hops[0] >= 4 * hops[1] and hops[1] > hops[2] > 0
+    world = build_world("n_plus_one_queries", "main", 1)
+    set_view(world, "relay")
+    slow = adapter_for(world).frame("main", 25.0, 100)  # the slow database: N+1 pages pile up in the app
+    assert slow.relay.fill >= 0.5 and adapter_for(world).frame("main", 10.0, 100).relay.fill < 0.5

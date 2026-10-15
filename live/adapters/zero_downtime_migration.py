@@ -1,6 +1,6 @@
 """The pictures for lab zero_downtime_migration: lanes (users → the app fleet as the door → the database,
-its load as the gauge) and cluster (the six app instances, old and new, the migration runner, the primary
-and its replica)."""
+its load as the gauge), cluster (the six app instances, old and new, the migration runner, the primary
+and its replica) and relay (users → the app fleet as a server of its own → the database)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE,
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 RUNNER, PRIMARY, REPLICA = INSTANCES, INSTANCES + 1, INSTANCES + 2  # the bottom row of the grid
 LOAD_MAX = 0.60  # the gauge turns orange above the load a backfill should stop at (main.py's LOAD_MAX)
@@ -169,3 +170,68 @@ class ZeroDowntimeMigrationCluster(ClusterAdapter):
         _, colour = _state(w, run, t, failing_n)
         return ClusterFrame(nodes=nodes, flights=flights, drops=drops, state=(text, colour))
 
+
+
+@adapts("zero_downtime_migration", "relay")
+class ZeroDowntimeMigrationRelay(RelayAdapter):
+    """The lanes picture with the app fleet as a server of its own: users → the door → the six app
+    instances → the database. Requests fly from the users to the door (writes big). The fleet's gauge is
+    the share of instances on the new release; its outline turns orange while old and new instances run
+    side by side, red while requests fail on a column that is gone; the words under it count the
+    instances on each release. On the line to the database every request flies on, coloured by the
+    columns it touches (white the old one, blue the new one, light orange both: a dual write), red when it
+    fails; requests still waiting sit by the database in orange. Purple dots fly while the backfill
+    copies rows. The database is the server on the right, as in the lanes picture (its gauge: the load,
+    its outline purple while the backfill runs)."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.zero_downtime_migration import (
+            REQ_COLS, REQ_END, REQ_ID, REQ_KIND, REQ_OUTCOME, REQ_START, S_BASE, S_NEW, S_OLD, S_RUNNING,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = ZeroDowntimeMigrationLanes(w).frame(variant, t, users)
+        flights, hops = [], []  # the first half of the way: user → door; the second: fleet → database
+        for r in every(run.rows("requests", t - FLY, t + 1e-9), 2 * FLIGHTS):
+            p = (t - r[REQ_START]) / FLY
+            if p < 0.5:
+                flights.append((slot(r[REQ_ID], users), 2 * p, WHITE, r[REQ_KIND] == WRITE))
+            else:
+                failed = r[REQ_OUTCOME] == ERROR
+                hops.append((2 * p - 1, RED if failed else _cols_colour(r[REQ_COLS]), failed))
+        waiting = [r for r in run.active("requests", t, REQ_END) if r[REQ_START] < t - FLY]
+        hops += [(0.9, EXTRA2, False) for _ in every(waiting, FLIGHTS // 2)]
+        x = w.sample_at(run, t)
+        if x is not None and x[S_RUNNING]:
+            hops += [((t * 2.0 + j / 3) % 1.0, PURPLE, True) for j in range(3)]
+
+        old, new = (x[S_OLD], x[S_NEW]) if x else (INSTANCES, 0)
+        base = x[S_BASE] if x else 0
+        failing = lane.closed  # requests failed in the last second
+        mixed = old > 0 and new > 0
+        outline = RED if failing else EXTRA2 if mixed else OUTLINE
+        label = (w.s("relay_fleet", va=base, na=old, vb=base + 1, nb=new), outline)
+        relay = Relay(label=label, fill=new / max(1, old + new), gauge=BLUE, outline=outline)
+        return RelayFrame(
+            users=lane.users, flights=flights, outcomes=lane.outcomes,
+            fill=lane.fill, gauge=lane.gauge, outline=lane.outline, state=_short_state(w, run, t, lane.state),
+            relay=relay, hops=hops,
+        )
+
+
+def _short_state(w, run, t: float, state):
+    """The words under the database, short enough to sit beside the fleet's: the column traffic uses, or
+    how far the copy is while both exist (the lanes picture says both at once)."""
+    from live.worlds.zero_downtime_migration import S_COPIED
+
+    text, colour = state
+    if colour == RED:  # requests are failing: the lanes words already say how many
+        return text, colour
+    x = w.sample_at(run, t)
+    old, new, bits = w.columns(run, t)
+    if bits & HAS_OLD and bits & HAS_NEW:
+        return w.s("relay_copied", pct=100 * (x[S_COPIED] if x else 0) / max(1, w.rows_n)), colour
+    return (new if bits & HAS_NEW else old), colour

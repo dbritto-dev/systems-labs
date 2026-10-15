@@ -1,5 +1,6 @@
 """The pictures for lab cache_invalidation: lanes (users -> the cache as the door -> the database as the
-server) and cluster (users -> three app servers -> one cache and one database)."""
+server), cluster (users -> three app servers -> one cache and one database) and relay (users -> the
+cache as a server of its own -> the database)."""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 
 def _state(w, run, variant: str, t: float):
@@ -127,3 +129,67 @@ class CacheInvalidationCluster(ClusterAdapter):
         cache = RED if stale else EXTRA2 if down else BLUE
         return ClusterFrame(nodes=apps + [cache, _db_colour(reads)], flights=flights,
                             state=(w.s("pic_state", state=state[0]), state[1]))
+
+
+@adapts("cache_invalidation", "relay")
+class CacheInvalidationRelay(RelayAdapter):
+    """The lanes picture with the cache as a server of its own: users -> the door -> the cache -> the
+    database. Reads fly from the users to the door (white a hit, orange a miss) and writes in blue. The
+    cache's gauge is its hit ratio over the last second; its outline (and the words under it) turn red
+    while it holds stale keys, orange while it restarts. On the line between the cache and the database:
+    misses fly on to the database in orange and writes in blue; fills fly back to the cache, white when
+    the record is current, red and big when it is already older than the database's (a stale fill: it
+    puts an old price back), orange when the cache refuses it (a lease a delete made invalid). The
+    database's gauge is its reads per second, as in the lanes picture."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.cache_invalidation import F_RESULT, F_T, R_END, R_MISSED
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = CacheInvalidationLanes(w).frame(variant, t, users)
+        half = FLY / 2
+        flights, hops = [], []  # the first half of the way: user -> door; the second: cache -> database
+        for i, k, colour, big in lane.flights:
+            if k < 0.5:
+                flights.append((i, 2 * k, colour, big))
+            elif colour != WHITE:  # a miss (orange) or a write (blue) goes on to the database; a hit stops
+                hops.append((2 * k - 1, colour, big))
+        fills = run.rows("fills", t - half, t + 1e-9)
+        rare = [f for f in fills if f[F_RESULT] != 0]
+        shown = every(rare, 4) + every([f for f in fills if f[F_RESULT] == 0], 4 - min(4, len(rare)))
+        for f in shown:  # back from the database into the cache
+            colour = RED if f[F_RESULT] == FILLED_STALE else EXTRA2 if f[F_RESULT] == REFUSED else WHITE
+            hops.append((1 - (t - f[F_T]) / half, colour, f[F_RESULT] == FILLED_STALE))
+
+        span = run.max_dur.get("reads", 0.0)
+        ended = [r for r in run.rows("reads", t - 1.0 - span, t + 1e-9) if t - 1.0 <= r[R_END] <= t]
+        hits = sum(not r[R_MISSED] for r in ended) / len(ended) if ended else 0.0
+        _, stale, down, _ = _state(w, run, variant, t)
+        if stale:
+            label, outline, gauge = (w.s("relay_stale", n=stale), RED), RED, RED
+        elif down:
+            label, outline, gauge = (w.s("relay_down"), EXTRA2), EXTRA2, EXTRA2
+        else:
+            gauge = BLUE if hits >= lab.HIT_MIN else EXTRA2
+            label, outline = (w.s("relay_cache", hits=hits), OUTLINE), OUTLINE
+        return RelayFrame(
+            users=lane.users, flights=flights, outcomes=lane.outcomes,
+            fill=lane.fill, gauge=lane.gauge, outline=lane.outline, state=_db_words(w, variant, t, down),
+            relay=Relay(label=label, fill=hits, gauge=gauge, outline=outline), hops=hops,
+        )
+
+
+def _db_words(w, variant: str, t: float, down: bool):
+    """The words under the database in the relay picture: what the system goes through, short enough to
+    fit beside the cache's own words (which say whether it holds stale keys)."""
+    inc = w.incident_at(variant, t)
+    if down:
+        return w.s("state_down"), EXTRA2
+    if inc is not None and inc.kind == "slow":
+        return w.s("state_slow"), EXTRA2
+    if inc is not None and inc.kind in ("campaign", "import"):
+        return w.s("relay_writes"), EXTRA2
+    return w.screen.STATES["healthy"], GREEN

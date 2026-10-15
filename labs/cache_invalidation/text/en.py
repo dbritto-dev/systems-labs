@@ -85,6 +85,11 @@ STRINGS = {
     "state_slow": "SLOW NETWORK",
     "state_writes": "MANY WRITES",
     "pic_state": "3 app servers, cache, DB: {state}",
+    # the relay picture: the words under the cache
+    "relay_cache": "cache {hits:.0%} hits",
+    "relay_stale": "stale keys: {n}",
+    "relay_down": "cache down",
+    "relay_writes": "MANY WRITES",
     "note": "Dots are a sample of reads and writes, slowed down (cosmetic).",
     "subtitle": "per second, last 1 s",
     "title": "Reads, writes",

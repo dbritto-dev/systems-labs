@@ -89,6 +89,9 @@ STRINGS = {
     "state_failing": "{n} FAILED/s",
     "cluster_state": "v{va}: {na} · v{vb}: {nb} · lag {lag:.1f}s",
     "cluster_copied": " · copied {pct:.0f}%",
+    # the relay picture: the instances on each release, under the fleet
+    "relay_fleet": "v{va}:{na} v{vb}:{nb}",
+    "relay_copied": "{pct:.0f}% COPIED",
     # the panel
     "tile_errors": "Errors",
     "tile_p99": "p99",

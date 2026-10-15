@@ -85,6 +85,11 @@ STRINGS = {
     "state_slow": "RED LENTA",
     "state_writes": "MUCHAS ESCRITURAS",
     "pic_state": "3 servidores, caché, BD: {state}",
+    # el dibujo de relevo: las palabras bajo la caché
+    "relay_cache": "caché {hits:.0%} acierto",
+    "relay_stale": "claves viejas: {n}",
+    "relay_down": "caché caída",
+    "relay_writes": "ESCRITURAS",
     "note": "Los puntos son una muestra de lecturas y escrituras, más lentas (estético).",
     "subtitle": "por segundo, último 1 s",
     "title": "Lecturas, escrituras",
