@@ -233,7 +233,8 @@ live/   canvas.py (Braille + color)  screen.py (terminal)  runner.py (procesos h
         frame.py (cabecera, gráfica, pie)  panel.py (panel)  text/ (las palabras de la pantalla)
         views/ (View, Adapter: lanes, cluster, y las variaciones de carriles relay, fanout)
         adapters/ (un módulo por laboratorio)
-        worlds/ (un World por laboratorio)  __main__.py
+        worlds/ (un World por laboratorio)  viewer.py (el bucle: estados, comandos de teclas, avisos,
+        redibujar solo si cambia)  __main__.py  views/parts.py (las piezas de los dibujos)
 ```
 
 ## Añadir un laboratorio

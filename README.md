@@ -227,7 +227,8 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
         frame.py (header, chart, footer)  panel.py (dashboard)  text/ (the screen's words)
         views/ (View, Adapter: lanes, cluster, and the lanes variations relay, fanout)
         adapters/ (one module per lab)
-        worlds/ (one World per lab)  __main__.py
+        worlds/ (one World per lab)  viewer.py (the loop: play states, key commands, toasts,
+        redraw only on change)  __main__.py  views/parts.py (the parts pictures are built from)
 ```
 
 ## Adding a lab

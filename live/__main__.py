@@ -11,20 +11,17 @@ import argparse
 import os
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
-from core.contract import ROOT, discover, lesson_of, parse_params
-from core.i18n import LANGS, lang, screen_text, set_lang
-from live.canvas import BLUE, EXTRA2, MUTED, RED, Style
-from live.frame import compose, spinner
+from core.contract import discover, lesson_of, parse_params
+from core.i18n import LANGS, screen_text, set_lang
+from live.canvas import Style
+from live.frame import compose
 from live.runner import Feed
-from live.views import next_view, set_view, views_for
+from live.views import set_view, views_for
+from live.viewer import Viewer
 from live.worlds import make_world
 
-SPEEDS = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
-SEEK = 5.0
-STATUS_SECONDS = 4.0
 
 
 def list_labs() -> int:
@@ -90,102 +87,20 @@ def one_frame(world, feed: Feed, lab: str, args) -> int:
     return 1 if feed.error else 0
 
 
-def mtimes(lab: str) -> dict[str, float]:
-    """Every file of the lab you might edit, in every language (labs/<lab>/*.py, labs/<lab>/es/*.py)."""
-    out = {}
-    folder = ROOT / "labs" / lab
-    for p in [*folder.glob("*.py"), *folder.glob(f"{lang()}/*.py")]:
-        if p.stem.isidentifier():  # not a Finder/iCloud copy like "main 2.py"
-            try:
-                out[str(p)] = p.stat().st_mtime
-            except OSError:
-                pass
-    return out
-
-
 def watch(world, feed: Feed, lab: str, args) -> int:
+    """The game loop: update and draw a frame (only when it changed), then read keys for up to 50 ms."""
     from live.screen import Terminal
 
-    sc = screen_text()
-    style = Style(colour_mode(args.color))
-    t, speed_i, paused = 0.0, SPEEDS.index(1.0), False
-    status: tuple[str, tuple] | None = (sc.RUNNING_YOUR_CODE, MUTED)
-    status_until = float("inf")
-    reason = ""
-    seen = mtimes(lab)
-    next_poll = 0.0
-    views = len(views_for(world))
-    feed.restart()
-    last = time.monotonic()
+    viewer = Viewer(world, feed, lab, Style(colour_mode(args.color)))
     with Terminal() as term:
         while True:
             now = time.monotonic()
-            dt, last = now - last, now
-            feed.tick(t)
-            if feed.restarted:
-                feed.restarted = False
-                t = 0.0
-                if reason:
-                    status = (sc.RERAN_AT.format(reason=sc.REASONS[reason], clock=f"{datetime.now():%H:%M:%S}"),
-                              BLUE)
-                else:
-                    status = None
-                status_until = now + STATUS_SECONDS
-            if feed.error:
-                status, status_until = (sc.ERROR.format(error=feed.error), RED), float("inf")
-            run = world.runs.get(feed.variant)
-            mode = "play"
-            if run is not None and not paused:
-                t += dt * SPEEDS[speed_i]
-                if t >= run.end - 0.05:
-                    t = max(0.0, run.end - 0.05)
-                    mode = "simulating"
-            if paused:
-                mode = "paused"
-            elif run is None:
-                mode = "simulating"
-            if status and now > status_until:
-                status = None
-            if now >= next_poll:
-                next_poll = now + 0.5
-                current = mtimes(lab)
-                if current != seen:
-                    seen = current
-                    reason = "reran"
-                    feed.restart()
-                    status, status_until = (sc.RUNNING_YOUR_CODE, EXTRA2), float("inf")
-            cols, rows = term.size()
-            loading = feed.loading
-            shown = status
-            if loading and run is not None and not feed.error:  # a rerun: the old picture stays meanwhile
-                step, waited = loading
-                what = sc.LOADING_YOUR_CODE if step == "starting" else sc.SIMULATING_FIRST_MINUTE
-                shown = (f"{spinner(waited)} {what}… {waited:.1f}s", EXTRA2)
-            lines = compose(world, feed.variant, t, cols, rows, style=style, mode=mode, speed=SPEEDS[speed_i],
-                            status=shown, error=feed.error, loading=loading, views=views)
-            term.show(lines)
+            lines = viewer.frame(now, *term.size())
+            if lines is not None:
+                term.show(lines)
             for key in term.keys(0.05):
-                match key:
-                    case "q" | "esc" | "ctrl-c":
-                        return 0
-                    case "space":
-                        paused = not paused
-                    case "v" if views > 1:
-                        name = next_view(world)
-                        status, status_until = (sc.VIEW.format(name=sc.VIEWS.get(name, name)), BLUE), now + 2
-                    case "0" if run is not None and run.earliest == 0:
-                        t = 0.0
-                    case "0" | "r":
-                        reason = "reran" if key == "r" else "restarted"
-                        feed.restart()
-                        status, status_until = (sc.RUNNING_YOUR_CODE, EXTRA2), float("inf")
-                    case "left" | "right" if run is not None:
-                        step = SEEK if key == "right" else -SEEK
-                        t = min(max(run.earliest, t + step), max(0.0, run.end - 0.05))
-                    case "up":
-                        speed_i = min(len(SPEEDS) - 1, speed_i + 1)
-                    case "down":
-                        speed_i = max(0, speed_i - 1)
+                if not viewer.handle(key, time.monotonic()):
+                    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
