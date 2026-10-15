@@ -212,3 +212,15 @@ def test_a_new_picture_is_just_a_list_of_parts():
                     Server(st.server_x, fill=0.5), Caption("DOWN", RED, st.server_x)])
     lines = cv.plain()
     assert lines[0].startswith(" ●") and "DOWN" in lines[-1] and all(len(line) <= 60 for line in lines)
+
+
+def test_moving_dots_ease_out_and_leave_a_trail():
+    from live.canvas import WHITE
+    from live.views.parts import ease, moving_dot
+
+    assert ease(0.0) == 0.0 and ease(1.0) == 1.0 and ease(0.5) > 0.5  # ahead of linear: it slows as it lands
+    assert all(ease(a) < ease(b) for a, b in zip([i / 10 for i in range(10)], [i / 10 for i in range(1, 11)]))
+    cv = Canvas(30, 3)
+    moving_dot(cv, lambda e: (2 + 50 * e, 6), 0.5, WHITE, 1)
+    lit = [c for c in range(30) if cv.plain()[1][c] != " "]
+    assert len(lit) >= 2  # the dot and its trail behind it

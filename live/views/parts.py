@@ -25,6 +25,27 @@ OUTLINE: RGB = (130, 140, 155)  # a server's case
 LABEL_COLS = 10  # room for a small server's name, right of it
 
 
+TRAIL = (0.035, 0.07)  # how far behind (in 0..1 of the way) the two dots of a moving dot's trail sit
+TRAIL_FADE = (0.55, 0.78)  # and how faded they are
+
+
+def ease(k: float) -> float:
+    """Where a dot is drawn for 0..1 of its way: it eases out as it arrives (half linear, half a quadratic
+    ease-out), so a dot slows a little before it lands instead of stopping dead. 0 and 1 stay put."""
+    k = max(0.0, min(1.0, k))
+    return 0.5 * k + 0.5 * (1 - (1 - k) ** 2)
+
+
+def moving_dot(cv: Canvas, at, k: float, col: RGB, radius: int) -> None:
+    """A dot on its way (`at(k)` gives its (x, y) for 0..1), eased, with a short fading trail behind it."""
+    for lag, fade in zip(TRAIL, TRAIL_FADE):
+        if k - lag > 0:
+            x, y = at(ease(k - lag))
+            cv.blob(x, y, mix(col, BG, fade), 3, 1)
+    x, y = at(ease(k))
+    cv.blob(x, y, col, 6, radius)
+
+
 @dataclass(slots=True)
 class Stage:
     """The canvas and the geometry every part of a lanes-family picture shares."""
@@ -108,9 +129,11 @@ class Flights:
     def draw(self, st: Stage) -> None:
         for i, k, col, big in self.flights:
             y0 = (st.body0 + i // GRID_COLS) * 4 + 2
-            x = st.gx + (self.door - 3 - st.gx) * k
-            y = y0 + (st.ymid - y0) * min(1.0, k / 0.2)
-            st.cv.blob(x, y, col, 6, 2 if big else 1)
+
+            def at(e: float, y0: float = y0) -> tuple[float, float]:
+                return st.gx + (self.door - 3 - st.gx) * e, y0 + (st.ymid - y0) * min(1.0, e / 0.2)
+
+            moving_dot(st.cv, at, k, col, 2 if big else 1)
 
 
 @dataclass(slots=True)
@@ -135,7 +158,7 @@ class Hops:
 
     def draw(self, st: Stage) -> None:
         for k, col, big in self.hops:
-            st.cv.blob(self.x0 + (self.x1 - self.x0) * k, st.ymid, col, 6, 2 if big else 1)
+            moving_dot(st.cv, lambda e: (self.x0 + (self.x1 - self.x0) * e, st.ymid), k, col, 2 if big else 1)
 
 
 def draw_server(cv: Canvas, xc: float, y0: float, y1: float, rgb: RGB, fill: float, fill_rgb: RGB) -> None:
@@ -287,8 +310,12 @@ class FanHops:
         mids, sx, x0 = self.leaves.mids, self.leaves.sx, self.leaves.x0
         for j, p, col, back in self.hops:
             if 0 <= j < len(mids):
-                p = 1 - p if back else p
-                st.cv.blob(sx + (x0 - 3 - sx) * p, st.ymid + (mids[j] - st.ymid) * p, col, 6, 1)
+                ym = mids[j]
+                if back:  # on its way back: the same easing and trail, from the small server to the relay
+                    moving_dot(st.cv, lambda e, ym=ym: (sx + (x0 - 3 - sx) * (1 - e), st.ymid + (ym - st.ymid) * (1 - e)),
+                               p, col, 1)
+                else:
+                    moving_dot(st.cv, lambda e, ym=ym: (sx + (x0 - 3 - sx) * e, st.ymid + (ym - st.ymid) * e), p, col, 1)
 
 
 def draw_parts(st: Stage, parts: list) -> None:
