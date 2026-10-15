@@ -1,5 +1,6 @@
 """The pictures for lab n_plus_one_queries: lanes (pages are the users, the door is the connection pool,
-the server is the database) and cluster (clients -> the app -> the database, every query a dot)."""
+the server is the database), cluster (clients -> the app -> the database, every query a dot) and relay
+(users -> the app as a server of its own -> the database, every query a dot on the second line)."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from live.canvas import BLUE, EXTRA, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 
 def _cost(queries: int) -> tuple[int, int, int]:
@@ -103,3 +105,50 @@ class NPlusOneCluster(ClusterAdapter):
             db, state = BLUE, (words["healthy"], GREEN)
         return ClusterFrame(nodes=[BLUE, db], flights=flights, drops=drops,
                             state=(w.s("pic_state", state=state[0], qpp=qpp), state[1]))
+
+
+PAGES_MAX = 40  # pages in progress at once that fill the app's gauge (a calm minute has 1 to 3)
+
+
+@adapts("n_plus_one_queries", "relay")
+class NPlusOneRelay(RelayAdapter):
+    """The lanes picture with the app as a server of its own: users -> the door -> the app -> the
+    database. Page requests fly from the users to the door (white). The app's gauge is the pages it has
+    in progress (blue, then orange, then red as they pile up waiting on the database); the words under
+    it say how many queries a page needs. Every query of a sampled page flies from the app to the
+    database, coloured like in the lanes picture (white the list, orange one customer, light orange a
+    batch, blue a join): N+1 is a swarm, a batched IN two dots a page, a JOIN one. Queries waiting for
+    a free connection sit just before the database. The database is the server on the right, as in the
+    lanes picture (its gauge: the connections busy)."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.n_plus_one_queries import (
+            KIND_COLOUR, PAGE_END, PAGE_ID, PAGE_QUERIES, PAGE_START, Q_KIND, Q_QUEUED, Q_START,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = NPlusOneLanes(w).frame(variant, t, users)
+        flights = [(slot(p[PAGE_ID], users), (t - p[PAGE_START]) / FLY, WHITE, False)
+                   for p in every(run.rows("pages", t - FLY, t + 1e-9), FLIGHTS)]
+        hops = []
+        for q in every(run.rows("queries", t - FLY, t + 1e-9), QUERY_DOTS):
+            k = (t - q[Q_QUEUED]) / FLY
+            if q[Q_START] > t:  # no free connection yet: it waits before the database
+                k = min(k, 0.85)
+            hops.append((k, KIND_COLOUR[q[Q_KIND]], False))
+
+        pages = len(run.active("pages", t, PAGE_END))
+        fill = pages / PAGES_MAX
+        gauge = RED if fill >= 1 else EXTRA2 if fill >= 0.5 else BLUE
+        span = run.max_dur.get("pages", 0.0)
+        recent = [p for p in run.rows("pages", t - 5 - span, t + 1e-9) if t - 5 <= p[PAGE_END] <= t]
+        qpp = sum(p[PAGE_QUERIES] for p in recent) / len(recent) if recent else 0.0
+        label = (w.s("relay_app", qpp=qpp), EXTRA2 if qpp > lab.QUERIES_MAX else OUTLINE)
+        relay = Relay(label=label, fill=fill, gauge=gauge, outline=gauge if fill >= 0.5 else OUTLINE)
+        return RelayFrame(
+            users=lane.users, flights=flights, outcomes=lane.outcomes,
+            fill=lane.fill, gauge=lane.gauge, outline=lane.outline, state=lane.state, relay=relay, hops=hops,
+        )

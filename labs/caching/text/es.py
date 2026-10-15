@@ -43,6 +43,9 @@ STRINGS = {
     # el dibujo de clúster: clientes -> app -> caché (derecha) y base de datos (abajo)
     "pic_state": "app · caché · base de datos: {state}",
     "pic_empty": "app · caché VACÍA · base de datos: {state}",
+    # el dibujo de relevo: la caché entre la puerta y la base de datos, su acierto en el último segundo
+    "relay_cache": "caché {hits:.0%} acierto",
+    "relay_flushed": "vaciada {hits:.0%} acierto",
     # incidentes
     "flushed": "está vacía: {cause}",
     "warn_db": "lecturas de la base de datos {ratio:.1f}x lo normal",

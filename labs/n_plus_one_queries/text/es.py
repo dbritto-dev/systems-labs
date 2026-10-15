@@ -70,6 +70,8 @@ STRINGS = {
     "note": "Puntos: consultas de 1 de cada 4 páginas (velocidad estética).",
     # el dibujo de clúster: la topología bajo la cuadrícula
     "pic_state": "app → BD · {qpp:.1f} consultas/página: {state}",
+    # el dibujo de relevo: las palabras bajo la app
+    "relay_app": "app {qpp:.1f} cons/pág",
     # errores en tu código
     "stuck": "una página lleva más de {seconds:.0f} s cargando: ¿load_page espera sin fin?",
 }

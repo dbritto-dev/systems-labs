@@ -43,6 +43,9 @@ STRINGS = {
     # the cluster picture: clients -> app -> cache (right) and database (below)
     "pic_state": "app · cache · database: {state}",
     "pic_empty": "app · cache EMPTY · database: {state}",
+    # the relay picture: the cache between the door and the database, its hit ratio in the last second
+    "relay_cache": "cache {hits:.0%} hits",
+    "relay_flushed": "flushed {hits:.0%} hits",
     # incidents
     "flushed": "is empty: {cause}",
     "warn_db": "database reads {ratio:.1f}x normal",

@@ -156,13 +156,34 @@ def test_both_pictures_show_the_migration():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("zero_downtime_migration", "main", 1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
     lane = adapter_for(world).frame("main", 21.0, 100)
     assert lane.closed and any(colour == RED for colour, _ in lane.outcomes)  # old instances fail
     set_view(world, "cluster")
     frame = adapter_for(world).frame("main", 21.0)
     assert len(frame.nodes) == scenario.INSTANCES + 3 and frame.flights and frame.drops
     assert RED in frame.nodes[:scenario.INSTANCES]
+
+
+@starting_code
+def test_the_relay_picture_shows_the_fleet_and_the_backfill():
+    from live.canvas import EXTRA2, PURPLE, RED
+    from live.views import adapter_for, set_view
+
+    def relay(v):
+        world = build_world("zero_downtime_migration", v, 1)
+        set_view(world, "relay")
+        return [adapter_for(world).frame(v, 20.0 + k / 4, 100) for k in range(160)]  # the first window
+
+    given, solved = relay("main"), relay("reference")
+    assert all(f.relay.label[0] and f.state[0] for f in given + solved)
+    assert given[0].relay.fill == 0 and solved[-1].relay.fill == 1  # the share of the fleet on the new release
+    # The given migration renames the column under the old release: requests fail on the way to the
+    # database (red) and the fleet is outlined red. The reference mixes old and new instances safely
+    # (orange) while its backfill copies fly purple.
+    assert RED in [c for f in given for _, c, _ in f.hops] and RED in [f.relay.outline for f in given]
+    assert RED not in [c for f in solved for _, c, _ in f.hops] and RED not in [f.relay.outline for f in solved]
+    assert PURPLE in [c for f in solved for _, c, _ in f.hops] and EXTRA2 in [f.relay.outline for f in solved]
 
 
 # ------------------------------------------------------------- your code

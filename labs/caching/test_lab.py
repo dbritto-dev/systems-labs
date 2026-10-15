@@ -145,8 +145,39 @@ def test_a_second_picture_shows_the_topology():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("caching", "reference", 1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"
     set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 25.0)  # in the first incident
     assert len(frame.nodes) >= 2 and frame.flights and frame.state[0]
     assert any(src == -1 for src, _, _, _ in frame.flights)  # requests come from the clients
+
+
+def test_the_relay_picture_shows_the_stampede():
+    from live.canvas import EXTRA2, EXTRA3
+    from live.views import adapter_for, set_view
+
+    def relay(v, times):
+        world = build_world("caching", v, 1)
+        set_view(world, "relay")
+        return [adapter_for(world).frame(v, t, 100) for t in times]
+
+    calm = relay("reference", [15.0])[0]
+    assert calm.relay.fill >= 0.8 and calm.relay.label[0] and calm.state[0]  # a warm cache: its hit ratio
+    after = [20.0 + k / 20 for k in range(40)]  # the first two seconds after the flush at 0:20
+    swarm, single = relay(CACHE_ASIDE, after), relay("reference", after)
+    assert all(f.relay.outline == EXTRA2 for f in swarm + single)  # the cache was just emptied
+    # Without single-flight every miss of a hot key is its own database read: duplicate loads swarm the
+    # line to the database; with it, one read per key and no duplicates.
+    dups = sum(c == EXTRA3 for f in swarm for _, c, _ in f.hops)
+    assert dups > 100 and not any(c == EXTRA3 for f in single for _, c, _ in f.hops)
+    assert sum(len(f.hops) for f in swarm) > 1.5 * sum(len(f.hops) for f in single)
+
+
+@starting_code
+def test_the_relay_picture_without_a_cache():
+    from live.views import adapter_for, set_view
+
+    world = build_world("caching", "main", 1)
+    set_view(world, "relay")
+    frame = adapter_for(world).frame("main", 15.0, 100)
+    assert frame.relay.fill == 0 and len(frame.hops) >= 10  # no hits: every read goes on to the database
