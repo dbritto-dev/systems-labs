@@ -144,6 +144,16 @@ class _Sim:
                 verdict = STALE
         return rid, start, end, app, key, missed, verdict, verdict == FRESH
 
+    def forget(self, before: float) -> None:
+        """Every read still to be judged starts after `before`, and the cache and the checker only ask
+        about now: forget the acks and commit times older than that (keeping the last one before it,
+        which is what a read starting just after `before` is judged against)."""
+        self.db.forget(before)
+        for times, newest in self.acks.values():
+            i = bisect_right(times, before) - 1
+            if i > 0:
+                del times[:i], newest[:i]
+
     # ---- writers
 
     async def writer(self, rate: float, until: float, source: int, keys) -> None:
@@ -268,6 +278,7 @@ def stream(variant="main", seed: int = 1, rate: float = 300.0) -> Iterator[dict]
             if any(t < b + DRAIN - STUCK for t in s.open.values()):
                 raise RuntimeError(lab_text(LAB).STRINGS["stuck"].format(seconds=STUCK))
             s.reads.extend(s.judge(r) for r in s.take(s.raw, 1, a, b))
+            s.forget(a)
             yield {
                 "lab": LAB,
                 "start": a,

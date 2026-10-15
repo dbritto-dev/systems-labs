@@ -33,7 +33,7 @@ STAGES = [
 GOALS = {
     "hits": GoalText("Hit ratio ≥ 80%", "add cache-aside with a TTL"),
     "dups": GoalText("Dup loads < 5%", "single-flight loads in get()"),
-    "p99": GoalText("p99 < 100ms", "load each key once"),
+    "p99": GoalText("p99 < 200ms", "load each key once"),
 }
 
 LEGEND = {"idle": "idle", "hit": "hit", "shared": "waits on a load", "first": "first load",

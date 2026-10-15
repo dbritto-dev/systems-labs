@@ -42,7 +42,7 @@ GOALS = {
     "limited": GoalText("Flood limited ≥ 50%", "limit each client per second"),
     "peak": GoalText("Peak ≤ 1.6x", "use a token bucket"),
     "others": GoalText("Others served ≥ 99%", "cap clients at a fair share"),
-    "served": GoalText("Served ≥ 99%", "stop limiting once calm"),
+    "served": GoalText("Served ≥ 97%", "stop limiting once calm"),
 }
 
 LEGEND = {"idle": "idle", "normal": "normal", "flooding": "flooding", "limited": "limited",

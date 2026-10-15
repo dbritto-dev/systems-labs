@@ -51,16 +51,33 @@ def _waits(run: Run, inc: Incident, upto: float) -> dict[int, list[float]]:
     return rounds
 
 
+def _failed_by_round(run: Run, inc: Incident, upto: float) -> dict[int, int]:
+    """Failed calls during the incident, by attempt (0 = the first try)."""
+    failed: dict[int, int] = {}
+    for c in run.rows("calls", inc.t0, min(inc.t1, upto)):
+        if not c[CALL_OK]:
+            failed[c[CALL_ATTEMPT]] = failed.get(c[CALL_ATTEMPT], 0) + 1
+    return failed
+
+
 def _backoff(run: Run, inc: Incident, upto: float):
     """How much the average wait grows from one retry round to the next.
 
     Retrying straight away or 50 ms apart: about 1x (or no wait at all). Exponential backoff,
     with or without jitter, doubles it: about 2x.
+
+    A round is only compared with the next when most of its failed retries went on to the next
+    one. While a retry budget is empty only the odd retry that finds a token gets through: those
+    few waits say nothing about the backoff (a handful of random full-jitter waits can average
+    below the previous round's), and nothing piles up in waves either, so the round is skipped.
     """
     rounds = _waits(run, inc, upto)
+    failed = _failed_by_round(run, inc, upto)
     growth = []
     for k in sorted(rounds):
         now, then = rounds[k], rounds.get(k + 1, [])
+        if len(then) < lab.BACKOFF_FOLLOW * failed.get(k, 0):
+            continue  # the budget held this round's retries back
         if len(now) >= lab.BACKOFF_SAMPLES and len(then) >= lab.BACKOFF_SAMPLES:
             a, b = sum(now) / len(now), sum(then) / len(then)
             growth.append(b / a if a > 0.001 else 1.0)  # no wait at all: nothing grows

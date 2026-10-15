@@ -42,7 +42,7 @@ GOALS = {
     "limited": GoalText("Limitada ≥ 50%", "limita cada cliente por seg."),
     "peak": GoalText("Pico ≤ 1.6x", "usa un token bucket"),
     "others": GoalText("Resto servido ≥ 99%", "da a cada uno su parte justa"),
-    "served": GoalText("Servidas ≥ 99%", "deja de limitar en calma"),
+    "served": GoalText("Servidas ≥ 97%", "deja de limitar en calma"),
 }
 
 LEGEND = {"idle": "en reposo", "normal": "normal", "flooding": "en avalancha", "limited": "limitada",

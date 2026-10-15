@@ -17,6 +17,7 @@ BASELINE_MIN = 0.99  # served ratio before the outage
 RETRIES_MIN = 0.03  # retries as a share of calls during the outage
 BACKOFF_MIN = 1.5  # the average wait grows at least this much from one retry round to the next
 BACKOFF_SAMPLES = 3  # retries needed in a round to compare it with the next
+BACKOFF_FOLLOW = 0.5  # share of a round's failed retries that must retry again to compare the rounds
 JITTER_MIN = 0.25  # spread of the wait before the same retry round, across users (stdev / mean)
 JITTER_SAMPLES = 5  # retries needed to judge the spread
 LOAD_MAX = 1.5  # calls during the outage vs the baseline

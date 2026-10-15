@@ -8,7 +8,8 @@ from labs.geo_replication import lab, scenario
 from labs.geo_replication.api import CAPACITY, FAILOVER, REGIONS
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, LIMIT, MUTED, PURPLE, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    KEEP, PIECE, Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history,
+    percentile,
 )
 
 OP_START, OP_HOME, OP_KIND, OP_OWN, OP_FIRST, OP_SERVED, OP_END, OP_OK, OP_STALE, OP_TRIES = range(10)
@@ -170,6 +171,11 @@ class GeoReplicationWorld(World):
         for second, rows in by_second.items():
             judged = next((i for i in reversed(run.incidents) if i.t0 <= second < _window(i)[1]), None)
             p99s[second] = worst_p99(rows, READ, cut_of(run, judged) if judged else None)[0]
+        # The tile looks 30 s behind the playhead, which seeks KEEP s back: older seconds are never shown.
+        # (Seconds are added in time order, so the oldest come first.)
+        old = run.end - KEEP - 2 * PIECE
+        while p99s and next(iter(p99s)) < old:
+            del p99s[next(iter(p99s))]
         for o in tables["ops"]:
             run.add("served" if o[OP_OK] else "failed", o[OP_END])
             run.add("ops", o[OP_START])

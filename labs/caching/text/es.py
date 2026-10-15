@@ -33,7 +33,7 @@ STAGES = [
 GOALS = {
     "hits": GoalText("Aciertos ≥ 80%", "añade cache-aside con TTL"),
     "dups": GoalText("Cargas dobles < 5%", "single-flight en get()"),
-    "p99": GoalText("p99 < 100ms", "carga cada clave una vez"),
+    "p99": GoalText("p99 < 200ms", "carga cada clave una vez"),
 }
 
 LEGEND = {"idle": "en reposo", "hit": "acierto", "shared": "espera una carga", "first": "primera carga",

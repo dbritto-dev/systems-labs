@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+from array import array
 from bisect import bisect_right
 from collections.abc import Callable
 from contextvars import ContextVar
@@ -73,6 +74,44 @@ def _trip(rng: random.Random, latency: float, slow: float = 1.0) -> float:
     return half * rng.uniform(4, 12) if rng.random() < 0.01 * slow else half
 
 
+class _Places:
+    """Write id -> its place in its key's order, like a dict. Ids count up from 1 (the first records
+    have -1, -2, ...), so they sit in an array: 8 bytes a write instead of ~80, for a run that never
+    ends. Every place stays known: a record can sit in a cache, stale, for as long as its TTL says."""
+
+    __slots__ = ("_first", "_rest")
+
+    def __init__(self) -> None:
+        self._first: dict[int, int] = {}  # the first records (negative ids)
+        self._rest = array("q")  # by id; -1: no place (not committed, or not a write id)
+
+    def __contains__(self, w) -> bool:
+        return self.get(w) is not None
+
+    def get(self, w, default=None):
+        if not isinstance(w, int):
+            return default
+        if w < 1:
+            return self._first.get(w, default)
+        if w < len(self._rest) and self._rest[w] >= 0:
+            return self._rest[w]
+        return default
+
+    def __getitem__(self, w) -> int:
+        place = self.get(w)
+        if place is None:
+            raise KeyError(w)
+        return place
+
+    def __setitem__(self, w: int, place: int) -> None:
+        if w < 1:
+            self._first[w] = place
+            return
+        if w >= len(self._rest):
+            self._rest.extend([-1] * (w + 1 - len(self._rest)))
+        self._rest[w] = place
+
+
 class Database:
     """Products by key. A read or a write runs half way through its round trip, in one step.
 
@@ -85,8 +124,10 @@ class Database:
         self.slow = 1.0  # every round trip takes this many times longer (a slow network)
         self.fail = 0.0  # the share of writes the database refuses
         self.rows: dict[int, Record] = {k: Record(1000 + 37 * k % 9000, 50, -1 - k) for k in range(keys)}
-        self.index: dict[int, int] = {}  # write id -> its place in its key's order (0 = the first record)
-        self.commits: dict[int, list[float]] = {k: [float("-inf")] for k in range(keys)}  # key -> commit times
+        self.index = _Places()  # write id -> its place in its key's order (0 = the first record)
+        # key -> commit times, from place `dropped[key]` on (older ones are forgotten, see forget)
+        self.commits: dict[int, list[float]] = {k: [float("-inf")] for k in range(keys)}
+        self.dropped: dict[int, int] = dict.fromkeys(range(keys), 0)
         for k, r in self.rows.items():
             self.index[r.write] = 0
         self.failed: dict[int, float] = {}  # write id -> when the database refused it
@@ -111,15 +152,24 @@ class Database:
             raise WriteFailed(key)
         if record.write not in self.index:  # the same record written twice counts once
             self.rows[key] = record
-            self.index[record.write] = len(self.commits[key])
+            self.index[record.write] = self.dropped[key] + len(self.commits[key])
             self.commits[key].append(now())
         await asyncio.sleep(_trip(self.rng, WRITE_LATENCY, self.slow))
 
     # ---- for the lab: is a record stale?
 
     def latest(self, key: int, t: float) -> int:
-        """The index of the newest record of `key` committed at or before t."""
-        return bisect_right(self.commits[key], t) - 1
+        """The index of the newest record of `key` committed at or before t (t not before `forget`'s)."""
+        return self.dropped[key] + bisect_right(self.commits[key], t) - 1
+
+    def forget(self, before: float) -> None:
+        """Forget commit times older than `before`, but the last one at or before it: `latest` stays
+        right for any time from `before` on."""
+        for key, times in self.commits.items():
+            i = bisect_right(times, before) - 1
+            if i > 0:
+                del times[:i]
+                self.dropped[key] += i
 
     def phantom(self, record: Record) -> bool:
         """A record the database never committed (its write failed)."""

@@ -190,7 +190,7 @@ class CacheWorld(World):
         tiles = [
             Tile(self.s("tile_hits"), f"{hits:.0%}", "≥80%", hit_state(hits), history(run, t, hit_s)),
             Tile(self.s("tile_dups"), f"{dups:.0%}", "<5%", dup_state(dups), history(run, t, dup_s)),
-            Tile(self.s("tile_p99"), self.s("failed") if p99 == INF else fmt_ms(p99), "<100ms", p99_state(p99),
+            Tile(self.s("tile_p99"), self.s("failed") if p99 == INF else fmt_ms(p99), f"<{lab.P99_MAX * 1000:.0f}ms", p99_state(p99),
                  history(run, t, p99_s)),
         ]
         last = run.rows("db", t - 1, t)

@@ -154,6 +154,27 @@ def test_pieces_join_in_order_and_totals_survive_forgetting():
     assert run.total("asks", 1e9) == asked
 
 
+def test_the_checker_forgets_old_commits_but_still_tells_fresh_from_stale():
+    async def main():
+        db = Database(2, random.Random(1))
+        writes = []
+        for w in range(1, 9):  # 8 commits of key 0, 1 s apart
+            await asyncio.sleep(1.0)
+            record = Record(100 + w, 5, w)
+            await db.write(0, record)
+            writes.append(record)
+        return db, writes
+
+    db, writes = run_virtual(main())
+    before = {t: db.latest(0, t) for t in (5.0, 6.5, 9.0, 100.0)}
+    places = [db.index[r.write] for r in writes]
+    db.forget(5.0)
+    assert len(db.commits[0]) < 9  # old commit times are gone ...
+    assert {t: db.latest(0, t) for t in before} == before  # ... and every answer from 5 s on is the same
+    assert [db.index[r.write] for r in writes] == places == list(range(1, 9))
+    assert -1 in db.index and 0 not in db.index and 99 not in db.index and "x" not in db.index
+
+
 def test_a_lease_is_refused_after_a_delete():
     async def main():
         cache = Cache()

@@ -29,7 +29,7 @@ Spanish comments and hints.
 
 Goals, judged per flood: baseline ok (before); the flooding clients' requests limited
 ≥ 50% (during); peak ≤ 1.6x (the most one flooding client gets through in any 1 s,
-vs its rate) (during); the other clients served ≥ 99% (during); served ≥ 99% in the
+vs its rate) (during); the other clients served ≥ 99% (during); served ≥ 97% in the
 5 s after, for the clients that did not flood.
 
 **Pictures:** `lanes` (the default) and `cluster`: clients → the rate limiter → the backend; limited requests die red before the limiter, 503s after it. Press `v` to switch, or start with `--view cluster`.

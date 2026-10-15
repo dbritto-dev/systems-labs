@@ -17,7 +17,12 @@ BASELINE_MIN = 0.99  # served share before the flood
 LIMITED_MIN = 0.50  # share of the flooding clients' requests that the limiter turns away
 PEAK_MAX = 1.6  # most a flooding client gets through in any 1 s, vs CLIENT_RATE
 OTHERS_MIN = 0.99  # served share of the clients that are not flooding
-SERVED_MIN = 0.99  # served share of requests started just after the flood
+# served share of requests started just after the flood, for the clients that did not flood. Not 99%:
+# the fair share caps each of the 20 clients at 150/20 = 7.5/s (burst 10), and a well-behaved client
+# at ~5/s sends a random clump above that now and then, so a correct limiter turns away 0-2.5% of
+# normal requests in a 5 s window (stages 1-2, capped at 20/s, never do). A limiter that keeps
+# punishing everyone after a flood falls far below.
+SERVED_MIN = 0.97
 
 def stage_of(baseline_ok: bool, limited_ok: bool, peak_ok: bool, others_ok: bool, served_ok: bool) -> int:
     """Judge the stage from what the first flood did: 0 no limit ... 3 bucket + fair share."""
