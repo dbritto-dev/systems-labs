@@ -432,7 +432,7 @@ class Boxes:
         n = len(self.boxes)
         out = self.gap_after is not None and self.gap_after < n - 1
         slot = (self.x1 - self.x0) / max(1, n + (GAP_SLOTS if out else 0))
-        w = max(4.0, min(16.0, slot - 6))
+        w = max(4.0, min(12.0, slot * 0.5))  # half the slot: the segments between boxes are as long as a box
         self.rx = float(int(w / 2))  # whole dots, so both sides of every box look the same
         gap = [slot * GAP_SLOTS if out and j > self.gap_after else 0.0 for j in range(n)]
         self.xs = [float(round(self.x0 + slot * (j + 1) - w / 2 + gap[j])) for j in range(n)]  # a segment, then the box
