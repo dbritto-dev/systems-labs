@@ -393,6 +393,12 @@ class World:
         phases = self.screen.PHASES
         if run is None or inc is None:
             return [GoalRow("wait", g.rule, "–", phases[g.phase]) for g in self.goals]
+        # The panel asks several times for the same moment (once per layout it tries): answer from a memo, kept
+        # in the run, for as long as the run, the moment and the language stay the same.
+        key = (t, inc.index, run.pieces, len(run.settled), id(phases))
+        memo = run.data.get("goal_lines")
+        if memo is not None and memo[0] == key:
+            return list(memo[1])
         final = run.settled.get(inc.index)
         rows = []
         for k, g in enumerate(self.goals):
@@ -407,7 +413,8 @@ class World:
             else:
                 alert = g.doomed is not None and t > a and g.doomed(run, inc, t)
             rows.append(GoalRow("alert" if alert else "wait", g.rule, text, phases[g.phase]))
-        return rows
+        run.data["goal_lines"] = (key, rows)
+        return list(rows)
 
     def next_check(self, variant: str, t: float) -> str:
         """What will be judged next, without giving away future times."""

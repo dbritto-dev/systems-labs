@@ -7,10 +7,13 @@
 - **Event Queue**: things that happen while the window runs (a rerun finished, an error, your file changed, a
   view switch) post a `Toast`, the one-line message over the footer; `Toasts` decides what shows, until when.
 - **Dirty Flag**: a frame is composed only when something it shows changed (paused and idle: no work).
+- **Debug overlay** (key d): frame time, frames a second, how many ticks drew, how far the simulation is ahead.
 """
 
 from __future__ import annotations
 
+import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
@@ -100,6 +103,11 @@ class Viewer:
     next_poll: float = 0.0
     last: float | None = None  # the previous tick's time
     _drawn: tuple | None = None  # what the last composed frame showed (the dirty flag's memory)
+    hud: bool = False  # the debug overlay (key d)
+    _ms: float = 0.0  # the last composed frame's cost
+    _shown: deque = field(default_factory=lambda: deque(maxlen=120))  # when frames were composed
+    _ticks: int = 0
+    _composed: int = 0
 
     def __post_init__(self) -> None:
         self.sc = screen_text()
@@ -158,7 +166,13 @@ class Viewer:
         """Update, then the frame to show, or None when it would look exactly like the last one."""
         mode = self.update(now)
         run, feed = self.run, self.feed
+        self._ticks += 1
         shown = self.toasts.current(now)
+        if self.hud and shown is None:
+            recent = [s for s in self._shown if now - s <= 1.0]
+            ahead = (run.end - self.t) if run is not None else 0.0
+            shown = (self.sc.HUD.format(ms=self._ms, fps=len(recent), drawn=self._composed, ticks=self._ticks,
+                                        ahead=ahead), MUTED)
         loading = feed.loading
         if loading and run is not None and not feed.error:  # a rerun: the old picture stays meanwhile
             step, waited = loading
@@ -169,8 +183,13 @@ class Viewer:
         if drawn == self._drawn:
             return None
         self._drawn = drawn
-        return compose(self.world, feed.variant, self.t, cols, rows, style=self.style, mode=mode,
-                       speed=SPEEDS[self.speed_i], status=shown, error=feed.error, loading=loading, views=self.views)
+        start = time.perf_counter()
+        lines = compose(self.world, feed.variant, self.t, cols, rows, style=self.style, mode=mode,
+                        speed=SPEEDS[self.speed_i], status=shown, error=feed.error, loading=loading, views=self.views)
+        self._ms = (time.perf_counter() - start) * 1000
+        self._shown.append(now)
+        self._composed += 1
+        return lines
 
     # -- input
 
@@ -216,6 +235,12 @@ def seek(v: Viewer, key: str, now: float) -> bool:
     return True
 
 
+def toggle_hud(v: Viewer, key: str, now: float) -> bool:
+    v.hud = not v.hud
+    v._ticks = v._composed = 0  # count from now
+    return True
+
+
 def speed(v: Viewer, key: str, now: float) -> bool:
     v.speed_i = min(len(SPEEDS) - 1, v.speed_i + 1) if key == "up" else max(0, v.speed_i - 1)
     return True
@@ -229,4 +254,5 @@ COMMANDS: dict[str, Command] = {
     "0": restart, "r": restart,
     "left": seek, "right": seek,
     "up": speed, "down": speed,
+    "d": toggle_hud,
 }

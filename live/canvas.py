@@ -66,6 +66,10 @@ class Style:
         if mode not in ("true", "256", "none"):
             raise ValueError(f"colour mode must be true, 256 or none, not {mode!r}")
         self.mode = mode
+        # Flyweight: one escape code per colour, built once (a frame paints a few thousand times, with a
+        # few dozen colours).
+        self._fg: dict[RGB, str] = {}
+        self._bg: dict[RGB, str] = {}
 
     def _code(self, rgb: RGB) -> str:
         r, g, b = rgb
@@ -74,10 +78,20 @@ class Style:
         return f"5;{16 + 36 * round(r / 51) + 6 * round(g / 51) + round(b / 51)}"
 
     def fg(self, rgb: RGB | None) -> str:
-        return "" if self.mode == "none" or rgb is None else f"\033[38;{self._code(rgb)}m"
+        if self.mode == "none" or rgb is None:
+            return ""
+        code = self._fg.get(rgb)
+        if code is None:
+            code = self._fg[rgb] = f"\033[38;{self._code(rgb)}m"
+        return code
 
     def bg(self, rgb: RGB | None) -> str:
-        return "" if self.mode == "none" or rgb is None else f"\033[48;{self._code(rgb)}m"
+        if self.mode == "none" or rgb is None:
+            return ""
+        code = self._bg.get(rgb)
+        if code is None:
+            code = self._bg[rgb] = f"\033[48;{self._code(rgb)}m"
+        return code
 
     @property
     def reset(self) -> str:
@@ -87,7 +101,7 @@ class Style:
         return s if self.mode == "none" else f"\033[1m{s}\033[22m"
 
     def paint(self, s: str, rgb: RGB | None) -> str:
-        return f"{self.fg(rgb)}{s}{self.reset}" if self.mode != "none" and rgb else s
+        return f"{self.fg(rgb)}{s}\033[0m" if self.mode != "none" and rgb else s
 
     def pill(self, s: str, fg: RGB, bg: RGB) -> str:
         """A label on a tinted background. Without colour it keeps its edges: [s]."""

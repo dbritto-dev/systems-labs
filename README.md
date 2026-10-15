@@ -124,7 +124,7 @@ extra work (a retry round, a cache miss, a duplicate load); red = failed; green 
 served; blue = healthy/fixed.
 
 Keys: `space` pause/resume, `0` restart from 0:00, `r` rerun, `v` the next picture (when
-a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed. The screen needs at least 92x27 (else a one-line message), uses up to 124 columns, and looks best from 110x44 up.
+a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed, `d` a debug line (frame time, fps, how far the simulation is ahead). The screen needs at least 92x27 (else a one-line message), uses up to 124 columns, and looks best from 110x44 up.
 
 ## Labs
 

@@ -87,3 +87,16 @@ def test_saving_a_file_reruns(v, monkeypatch):
     monkeypatch.setattr(vw, "mtimes", lambda lab: {"main.py": 2.0})
     v.update(10.0)
     assert v.feed.restarts == restarts + 1 and v.reason == "reran"
+
+
+def test_the_debug_overlay_shows_what_a_frame_costs(v):
+    v.frame(1.0, 110, 44)
+    v.handle("d", 1.0)
+    v.toasts.clear()
+    lines = v.frame(1.05, 110, 44)
+    from live.canvas import plain
+
+    text = "\n".join(plain(line) for line in lines)
+    assert " ms · " in text and " fps · " in text  # frame time and frames a second, over the footer
+    v.handle("d", 1.1)
+    assert v.hud is False

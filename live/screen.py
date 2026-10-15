@@ -98,8 +98,9 @@ class Terminal:
         for i in range(len(lines), len(self._lines)):
             buf.append(f"\x1b[{i + 1};1H\x1b[0m\x1b[K")
         self._lines = list(lines)
-        if buf:
-            self.out.write("".join(buf))
+        if buf:  # inside a synchronized update, so the terminal shows the whole frame at once (no tearing);
+            # terminals that do not know the mode ignore it
+            self.out.write("\x1b[?2026h" + "".join(buf) + "\x1b[?2026l")
             self.out.flush()
 
     def keys(self, timeout: float) -> list[str]:

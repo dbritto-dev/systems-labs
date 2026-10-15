@@ -87,20 +87,30 @@ def one_frame(world, feed: Feed, lab: str, args) -> int:
     return 1 if feed.error else 0
 
 
+FRAME = 1 / 30  # seconds between frames: a steady pace, whatever each frame cost
+
+
 def watch(world, feed: Feed, lab: str, args) -> int:
-    """The game loop: update and draw a frame (only when it changed), then read keys for up to 50 ms."""
+    """The game loop: at a steady FRAME pace, update and draw a frame (only when it changed); between frames,
+    wait for keys, and draw at once after one so the window answers immediately."""
     from live.screen import Terminal
 
     viewer = Viewer(world, feed, lab, Style(colour_mode(args.color)))
     with Terminal() as term:
+        next_at = time.monotonic()
         while True:
             now = time.monotonic()
-            lines = viewer.frame(now, *term.size())
-            if lines is not None:
-                term.show(lines)
-            for key in term.keys(0.05):
+            if now >= next_at:
+                lines = viewer.frame(now, *term.size())
+                if lines is not None:
+                    term.show(lines)
+                next_at = max(next_at + FRAME, now)  # keep the pace; never rush to catch up
+            keys = term.keys(max(0.0, next_at - time.monotonic()))
+            for key in keys:
                 if not viewer.handle(key, time.monotonic()):
                     return 0
+            if keys:
+                next_at = time.monotonic()  # a key: show its effect now
 
 
 def main(argv: list[str] | None = None) -> int:

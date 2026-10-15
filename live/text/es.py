@@ -11,6 +11,7 @@ EDIT_AND_SAVE = "Edita {file} y guarda: esta ventana lo vuelve a ejecutar."
 ERROR = "error: {error}"
 MENU = {"pause": "pausa/sigue", "restart": "reinicia", "rerun": "repite", "view": "vista", "quit": "sal"}
 VIEW = "vista: {name}"
+HUD = "fotograma {ms:.1f} ms · {fps:.0f} fps · dibujó {drawn}/{ticks} · {ahead:.0f} s por delante"  # tecla d
 VIEWS = {"lanes": "carriles", "cluster": "clúster", "relay": "relevo", "fanout": "abanico"}
 NO_VIEW = "{lab} no tiene la vista {name!r} (tiene: {views})"
 

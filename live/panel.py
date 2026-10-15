@@ -268,26 +268,34 @@ def legend_rows(items: list[tuple], width: int, style: Style) -> list[str]:
 
 
 def dd_panel(world, v: str, t: float, tr: Traffic, lines: list[GoalRow], width: int, style: Style,
-             level: int = 0, events: int = 4) -> list[str]:
+             level: int = 0, events: int = 4, memo: dict | None = None) -> list[str]:
     """The widgets with a blank row between them; level 1, 2 and 3 drop the events, the tiles and users,
-    then the titles and gaps."""
+    then the titles and gaps. `memo` keeps what does not depend on the level, while `panel` tries layouts."""
+    memo = {} if memo is None else memo
+
+    def once(key, make):
+        if key not in memo:
+            memo[key] = make()
+        return memo[key]
+
     gap = [] if level >= 3 else [""]
     sc = screen_text()
     out: list[str] = []
     if tr.tiles and level < 2:
-        out += dd_tiles(tr.tiles, width, style)  # their colour sets them apart: no gap needed
-    stats = world.user_stats(v, t)
+        out += once("tiles", lambda: dd_tiles(tr.tiles, width, style))  # their colour sets them apart: no gap
+    stats = once("stats", lambda: world.user_stats(v, t))
     if stats and level < 2:
-        out += widget(sc.USERS, style.paint(sc.WAITS, DD_TITLE),
-                      stat_rows(stats, width - 2, style), width, style) + gap
-    rows = dd_toplist(tr, width, style) + [style.bold(style.paint(tr.headline[:width - 2], tr.headline_colour))]
+        out += once("users", lambda: widget(sc.USERS, style.paint(sc.WAITS, DD_TITLE),
+                                            stat_rows(stats, width - 2, style), width, style)) + gap
+    rows = once("calls", lambda: dd_toplist(tr, width, style)
+                + [style.bold(style.paint(tr.headline[:width - 2], tr.headline_colour))])
     sub = style.paint(tr.subtitle or sc.PER_SECOND, DD_TITLE)
     out += (widget(tr.title or sc.CALLS, sub, rows, width, style) if level < 3
             else [tinted(" " + r, width, style) for r in rows]) + gap
     ok = sum(g.status == "ok" for g in lines)
     bad = sum(g.status == "alert" for g in lines)
     wait = len(lines) - ok - bad
-    title = world.goal_title(v, t)
+    title = once("title", lambda: world.goal_title(v, t))
     counts = sc.COUNTS
     full = [(counts["ok"].format(n=ok), GREEN), (counts["alert"].format(n=bad), RED if bad else MUTED),
             (counts["wait"].format(n=wait), MUTED)]
@@ -297,11 +305,11 @@ def dd_panel(world, v: str, t: float, tr: Traffic, lines: list[GoalRow], width: 
         if len(title) + len(text) + 3 <= width:
             summary = style.paint(" · ", MUTED).join(style.paint(s, c) for s, c in parts)
             break
-    mons = dd_monitors(lines, width, style)
+    mons = once("monitors", lambda: dd_monitors(lines, width, style))
     out += (widget(title, summary, mons, width, style) if level < 3
             else [tinted(" " + r, width, style) for r in mons])
     if level < 1:
-        right, erows = dd_events(world, v, t, width, style, events)
+        right, erows = once(("events", events), lambda: dd_events(world, v, t, width, style, events))
         out += gap + widget(sc.EVENTS, right, erows, width, style)
     return out
 
@@ -313,8 +321,10 @@ def panel(world, v: str, t: float, width: int, height: int, style: Style) -> lis
     legend = legend_rows(world.legend, width - 1, style)
     notes = [" " + style.paint(note[:width - 1], MUTED) for note in world.legend_notes()]
 
+    memo: dict = {}  # the parts every layout shares, built once
+
     def dd(level: int = 0, events: int = 4) -> list[str]:
-        return dd_panel(world, v, t, tr, lines, width, style, level, events)
+        return dd_panel(world, v, t, tr, lines, width, style, level, events, memo)
 
     layouts = [
         lambda: dd(events=6) + legend + notes,
