@@ -113,8 +113,8 @@ def test_stage1_a_flood_is_limited():
     assert 90 <= len(let_through) <= 115  # about 20/s for 5 s
 
 
-@your_code(1, "RateLimiter never refuses a client that stays under its rate")
-def test_stage1_normal_traffic_passes():
+def test_never_refuses_a_client_that_stays_under_its_rate():
+    """A guard, not a stage: the starting code already passes it, and every stage must keep passing it."""
     limiter = code.RateLimiter(rate=20.0, burst=10.0, capacity=150.0)
     assert all(limiter.allow(7, 100.0 + k * 0.2) for k in range(100))  # 5/s for 20 s
 

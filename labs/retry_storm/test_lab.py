@@ -139,8 +139,8 @@ def test_stage1_client_retries_then_gives_up():
     assert events == 8  # 4 calls, each a start and an error
 
 
-@your_code(1, "Client never catches other exceptions")
-def test_stage1_other_exceptions_are_not_retried():
+def test_other_exceptions_are_never_retried():
+    """A guard, not a stage: the starting code already passes it, and every stage must keep passing it."""
     outcome, events, _ = _calls(lambda s: code.Client(s, rng=random.Random(1)), exc=KeyError("bug"))
     assert outcome == "KeyError" and events == 1
 

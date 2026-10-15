@@ -10,3 +10,8 @@ NOT_BOOL = "{name} must be true or false, got {raw!r}"
 NOT_INT = "{name} must be a whole number, got {raw!r}"
 NOT_NUMBER = "{name} must be a number, got {raw!r}"
 NONE = "none"
+# The summary at the end of `uv run pytest labs/<lab>`: your progress, stage by stage.
+STAGES_TITLE = "your code, stage by stage"
+STAGE_ROW = "{lab}: {stages}"
+STAGE_DONE = "stage {n} ✓"
+STAGE_PART = "stage {n} {done}/{total}"
