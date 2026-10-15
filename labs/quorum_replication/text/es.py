@@ -71,6 +71,11 @@ STRINGS = {
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_stale": "DATOS VIEJOS",
     "lanes_unanswered": "SIN RESPUESTA",
+    # el dibujo en abanico: el coordinador, y el nombre de una réplica enferma (9 letras como mucho)
+    "fan_coordinator": "coordinador",
+    "fan_down": "{node} caído",
+    "fan_cut": "{node} aislado",
+    "fan_slow": "{node} lento",
     # errores en tu código
     "no_store": "QuorumNode debe guardar sus datos en self.store",
 }

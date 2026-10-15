@@ -150,10 +150,34 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("quorum_replication", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["cluster", "fanout", "lanes"]  # cluster first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights or frame.outcomes
     text, colour = frame.state
     assert text and len(text) <= 13
     assert RED not in [c for c, _ in frame.outcomes]  # no stale reads (red) even with a node down
+
+
+def test_the_fanout_picture_shows_the_replicas():
+    from live.canvas import GREEN, RED
+    from live.views import adapter_for, set_view
+    from live.views.lanes import OUTLINE
+
+    def fan(v, t: float):
+        world = build_world("quorum_replication", v, 1)
+        set_view(world, "fanout")
+        return world, adapter_for(world).frame(v, t, 100)
+
+    world, given = fan("main", 23.0)  # n2 crashed at 0:20
+    _, solved = fan("reference", 23.0)
+    assert [leaf.label[0] for leaf in given.leaves] == ["n0", "n1", world.s("fan_down", node="n2"), "n3", "n4"]
+    assert all(len(leaf.label[0]) <= 9 for leaf in given.leaves)
+    # One copy: nobody replicates, every node is behind and reads come back stale.
+    assert all(leaf.outline != OUTLINE for leaf in given.leaves) and given.relay.outline == RED
+    assert not any(back for _, _, _, back in given.hops)
+    # Quorums: writes reach the key's replicas and their acks fly back green; only n2 is behind.
+    assert any(back and c == GREEN for _, _, c, back in fan("reference", 32.0)[1].hops)
+    assert solved.leaves[2].outline == RED and all(leaf.outline == OUTLINE for i, leaf in enumerate(solved.leaves)
+                                                    if i != 2)
+    assert solved.relay.outline != RED

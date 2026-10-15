@@ -70,6 +70,11 @@ STRINGS = {
     "lanes_stale": "DATOS VIEJOS",
     "lanes_primary": "PRIMARIO {share:.0%}",
     "lanes_lag": "RETRASO {lag:.1f}s",
+    # el dibujo en abanico: el enrutador y el nombre de cada nodo (9 letras como mucho)
+    "fan_router": "enrutador",
+    "fan_primary": "primario",
+    "fan_lag": "{name} +{lag}",
+    "fan_down": "{name} caído",
     # errores en tu código
     "bad_pick": "Router.pick devolvió {name!r}: usa 'primary' o una de r1..r{last}",
     "stuck": "una lectura lleva más de {seconds:.0f} s esperando",
