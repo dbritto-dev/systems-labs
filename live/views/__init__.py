@@ -9,9 +9,9 @@ switch (key v, or --view).
 from __future__ import annotations
 
 from live.views.base import ADAPTERS, VIEWS, Adapter, View, adapts, register  # noqa: F401
-from live.views import cluster, lanes, lanes_fanout, lanes_peers, lanes_relay  # noqa: F401  (registers the views)
-from live.views import cluster, lanes, lanes_fanin, lanes_fanout, lanes_relay  # noqa: F401  (registers the views)
-from live.views import cluster, lanes, lanes_fanout, lanes_pipeline, lanes_relay  # noqa: F401  (registers the views)
+from live.views import (  # noqa: F401  (registers the views)
+    cluster, lanes, lanes_fanin, lanes_fanout, lanes_peers, lanes_pipeline, lanes_relay,
+)
 
 _adapters: dict[tuple[int, str], Adapter] = {}
 

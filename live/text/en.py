@@ -13,9 +13,8 @@ ERROR = "error: {error}"
 MENU = {"pause": "pause/resume", "restart": "restart", "rerun": "rerun", "view": "view", "quit": "quit"}
 VIEW = "view: {name}"  # shown when a lab has more than one picture
 HUD = "frame {ms:.1f} ms · {fps:.0f} fps · drew {drawn}/{ticks} · {ahead:.0f} s ahead"  # key d
-VIEWS = {"lanes": "lanes", "cluster": "cluster", "relay": "relay", "fanout": "fan-out", "peers": "peers"}
-VIEWS = {"lanes": "lanes", "cluster": "cluster", "relay": "relay", "fanout": "fan-out", "fanin": "fan-in"}
-VIEWS = {"lanes": "lanes", "cluster": "cluster", "relay": "relay", "fanout": "fan-out", "pipeline": "pipeline"}
+VIEWS = {"lanes": "lanes", "cluster": "cluster", "relay": "relay", "fanout": "fan-out", "peers": "peers", "fanin": "fan-in",
+         "pipeline": "pipeline"}
 NO_VIEW = "{lab} has no {name!r} view (it has: {views})"
 
 # ---- the picture: the state under the server or the cluster
