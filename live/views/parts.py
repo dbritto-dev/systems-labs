@@ -291,6 +291,77 @@ class FanHops:
                 st.cv.blob(sx + (x0 - 3 - sx) * p, st.ymid + (mids[j] - st.ymid) * p, col, 6, 1)
 
 
+# ---------------------------------------------------------------- fan-in: the small servers all call one store
+#
+#     fan-in  UsersGrid, Wire, Door, Flights, Outcomes, Leaves, Names, FanHops, Joins, JoinHops, [Cross],
+#             Server, Caption×2
+
+
+@dataclass(slots=True)
+class Names:
+    """Each small server's name (or a word about it: "n1 reads off"), at column `col` on its middle row, as
+    long as the caller fitted it (Leaves cuts its names at LABEL_COLS)."""
+
+    leaves: Leaves  # drawn first
+    names: list[tuple[str, RGB]]
+    col: int
+
+    def draw(self, st: Stage) -> None:
+        for ym, (text, colour) in zip(self.leaves.mids, self.names):
+            st.cv.text(min(st.cv.rows - 2, int(ym // 4)), self.col, text, colour)
+
+
+@dataclass(slots=True)
+class Joins:
+    """A slanted dotted line from each small server (from `starts[j]`, after its name, on its middle) to the
+    store's left edge `x1` on the middle line."""
+
+    leaves: Leaves  # drawn first: it knows where each small server sits
+    starts: list[float]  # where each one's line starts, in dots
+    x1: float
+
+    def draw(self, st: Stage) -> None:
+        for ym, x0 in zip(self.leaves.mids, self.starts):
+            steps = max(1, int((self.x1 - x0) / 3))
+            for s in range(steps + 1):
+                p = s / steps
+                st.cv.dot(x0 + (self.x1 - x0) * p, ym + (st.ymid - ym) * p, LINE, 0)
+
+
+@dataclass(slots=True)
+class JoinHops:
+    """Requests between a small server and the store, along that server's join line (or back)."""
+
+    hops: list[tuple[int, float, RGB, bool]]  # (leaf, 0..1, colour, back)
+    joins: Joins  # drawn first
+
+    def draw(self, st: Stage) -> None:
+        mids, starts, x1 = self.joins.leaves.mids, self.joins.starts, self.joins.x1 - 2
+        for j, p, col, back in self.hops:
+            if 0 <= j < min(len(mids), len(starts)):
+                p = 1 - p if back else p
+                st.cv.blob(starts[j] + (x1 - starts[j]) * p, mids[j] + (st.ymid - mids[j]) * p, col, 6, 1)
+
+
+@dataclass(slots=True)
+class Cross:
+    """Messages from one small server to another, on a vertical dotted line at x (just right of them)."""
+
+    hops: list[tuple[int, int, float, RGB]]  # (from leaf, to leaf, 0..1, colour)
+    leaves: Leaves  # drawn first
+    x: float
+
+    def draw(self, st: Stage) -> None:
+        mids = self.leaves.mids
+        if len(mids) < 2:
+            return
+        for y in range(int(mids[0]), int(mids[-1]) + 1, 3):
+            st.cv.dot(self.x, y, LINE, 0)
+        for i, j, p, col in self.hops:
+            if 0 <= i < len(mids) and 0 <= j < len(mids):
+                st.cv.blob(self.x, mids[i] + (mids[j] - mids[i]) * p, col, 6, 1)
+
+
 def draw_parts(st: Stage, parts: list) -> None:
     """Draw a picture: each part, in order (later parts on top)."""
     for part in parts:

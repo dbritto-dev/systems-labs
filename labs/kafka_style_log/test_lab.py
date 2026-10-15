@@ -188,9 +188,27 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("kafka_style_log", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["fanin", "cluster", "lanes"]  # fan-in first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights
     text, colour = frame.state
     assert text and len(text) <= 13
+
+
+@starting_code
+def test_the_fan_in_picture_shows_the_nodes_handing_out_offsets_on_their_own():
+    from live.canvas import RED
+    from live.views import adapter_for
+
+    def pictures(v):
+        world = build_world("kafka_style_log", v, 1)
+        assert world.view == "fanin"
+        return [adapter_for(world).frame(v, t / 4, 90) for t in range(40, 160)]
+
+    given = pictures("main")  # a log per node: the nodes keep flashing red with a duplicate offset
+    assert sum(any(lf.outline == RED for lf in fr.leaves) for fr in given) > len(given) // 2
+    assert not any(fr.joins or fr.cross for fr in given)
+    ref = pictures("reference")  # each key has an owner: sends cross to it, nothing goes wrong
+    assert not any(lf.outline == RED for fr in ref for lf in fr.leaves)
+    assert sum(bool(fr.cross) for fr in ref) > len(ref) // 2

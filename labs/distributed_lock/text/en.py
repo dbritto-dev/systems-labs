@@ -90,6 +90,12 @@ STRINGS = {
     "state_delayed": "WRITE DELAYED",
     "state_lock": "lock: {worker}",
     "nobody": "free",
+    # the fan-in picture: the lock service (the door), the workers, the storage (the store)
+    "fan_holds": "{worker} holds",
+    "fan_frozen": "{worker} frozen",
+    "fan_down": "{worker} down",
+    "fan_cut": "{worker} cut off",
+    "fan_token": "{state}  token {n}",
 }
 
 LESSON = Lesson(

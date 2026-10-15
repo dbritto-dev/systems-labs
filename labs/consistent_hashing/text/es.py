@@ -80,6 +80,10 @@ STRINGS = {
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_hits": "ACIERTOS {share:.0%}",
     "lanes_misses": "FALLOS {share:.0%}",
+    # el dibujo en embudo: el router (la puerta), los servidores de caché, la base de datos (el almacén)
+    "fan_router": "router",
+    "fan_down": "{node} caído",
+    "fan_db": "{state} BD {db}/s",
     # errores en tu código
     "bad_node": "node_for devolvió '{node}', que ahora no está en el clúster ({live})",
 }

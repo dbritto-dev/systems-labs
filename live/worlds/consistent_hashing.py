@@ -114,7 +114,7 @@ def _share(x: float) -> tuple[int, int, int]:
 
 class ConsistentHashingWorld(World):
     id = "consistent_hashing"
-    view = "cluster"
+    view = "fanin"
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "fair", "◉"), (EXTRA1, "busy", "◉"), (EXTRA2, "hot", "◉"), (DIM, "out", "◉"),
               (WHITE, "read"), (RED, "miss"), (LIMIT, "limit", "┄")]

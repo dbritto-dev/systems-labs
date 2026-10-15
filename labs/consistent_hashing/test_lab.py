@@ -5,7 +5,7 @@ import pytest
 
 from core.contract import load
 from core.i18n import lab_text
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.consistent_hashing import lab, scenario
 from labs.consistent_hashing.main import stable_hash
 
@@ -167,7 +167,7 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("consistent_hashing", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["fanin", "cluster", "lanes"]  # fan-in first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights or frame.outcomes
@@ -175,3 +175,28 @@ def test_a_second_picture_shows_what_the_clients_see():
     assert text and len(text) <= 13
     # most reads hit the cache; the database stays under its capacity
     assert frame.fill < 1.0 and RED not in [c for c, _ in frame.outcomes]
+
+
+@starting_code
+def test_the_fan_in_picture_shows_every_server_flooding_the_database_with_modulo():
+    from live.canvas import RED
+    from live.views import adapter_for
+    from live.views.parts import OUTLINE
+
+    def picture(v, t):
+        world = build_world("consistent_hashing", v, 1)
+        assert world.view == "fanin"
+        return adapter_for(world).frame(v, t, 90)
+
+    victim = int(scenario.victim(next(scenario.incidents(1)), 1)[1:])
+    for v, at in (("main", 21.0), (RING, 21.0), ("reference", 21.0)):
+        fr = picture(v, at)
+        assert len(fr.leaves) == lab.SLOTS and fr.leaves[victim].outline == RED  # it just died
+        assert fr.leaves[lab.SLOTS - 1].outline != OUTLINE  # the spare, not in the cluster yet
+        flooding = {j for j, _, colour, _ in fr.joins if colour == RED}  # misses far above usual, to the DB
+        if v == "main":  # hash % N: every server misses at once, and the database overloads
+            assert len(flooding) >= 5 and fr.fill >= 0.75 and fr.state[1] == RED
+        elif v is RING:  # a ring: only the server that took the dead one's keys
+            assert len(flooding) == 1 and fr.fill < 0.5
+        else:  # virtual nodes: the keys spread thin, nobody floods
+            assert not flooding and fr.fill < 0.5

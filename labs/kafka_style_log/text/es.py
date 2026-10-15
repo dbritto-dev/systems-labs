@@ -77,6 +77,11 @@ STRINGS = {
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_anomaly": "ANOMALÍA",
     "lanes_kv_slow": "KV LENTO",
+    # el dibujo en embudo: la red (la puerta), los nodos, lin-kv (el almacén)
+    "fan_network": "red",
+    "fan_duplicate": "{node} duplicado",
+    "fan_lost_write": "{node} pierde uno",
+    "fan_lost_commit": "{node} sin commit",
 }
 
 LESSON = Lesson(

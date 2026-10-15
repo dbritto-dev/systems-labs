@@ -98,7 +98,7 @@ GOALS = [
 
 class GCounterWorld(World):
     id = "grow_only_counter"
-    view = "cluster"
+    view = "fanin"
     stage_colours = (RED, EXTRA3, EXTRA2, BLUE)
     legend = [(BLUE, "node", "◉"), ([EXTRA2, RED], "reads_off", "◉"), (PURPLE, "seq_kv", "◉"),
               (WHITE, "client_request"), (BLUE, "kv_request"), (GREEN, "kv_ok"), (RED, "cas_conflict")]
