@@ -170,7 +170,7 @@ def test_a_second_picture_shows_the_topology():
 
     def picture(v: str):
         world = build_world("idempotency", v, 1)
-        assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+        assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
         set_view(world, "cluster")
         frame = adapter_for(world).frame(v, 25.0)  # in the first incident: a slow ledger
         assert len(frame.nodes) == 3 and any(src == -1 for src, _, _, _ in frame.flights)
@@ -183,3 +183,24 @@ def test_a_second_picture_shows_the_topology():
     assert any(dest == 2 and colour == RED for _, dest, _, colour in given.flights)
     assert not any(colour == RED for _, _, _, colour in solved.flights)
     assert any(dest == 1 and colour == GREEN for _, dest, _, colour in solved.flights)
+
+
+@starting_code
+def test_the_relay_picture_shows_the_key_store():
+    from live.canvas import GREEN, RED
+    from live.views import adapter_for, set_view
+
+    def relay(v: str):
+        world = build_world("idempotency", v, 1)
+        set_view(world, "relay")
+        frame = adapter_for(world).frame(v, 27.0, 100)  # in the first incident: a slow ledger
+        assert frame.users and frame.hops and frame.relay.label[0] and frame.state[0]
+        return world, frame
+
+    world, given = relay("main")
+    # Without keys, retries reach the provider and charge again: red, and the provider says so.
+    assert any(colour == RED for _, colour, _ in given.hops) and given.state == (world.s("state_double"), RED)
+    world, solved = relay("reference")
+    # With keys, the key store answers retries in the API (green) and nothing is charged twice.
+    assert not any(colour == RED for _, colour, _ in solved.hops) and solved.relay.label[1] == GREEN
+    assert any(colour == GREEN and k < 0.1 for k, colour, _ in solved.hops)

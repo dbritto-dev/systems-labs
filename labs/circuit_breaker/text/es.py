@@ -72,6 +72,12 @@ STRINGS = {
     "head_calm": "Las dos dependencias responden rápido",
     "chart_limit": "{workers} workers",
     "note_chart": "La gráfica: workers ocupados por segundo.",
+    # el dibujo relay: el breaker y el bulkhead de nuestro servicio, debajo (~14 letras como máximo)
+    "relay_closed": "breaker cerrado",
+    "relay_open": "breaker abierto",
+    "relay_half_open": "medio abierto",
+    "relay_bulkhead": "bulkhead lleno",
+    "relay_full": "sin workers",
     # errores en tu código
     "stuck": "una petición lleva más de {seconds:.0f} s: ¿Client.call espera algo que nunca termina?",
 }

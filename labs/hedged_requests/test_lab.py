@@ -3,7 +3,7 @@ import itertools
 import random
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.hedged_requests import scenario
 from labs.hedged_requests.reference import HEDGE_AFTER, HedgeBudget
@@ -237,9 +237,29 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("hedged_requests", "reference", 1)
-    assert sorted(views_for(world)) == ["cluster", "lanes"] and world.view == "cluster"
+    assert views_for(world) == ["cluster", "lanes", "relay"] and world.view == "cluster"
     frame = adapter_for(world).frame("reference", 25.0)
     assert len(frame.nodes) == 4 and frame.flights and frame.state[0]
     set_view(world, "lanes")
     lanes = adapter_for(world).frame("reference", 25.0, 60)
     assert lanes.users and lanes.state[0]
+
+
+@starting_code
+def test_the_relay_picture_shows_the_copies():
+    from live.canvas import EXTRA1, EXTRA2
+    from live.views import adapter_for, set_view
+
+    def relay(v: str):
+        world = build_world("hedged_requests", v, 1)
+        set_view(world, "relay")
+        frame = adapter_for(world).frame(v, 21.0, 100)  # the first incident: a replica is slow
+        assert frame.users and frame.hops and frame.relay.label[0] and frame.state[0]
+        return frame
+
+    given, solved = relay("main"), relay("reference")
+    # One call per read: no copies, the slow replica's calls crawl while their readers wait.
+    assert given.relay.fill == 0 and not any(colour == EXTRA2 for _, colour, _ in given.hops)
+    assert any(colour == EXTRA1 for _, colour, _ in given.hops)
+    # Hedged: copies (orange, big) fly to another replica, and they cost extra load.
+    assert solved.relay.fill > 0 and any(colour == EXTRA2 and big for _, colour, big in solved.hops)

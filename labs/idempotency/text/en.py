@@ -74,6 +74,9 @@ STRINGS = {
     "note": "Dots are a sample of tries, slowed down (cosmetic).",
     "subtitle": "per second, last 1 s",
     "title": "Payments",
+    # the relay picture: under the payments API (at most ~14 letters)
+    "relay_api": "payments API",
+    "relay_replayed": "{n} replayed",
     # errors in your code
     "stuck": "a payment has been running for over {seconds:.0f} s: does charge() ever return?",
 }

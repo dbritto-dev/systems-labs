@@ -1,5 +1,6 @@
 """The pictures for lab idempotency: lanes (clients, the payment service as the door, the ledger as
-the server) and cluster (clients -> the payment service, which asks the key store or charges the ledger)."""
+the server), cluster (clients -> the payment service, which asks the key store or charges the ledger)
+and relay (clients -> the payments API, where the key store replays answers -> the ledger)."""
 
 from __future__ import annotations
 
@@ -9,8 +10,10 @@ from live.canvas import BG, BLUE, EXTRA, EXTRA2, GREEN, MUTED, RED, WHITE, mix
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 LEDGER_MAX = 60.0  # charges running at once that fill the ledger's gauge
+API_MAX = 150.0  # tries in progress in the payments API that fill its gauge (relay picture)
 
 
 @adapts("idempotency", "lanes")
@@ -129,3 +132,49 @@ class IdempotencyCluster(ClusterAdapter):
         service = EXTRA2 if inc is not None and inc.kind == "resets" else BLUE
         return ClusterFrame(nodes=[service, BLUE, ledger], flights=flights,
                             state=(w.s("pic_state", state=state[0]), state[1]))
+
+
+@adapts("idempotency", "relay")
+class IdempotencyRelay(RelayAdapter):
+    """Clients → the door → the payments API (the relay: your PaymentService with its key store) → the
+    payment provider's ledger (the server on the right, as in lanes).
+
+    The API's gauge is the tries in progress in it (against API_MAX), orange past 80% and red when full;
+    retries pile up there while the ledger is slow. A retry the key store answers with the saved receipt
+    never reaches the provider: it stops at the API's edge, green, and the word under the API counts them
+    (replayed in the last second); a 409 (the same key still in progress) stops there too, orange. Charges
+    fly on to the provider, crawling while it is slow: white the first time, red and bigger when a payment
+    is charged a second time, which also turns the provider red (CHARGED TWICE)."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.idempotency import TRY_CHARGED, TRY_DUP, TRY_END, TRY_OUTCOME, TRY_START
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = IdempotencyLanes(w).frame(variant, t, users)  # the clients, their tries, the ledger
+        span = run.max_dur.get("attempts", 0.0)
+        recent = run.rows("attempts", t - span - FLY - 1e-9, t + 1e-9)
+        charges = [r for r in recent if r[TRY_CHARGED] and t <= r[TRY_START] + max(FLY, r[TRY_END] - r[TRY_START])]
+        shown = every([r for r in charges if r[TRY_DUP]], FLIGHTS // 2)
+        shown += every([r for r in charges if not r[TRY_DUP]], FLIGHTS - len(shown))
+        hops = [(min(0.95, (t - r[TRY_START]) / max(FLY, r[TRY_END] - r[TRY_START])), RED if r[TRY_DUP] else WHITE,
+                 bool(r[TRY_DUP])) for r in shown]
+        ended = [r for r in recent if t - BACK <= r[TRY_END] <= t and not r[TRY_CHARGED]]
+        replays = [r for r in ended if r[TRY_OUTCOME] != CONFLICT]
+        conflicts = [r for r in ended if r[TRY_OUTCOME] == CONFLICT]
+        hops += [(0.04 * j, GREEN, False) for j in range(min(3, (len(replays) + 1) // 2))]
+        hops += [(0.12 + 0.04 * j, EXTRA2, False) for j in range(min(2, (len(conflicts) + 1) // 2))]
+
+        replayed = sum(1 for r in run.rows("attempts", t - 1 - span, t + 1e-9)
+                       if t - 1 <= r[TRY_END] <= t and not r[TRY_CHARGED] and r[TRY_OUTCOME] != CONFLICT)
+        busy = len(run.active("attempts", t, TRY_END)) / API_MAX
+        gauge = RED if busy >= 1 else EXTRA2 if busy >= 0.8 else BLUE
+        label = (w.s("relay_replayed", n=replayed), GREEN) if replayed else (w.s("relay_api"), WHITE)
+        relay = Relay(label=label, fill=busy, gauge=gauge, outline=OUTLINE if gauge == BLUE else gauge)
+        doubled = any(r[TRY_DUP] for r in run.rows("attempts", t - 1 - span, t + 1e-9) if t - 1 <= r[TRY_END] <= t)
+        state = (w.s("state_double"), RED) if doubled else lane.state
+        return RelayFrame(users=lane.users, flights=lane.flights, outcomes=lane.outcomes, door_color=lane.door_color,
+                          fill=lane.fill, gauge=lane.gauge, outline=RED if doubled else lane.outline, state=state,
+                          relay=relay, hops=hops)

@@ -73,6 +73,9 @@ STRINGS = {
     "head_hedged": "Copias tapan lo lento: p99 {p99}",
     "head_calm": "Las respuestas son rápidas",
     "chart_limit": "{extra:.0%} extra",
+    # el dibujo relay: bajo el servicio y las réplicas (~14 letras como máximo)
+    "relay_extra": "copias +{extra:.0%}",
+    "relay_replicas": "{n} réplicas",
     # errores en tu código
     "stuck": "una lectura lleva más de {seconds:.0f} s: ¿Client.read espera algo que nunca termina?",
 }

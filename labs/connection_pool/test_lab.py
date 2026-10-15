@@ -6,7 +6,7 @@ from collections import deque
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import run_virtual
 from labs.connection_pool import scenario
 from labs.connection_pool.scenario import Database
@@ -210,7 +210,29 @@ def test_a_second_picture_shows_the_topology():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("connection_pool", "reference", 1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
     set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 25.0)
     assert len(frame.nodes) == 2 and frame.flights and frame.state[0]
+
+
+@starting_code
+def test_the_relay_picture_shows_the_pool():
+    from live.canvas import RED
+    from live.views import adapter_for, set_view
+
+    def relay(v: str, t: float):
+        world = build_world("connection_pool", v, 1)
+        set_view(world, "relay")
+        frame = adapter_for(world).frame(v, t, 100)
+        assert frame.users and frame.relay.label[0] and frame.state[0]
+        return frame
+
+    # A connection per request, no cap: the database refuses connections (red on the way there).
+    given = relay("main", 21.0)
+    assert any(colour == RED and k > 0.1 for k, colour, _ in given.hops) and given.outline == RED
+    # A capped pool: at most 20 connections in use, and acquire() gives up at the pool (red, at its edge).
+    solved = relay("reference", 26.0)
+    assert solved.relay.fill <= 20 / 50 and solved.relay.outline == RED
+    assert any(colour == RED and k < 0.1 for k, colour, _ in solved.hops)
+    assert not any(colour == RED and k > 0.1 for k, colour, _ in solved.hops)
