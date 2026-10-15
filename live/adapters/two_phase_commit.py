@@ -1,6 +1,7 @@
 """The pictures for lab two_phase_commit: cluster (the coordinator and the three shards, and the
-prepare / vote / commit messages between them) and lanes (the clients' view: transfers, the
-coordinator as the door, the shards as the server)."""
+prepare / vote / commit messages between them), lanes (the clients' view: transfers, the
+coordinator as the door, the shards as the server) and fan-out (the coordinator in the middle, each
+shard on its own on the right)."""
 
 from __future__ import annotations
 
@@ -13,6 +14,8 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_fanout import FanoutAdapter, FanoutFrame, Leaf
+from live.views.lanes_relay import Relay
 
 MAX_FLIGHTS = 60  # messages drawn at once
 RECENT = 2.0  # seconds a partial commit keeps its shards red
@@ -142,3 +145,64 @@ class TwoPhaseLanes(LaneAdapter):
             outline=RED if partial else EXTRA2 if doubt or inc is not None else OUTLINE,
             state=_state(w, variant, t, partial, st),
         )
+
+
+@adapts("two_phase_commit", "fanout")
+class TwoPhaseFanout(FanoutAdapter):
+    """Transfers arrive at the coordinator (the door, shut in red while it is down; the relay in the middle,
+    red while it is down, its gauge the transfers it is running) and it talks to the three shards on the
+    right, n1, n2 and n3, each with its own gauge: the rows its prepared transfers keep locked. Prepares
+    (and plain writes) fly out white; votes fly back blue for yes and grey for no; the decision flies out
+    green for commit, grey for abort; a shard in doubt asks back in light orange. A lost message stops half
+    way, red. A shard turns orange while it holds prepared transfers in doubt and red while it is down or
+    applied its part of a transfer the other shards did not (a partial commit)."""
+
+    def frame(self, variant: str, t: float, users: int) -> FanoutFrame:
+        from live.worlds.two_phase_commit import (
+            MSG_ARRIVED, MSG_DEST, MSG_KIND, MSG_SENT, MSG_SRC, ST_DOUBT, ST_DOWN, ST_HELD, TX_APPLIED, TX_CEND,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return FanoutFrame()
+        lane = TwoPhaseLanes(w).frame(variant, t, users)  # the users, the door and the outcomes, as in lanes
+        hops = []
+        msgs = [m for m in run.rows("msgs", t - FLY, t + 1e-9)
+                if m[MSG_KIND] != M_ACK and 0 in (m[MSG_SRC], m[MSG_DEST]) and max(m[MSG_SRC], m[MSG_DEST]) > 0]
+        for m in every(msgs, MAX_FLIGHTS):
+            p = (t - m[MSG_SENT]) / FLY
+            back = m[MSG_DEST] == 0  # a shard answers the coordinator
+            leaf = (m[MSG_SRC] if back else m[MSG_DEST]) - 1
+            colour = COLOURS.get(m[MSG_KIND], WHITE)
+            if m[MSG_ARRIVED] is None:  # lost: it never arrives
+                hops.append((leaf, min(p, 0.5), RED if p >= 0.5 else colour, back))
+            else:
+                hops.append((leaf, p, colour, back))
+        bad = 0  # shards holding a write of a partial commit
+        for r in w.recent_partials(run, t, RECENT):
+            bad |= sum(1 << i for i, at in enumerate(r[TX_APPLIED]) if 0 <= at <= t)
+        st = w.state_at(variant, t)
+        down = st[ST_DOWN] if st else 0
+        leaves = []
+        for i in range(3):
+            name = f"n{i + 1}"
+            off = bool(down >> (i + 1) & 1)
+            doubt = bool(st is not None and st[ST_DOUBT][i])
+            held = st[ST_HELD][i] if st is not None else 0
+            colour = RED if off or bad >> i & 1 else EXTRA2 if doubt else OUTLINE
+            label = w.s("fan_down", shard=name) if off else name
+            leaves.append(Leaf(label=(label, WHITE if colour == OUTLINE else colour), fill=held / (LOCKS_MAX / 3),
+                               gauge=EXTRA2 if doubt else BLUE, outline=colour))
+        coord_down = bool(down & 1)
+        running = len(run.active("txns", t, TX_CEND))
+        relay = Relay(label=(w.s("fan_coordinator"), RED if coord_down else OUTLINE), fill=running / LOCKS_MAX,
+                      gauge=BLUE, outline=RED if coord_down else OUTLINE)
+        state = lane.state  # shorter words where the lanes' would run into the relay's name
+        if state[0] == w.s("state_down"):
+            state = (w.screen.STATES["down"], RED)
+        elif state[0] == w.s("state_shard_down"):
+            off = next(i for i in range(3) if down >> (i + 1) & 1)
+            state = (w.s("fan_state_shard", shard=f"n{off + 1}"), RED)
+        return FanoutFrame(users=lane.users, flights=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                           door_color=lane.door_color, state=state, relay=relay, leaves=leaves, hops=hops)

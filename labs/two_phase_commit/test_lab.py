@@ -337,7 +337,7 @@ def test_two_pictures_cluster_first():
     def picture(v, t: float):
         world = world_of(v)
         set_view(world, "cluster")
-        assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster opens first
+        assert views_for(world) == ["cluster", "fanout", "lanes"] and world.view == "cluster"  # cluster opens first
         frame = adapter_for(world).frame(v, t)
         assert len(frame.nodes) == 4
         text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
@@ -355,3 +355,30 @@ def test_two_pictures_cluster_first():
     assert EXTRA2 in doubt.nodes[1:] and RED not in doubt.nodes[1:]  # in doubt (orange), never partial
     healed, _ = picture("reference", 31.0)
     assert healed.nodes == [healed.nodes[0]] * 4 and healed.nodes[0] not in (RED, EXTRA2)
+
+
+@starting_code
+def test_the_fanout_picture_shows_each_shard():
+    from live.canvas import BLUE, EXTRA2, GREEN, MUTED, RED, WHITE, plain
+    from live.frame import compose
+    from live.views import adapter_for, set_view
+
+    def fan(v, t: float):
+        world = world_of(v)
+        set_view(world, "fanout")
+        frame = adapter_for(world).frame(v, t, 100)
+        text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
+        assert all(leaf.label[0] in text for leaf in frame.leaves) and frame.state[0] in text
+        return frame
+
+    given, solved = fan("main", 23.0), fan("reference", 23.0)
+    assert [leaf.label[0] for leaf in given.leaves] == ["n1", "n2", "n3"] and given.hops
+    # One shard at a time: plain writes only, and the shards that wrote before n2 said no are red.
+    assert {c for _, _, c, _ in given.hops} == {WHITE} and any(leaf.outline == RED for leaf in given.leaves)
+    # 2PC: prepares out, votes back (blue yes, grey no), decisions out; no shard keeps a partial commit.
+    assert {(c, back) for _, _, c, back in solved.hops} >= {(WHITE, False), (BLUE, True), (GREEN, False),
+                                                            (MUTED, True)}
+    assert not any(leaf.outline == RED for leaf in solved.leaves)
+    down, doubt = fan("main", 27.0), fan("reference", 27.5)
+    assert down.closed and down.relay.outline == RED  # the coordinator is down
+    assert doubt.relay.outline == RED and any(leaf.outline == EXTRA2 and leaf.fill > 0 for leaf in doubt.leaves)

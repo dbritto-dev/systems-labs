@@ -53,6 +53,9 @@ LEGEND = {"cool": "under 50%", "busy": "busy", "melting": "over 90%", "request":
           "limit": "capacity"}
 
 STRINGS = {
+    "fan_counters": "Counters",
+    "fan_part": "p{p} {util:.0%}",
+    "fan_hot": "p{p} hot",
     # incidents
     "title_viral": "Viral post",
     "title_link": "Viral link",

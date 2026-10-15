@@ -282,7 +282,7 @@ def test_two_pictures_the_cluster_first():
     from live.views import adapter_for, set_view, views_for
 
     worlds = {v: build_world(LAB, v, 1) for v in ("main", "reference")}
-    assert views_for(worlds["main"]) == ["cluster", "lanes"] and worlds["main"].view == "cluster"
+    assert views_for(worlds["main"]) == ["cluster", "fanout", "lanes"] and worlds["main"].view == "cluster"
 
     def pictures(v: str, t: float):
         world = worlds[v]
@@ -308,3 +308,31 @@ def test_two_pictures_the_cluster_first():
     frame, _ = pictures("main", 45.0)
     assert RED not in frame.nodes
     assert all(c != EXTRA2 for _, _, _, c in pictures("reference", 45.0)[0].flights)  # no fan-in once cool
+
+
+@starting_code
+def test_the_fanout_picture_shows_each_partition():
+    from live.canvas import EXTRA2, PURPLE, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for, set_view
+
+    hot = home(scenario.hot_key(next(scenario.incidents(1)), 1))
+
+    def fan(v: str, t: float):
+        world = build_world(LAB, v, 1)
+        set_view(world, "fanout")
+        frame = adapter_for(world).frame(v, t, 100)
+        text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
+        assert all(leaf.label[0] in text for leaf in frame.leaves) and frame.state[0] in text
+        return frame
+
+    given, solved = fan("main", 24.0), fan("reference", 24.0)
+    assert len(given.leaves) == PARTITIONS and given.leaves[hot].label[0] == build_world(LAB, "main", 1).s("fan_hot", p=hot)
+    # Hash by key: the hot partition melts (red), the hot key's requests all go there and some are throttled.
+    assert [p for p, leaf in enumerate(given.leaves) if leaf.outline == RED] == [hot]
+    assert {j for j, _, c, _ in given.hops if c == PURPLE} == {hot} and any(c == RED for _, _, c, _ in given.hops)
+    assert given.relay.fill == 0  # one request per operation: no fan-in
+    # Salted: the hot key's writes spread over the partitions, none melts, and Counters fans reads in.
+    assert not any(leaf.outline == RED for leaf in solved.leaves)
+    assert len({j for j, _, c, _ in solved.hops if c == PURPLE}) >= 3
+    assert solved.relay.fill > 0 and solved.relay.outline == EXTRA2
