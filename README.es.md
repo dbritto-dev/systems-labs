@@ -22,6 +22,7 @@ uv run python -m live caching --lang es --lesson       # el concepto, enlaces y 
 uv run python -m live caching --lang es --at 90 --size 110x44 --color   # imprime un fotograma
 LABS_LANG=es uv run pytest                           # x = tu código aún no está, X = hecho
 LABS_LANG=es LABS_REFERENCE=1 uv run pytest          # comprueba las soluciones de referencia
+LABS_LANG=es LABS_STRICT=1 uv run pytest             # el control del repo: los tests del código inicial siguen estrictos
 ```
 
 Con `LABS_LANG=es` en el entorno no hace falta `--lang es`. Más opciones: `--set
@@ -134,7 +135,16 @@ y se ve mejor desde 110x44.
 
 Hay 45 laboratorios. Cada uno tiene dos dibujos, **carriles** (usuarios, una puerta, un
 servidor) y **clúster** (nodos y los mensajes entre ellos), y abre con el que mejor lo
-explica; pulsa `v` para cambiar.
+explica; pulsa `v` para cambiar. Algunos tienen además una variación de carriles: **relevo**
+pone un segundo servidor en medio (un balanceador, una pasarela, una caché, una cola) y las
+peticiones van usuario → puerta → relevo → servidor; **abanico** hace que el relevo llame a
+varios servidores pequeños, cada uno con su indicador (un orquestador y sus servicios, un
+coordinador y sus fragmentos).
+
+| Dibujo | Laboratorios |
+|---|---|
+| relevo | `load_balancing` (abre con él), `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
+| abanico | `saga_orchestration` (abre con él), `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
 
 Tráfico y fiabilidad:
 
@@ -221,7 +231,8 @@ labs/   <lab>/ main.py  reference.py  README.md     tus archivos, en inglés
                scenario.py  lab.py (números, stage_of)  test_lab.py
 live/   canvas.py (Braille + color)  screen.py (terminal)  runner.py (procesos hijo, Feed)
         frame.py (cabecera, gráfica, pie)  panel.py (panel)  text/ (las palabras de la pantalla)
-        views/ (View, Adapter: lanes, cluster)  adapters/ (un módulo por laboratorio)
+        views/ (View, Adapter: lanes, cluster, y las variaciones de carriles relay, fanout)
+        adapters/ (un módulo por laboratorio)
         worlds/ (un World por laboratorio)  __main__.py
 ```
 

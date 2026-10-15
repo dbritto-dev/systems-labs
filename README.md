@@ -23,6 +23,7 @@ uv run python -m live caching --lesson      # the concept, links and a checklist
 uv run python -m live caching --at 90 --size 110x44 --color   # print one frame
 uv run pytest                             # x = your code is not there yet, X = done
 LABS_REFERENCE=1 uv run pytest            # check the reference solutions
+LABS_STRICT=1 uv run pytest               # the repo's own check: starting-code tests stay strict
 LABS_LANG=es uv run pytest                # your Spanish files (es/main.py)
 ```
 
@@ -129,7 +130,15 @@ a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed. The scr
 
 There are 45 labs. Each has two pictures, **lanes** (users, a door, a server) and **cluster**
 (nodes and the messages between them), and opens with the one that teaches it best; press
-`v` to switch.
+`v` to switch. Some have a variation of lanes too: **relay** puts a second server in the
+middle (a balancer, a gateway, a cache, a queue) with requests flying user → door → relay →
+server, and **fan-out** has the relay call a few small servers, each with its own gauge (an
+orchestrator and its services, a coordinator and its shards).
+
+| Picture | Labs |
+|---|---|
+| relay | `load_balancing` (opens with it), `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
+| fan-out | `saga_orchestration` (opens with it), `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
 
 Traffic and reliability:
 
@@ -216,7 +225,8 @@ labs/   <lab>/ main.py  reference.py  README.md     your files, in English
                scenario.py  lab.py (numbers, stage_of)  test_lab.py
 live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child processes, Feed)
         frame.py (header, chart, footer)  panel.py (dashboard)  text/ (the screen's words)
-        views/ (View, Adapter: lanes, cluster)  adapters/ (one module per lab)
+        views/ (View, Adapter: lanes, cluster, and the lanes variations relay, fanout)
+        adapters/ (one module per lab)
         worlds/ (one World per lab)  __main__.py
 ```
 
