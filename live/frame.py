@@ -151,7 +151,7 @@ def edit_file(world, variant: str = "main") -> str:
     file you gave with --variant."""
     from core.contract import ROOT, module_path
 
-    if variant == "main" or not world.id:
+    if not isinstance(variant, str) or variant == "main" or not world.id:  # tests pass code objects too
         return world.files[0] if world.files else f"labs/{world.id}/main.py"
     path = module_path(world.id, variant)
     try:
