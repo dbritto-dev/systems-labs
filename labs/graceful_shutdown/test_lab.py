@@ -4,7 +4,7 @@ import itertools
 import pytest
 
 from core.contract import load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from core.vtime import now, run_virtual
 from labs.graceful_shutdown import scenario
 
@@ -198,12 +198,29 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("graceful_shutdown", EXIT, 1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
     lane = adapter_for(world).frame(EXIT, 22.0, 100)
     assert lane.users and lane.flights and lane.closed  # the balancer still sends to the dead instance
     set_view(world, "cluster")
     frame = adapter_for(world).frame(EXIT, 22.0)
     assert len(frame.nodes) == scenario.LB_NODES + scenario.INSTANCES and frame.flights and frame.drops
+
+
+def test_the_relay_picture_shows_the_balancer_routing_to_a_dying_instance():
+    from live.canvas import EXTRA2, RED
+    from live.views import adapter_for, set_view
+
+    def relay(v, t: float):
+        world = build_world("graceful_shutdown", v, 1)
+        set_view(world, "relay")
+        return adapter_for(world).frame(v, t, 100)
+
+    given, solved = relay(EXIT, 23.0), relay("reference", 30.0)  # the rolling deploy
+    assert given.users and given.flights and given.hops and given.relay.label[0] and given.state[0]
+    # exit at once: the balancer still sends to an instance that no longer listens, and those requests fail
+    assert given.relay.outline == RED and given.relay.fill == 1.0 and any(c == RED for _, c, _ in given.hops)
+    # leave the rotation first: the balancer still holds the leaving instance (orange) a while, then drops it
+    assert solved.relay.outline == EXTRA2 and solved.relay.fill < 1.0 and not any(c == RED for _, c, _ in solved.hops)
 
 
 # ------------------------------------------------------------- your code

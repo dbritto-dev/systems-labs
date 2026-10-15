@@ -57,6 +57,9 @@ STRINGS = {
     # the pictures
     "fleet_state": "{state} {n}+{booting}",
     "cluster_state": "{state}  {n} up · {booting} booting · needs {need}",
+    # the relay picture: the load on the instances, the fleet serving / needed
+    "relay_load": "load {load:.0%}",
+    "relay_fleet": "serving {n}/{need}",
     # incidents
     "surge": "Traffic surge",
     "drop": "Traffic drop",

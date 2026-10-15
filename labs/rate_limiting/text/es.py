@@ -51,6 +51,9 @@ LEGEND = {"idle": "en reposo", "normal": "normal", "flooding": "en avalancha", "
 STRINGS = {
     # el dibujo de clúster: clientes -> limitador -> backend
     "pic_state": "limitador → backend: {state}",
+    # el dibujo de relevo: la pasarela, o los 429 que dio en el último segundo
+    "relay_gateway": "pasarela",
+    "relay_refused": "{n} × 429/s",
     # incidentes
     "who_one": "1 cliente",
     "who_many": "{n} clientes",

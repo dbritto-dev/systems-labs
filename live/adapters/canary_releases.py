@@ -1,7 +1,8 @@
 """The pictures for lab canary_releases: lanes (users → the router as the door, purple while it splits the
 traffic → the fleet as one server whose gauge is the new build's share) and cluster (one node per instance:
 blue on the live build, purple on the new one; red or orange while the build they run hurts requests;
-requests fly to the instance that got them, purple ones to the canary)."""
+requests fly to the instance that got them, purple ones to the canary) and relay (users → the door → the
+router → the fleet)."""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from live.canvas import GREEN, RED, RGB, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 CLOSED = 0.05  # the door shuts (solid red) when this share of the last second's requests failed
 HURTING = 3  # requests hurt in the last 2 s that turn the server's outline red
@@ -143,3 +145,58 @@ class CanaryCluster(ClusterAdapter):
         else:
             text = w.s("cluster_live", state=state, v=now["live"], n=FLEET)
         return ClusterFrame(nodes=nodes, flights=flights, drops=drops, state=(text, col))
+
+
+@adapts("canary_releases", "relay")
+class CanaryRelay(RelayAdapter):
+    """The lanes picture with the router as a server of its own: users → the door → the router → the fleet
+    (the old build and the new one). The router's gauge is the canary's share of the traffic, purple, with a
+    purple outline, while a canary runs (empty when everyone is on the live build). Under it: the new build
+    and its share, or "router". The fleet's gauge is the instances on the new build (purple) while there is
+    a canary, full blue on the live build, full red while a bad build is live; its outline red while a build
+    hurts requests. Under it: how many instances run the new build, or the live build. Requests fly user →
+    door, then router → instance: purple to the new build, big and red when the bad build hurt them (failed
+    or slowed them)."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.canary_releases import CANARY_C, LIVE_C, REQ_CANARY, REQ_HARMED, REQ_START
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = CanaryLanes(w).frame(variant, t, users)  # users, outcomes, the door and the outline
+        rows = run.rows("requests", t - FLY, t + 1e-9)
+        shown = every([r for r in rows if r[REQ_HARMED]], FLIGHTS // 3)
+        shown += every([r for r in rows if r[REQ_CANARY] and not r[REQ_HARMED]], FLIGHTS // 3)
+        shown += every([r for r in rows if not r[REQ_CANARY] and not r[REQ_HARMED]], FLIGHTS - len(shown))
+        flights, hops = [], []  # the first half of the way: user → door; the second: router → instance
+        for r in shown:
+            p = (t - r[REQ_START]) / FLY
+            if p < 0.5:
+                flights.append((slot(op_id(r[REQ_START]), users), 2 * p, WHITE, False))
+            elif r[REQ_HARMED]:
+                hops.append((2 * p - 1, RED, True))
+            else:
+                hops.append((2 * p - 1, CANARY_C if r[REQ_CANARY] else WHITE, bool(r[REQ_CANARY])))
+
+        now = _now(w, run, t)
+        if now["new"] is not None:
+            k = max(1, round(now["weight"] * FLEET))
+            relay = Relay(label=(w.s("relay_split", v=now["new"], w=now["weight"]), CANARY_C),
+                          fill=now["weight"], gauge=CANARY_C, outline=CANARY_C)
+            state = (w.s("relay_fleet", v=now["new"], b=k, n=FLEET), CANARY_C)
+            fill, gauge = k / FLEET, CANARY_C
+        else:
+            relay = Relay(label=(w.s("relay_router"), OUTLINE), fill=0.0, gauge=LIVE_C, outline=OUTLINE)
+            if now["bad_live"]:
+                state, gauge = (w.s("relay_bad", v=now["live"]), RED), RED
+            elif now["back"] is not None:
+                state, gauge = (w.s("relay_back", v=now["back"]), GREEN), LIVE_C
+            else:
+                state, gauge = _state(w, now), LIVE_C
+            fill = 1.0
+        return RelayFrame(
+            users=lane.users, flights=flights, outcomes=lane.outcomes, closed=lane.closed,
+            fill=fill, gauge=gauge, outline=lane.outline, state=state, relay=relay, hops=hops,
+        )

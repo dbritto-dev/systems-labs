@@ -76,6 +76,12 @@ STRINGS = {
     "state_back": "ROLLED BACK v{v}",
     "cluster_live": "{state}  · v{v} on all {n} instances",
     "cluster_canary": "{state} on {b} of {n} · v{live} on {a}",
+    # the relay picture: what the router does, each build's instances
+    "relay_split": "{w:.0%} → v{v}",
+    "relay_router": "router",
+    "relay_fleet": "v{v} on {b}/{n}",
+    "relay_bad": "BAD v{v}",
+    "relay_back": "ROLLBACK v{v}",
     # releases
     "good": "Good build",
     "flaky": "Flaky dependency",

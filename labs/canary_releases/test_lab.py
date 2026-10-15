@@ -4,7 +4,7 @@ import math
 import pytest
 
 from core.contract import import_module, load
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.canary_releases import lab, scenario
 
 code = load("canary_releases", variant(), scenario.NAMES)
@@ -270,7 +270,7 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("canary_releases", "reference", 4, seed=1)
-    assert views_for(world) == ["lanes", "cluster"] and world.view == "lanes"  # lanes opens first
+    assert views_for(world) == ["lanes", "cluster", "relay"] and world.view == "lanes"  # lanes opens first
     lane = adapter_for(world).frame("reference", 215.0, 100)  # seed 1's good build, on 25%
     assert lane.users and lane.flights and lane.state[0] and 0 < lane.fill < 1
     assert any(big for *_, big in lane.flights)  # the canary's requests stand out
@@ -278,6 +278,25 @@ def test_both_pictures():
     frame = adapter_for(world).frame("reference", 215.0)
     assert len(frame.nodes) == scenario.FLEET and frame.flights
     assert len(set(frame.nodes)) == 2 and frame.nodes.count(frame.nodes[0]) == 5  # 25% = 5 of 20 instances
+
+
+@starting_code
+def test_the_relay_picture_shows_the_router_splitting_the_traffic():
+    from live.canvas import PURPLE, RED
+    from live.views import adapter_for, set_view
+
+    def relay(v):
+        world = build_world("canary_releases", v, 1)
+        set_view(world, "relay")
+        return adapter_for(world).frame(v, 22.0, 100)  # the first release, a slow build
+
+    given, solved = relay("main"), relay("reference")
+    assert given.users and given.flights and given.hops and given.relay.label[0] and given.state[0]
+    # straight to everyone: no canary in the router, the whole fleet on the bad build, hurt requests in red
+    assert given.relay.fill == 0.0 and given.gauge == RED and any(c == RED for _, c, _ in given.hops)
+    # a canary: the router sends a few percent to the new build, purple, on 1 instance of 20
+    assert solved.relay.gauge == PURPLE and 0 < solved.relay.fill < 0.2 and solved.gauge == PURPLE
+    assert any(c == PURPLE for _, c, _ in solved.hops)
 
 
 # ------------------------------------------------------------- your code

@@ -1,15 +1,17 @@
 """The pictures for lab graceful_shutdown: lanes (users → the load balancer as the door → the fleet of 6
 instances) and cluster (the 3 balancer nodes on the top row, the 6 instance slots below, every request
-flying from a balancer node to the instance it reaches)."""
+flying from a balancer node to the instance it reaches) and relay (users → the door → the load balancer →
+the fleet)."""
 
 from __future__ import annotations
 
-from labs.graceful_shutdown.scenario import DRAINING, INSTANCES, LB_NODES, LEAVING, REFUSING, STARTING
+from labs.graceful_shutdown.scenario import DRAINING, INSTANCES, LB_NODES, LEAVING, REFUSING, SERVING, STARTING
 from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, op_id
 from live.canvas import BLUE, EXTRA2, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 
 def _colour(r) -> tuple[int, int, int]:
@@ -121,3 +123,46 @@ class GracefulShutdownCluster(ClusterAdapter):
         text, colour = _state(w, run, t)
         return ClusterFrame(nodes=nodes, flights=flights, drops=drops,
                             state=(f"{text}   {w.s('topology')}", colour))
+
+
+@adapts("graceful_shutdown", "relay")
+class GracefulShutdownRelay(RelayAdapter):
+    """The lanes picture with the load balancer as a server of its own: users → the door → the load balancer
+    → the fleet of 6 instances (as in the lanes picture). The balancer's gauge is its rotation: the share of
+    the 6 slots it sends new connections to. It is blue while all of them serve, orange while it still sends
+    to an instance that got SIGTERM (it has not noticed yet), red while it sends to one that no longer
+    listens (those connections are refused); its outline is the same colour. Under it: its rotation, as
+    instances routed to / 6. Requests fly user → door, then balancer → instance: orange to an instance that got
+    SIGTERM, big and red when they failed (refused, or cut by a SIGKILL). Under the fleet: the slot worth
+    naming (REFUSING s0), its gauge the instances serving."""
+
+    def frame(self, variant: str, t: float, users: int) -> RelayFrame:
+        from live.worlds.graceful_shutdown import REQ_OK, REQ_START
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return RelayFrame()
+        lane = GracefulShutdownLanes(w).frame(variant, t, users)  # users, outcomes and the fleet
+        flying = run.rows("requests", t - FLY, t + 1e-9)
+        shown = every([r for r in flying if not r[REQ_OK]], FLIGHTS // 2)
+        shown += every([r for r in flying if r[REQ_OK]], FLIGHTS - len(shown))
+        flights, hops = [], []  # the first half of the way: user → door; the second: balancer → instance
+        for r in shown:
+            p = (t - r[REQ_START]) / FLY
+            if p < 0.5:
+                flights.append((slot(op_id(r[REQ_START]), users), 2 * p, WHITE, False))
+            else:
+                hops.append((2 * p - 1, _colour(r), not r[REQ_OK]))
+
+        states, _, _ = w.fleet(run, t)
+        routed = sum(1 for s in states if s in (SERVING, LEAVING, REFUSING))
+        colour = RED if REFUSING in states else EXTRA2 if LEAVING in states else BLUE
+        relay = Relay(label=(w.s("relay_lb", n=routed, of=INSTANCES), OUTLINE if colour == BLUE else colour),
+                      fill=routed / INSTANCES, gauge=colour, outline=OUTLINE if colour == BLUE else colour)
+        text, col = lane.state  # "REFUSING s0 · 5/6": the count is the fleet's gauge, and the words must fit
+        return RelayFrame(
+            users=lane.users, flights=flights, outcomes=lane.outcomes, closed=lane.closed,
+            fill=lane.fill, gauge=lane.gauge, outline=lane.outline, state=(text.split(" · ")[0], col),
+            relay=relay, hops=hops,
+        )
