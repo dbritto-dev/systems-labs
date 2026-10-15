@@ -116,3 +116,17 @@ def test_a_widget_head_never_overflows():
     assert vis(head) <= 20 and "…" in head
     head = widget("Users", "waits: the last five seconds", [], 20, style)[0]
     assert vis(head) <= 20 and head.startswith("▍Users")
+
+
+def test_a_stuck_run_says_which_line_of_your_code_it_is_stuck_on(tmp_path):
+    from pathlib import Path
+
+    from live.runner import StreamJob
+
+    src = Path("labs/retry_storm/reference.py").read_text()
+    stuck = tmp_path / "stuck.py"
+    stuck.write_text(src.replace("return await self.service.call(payload)", "while True:\n                    pass"))
+    line = next(n for n, text in enumerate(stuck.read_text().splitlines(), 1) if text.strip() == "pass")
+    job = StreamJob("labs.retry_storm.scenario:stream", str(stuck), {}, timeout=2.0)
+    status, message = job.next_sync()
+    assert status == "error" and f"stuck.py:{line}" in message

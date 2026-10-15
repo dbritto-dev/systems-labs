@@ -8,7 +8,10 @@ None while it runs, then ("ok", data) or ("error", message).
 from __future__ import annotations
 
 import importlib
+import os
+import signal
 import sys
+import tempfile
 import multiprocessing as mp
 import time
 import traceback
@@ -126,8 +129,32 @@ class Job:
                 pass
 
 
-def _stream_child(conn, target: str, variant: str, params: dict) -> None:
+def where_stuck(frame) -> str:
+    """The deepest line of your code on a stack (from the frame the program was at), or ""."""
+    while frame is not None:
+        if _yours(frame.f_code.co_filename):
+            return f"{_rel(frame.f_code.co_filename)}:{frame.f_lineno}"
+        frame = frame.f_back
+    return ""
+
+
+def _listen_for_stuck(stuck_file: str) -> None:
+    """If the parent sends SIGUSR1 (a piece takes too long), write where your code is right now."""
+    if not stuck_file or not hasattr(signal, "SIGUSR1"):
+        return
+
+    def tell(signum, frame) -> None:
+        try:
+            Path(stuck_file).write_text(where_stuck(frame))
+        except OSError:
+            pass
+
+    signal.signal(signal.SIGUSR1, tell)
+
+
+def _stream_child(conn, target: str, variant: str, params: dict, stuck_file: str = "") -> None:
     """Run one endless simulation; send the next piece each time the parent asks."""
+    _listen_for_stuck(stuck_file)
     lab = target.split(".")[1] if target.startswith("labs.") else ""
     default = _rel(str(variant)) if str(variant).endswith(".py") else (
         _rel(str(module_path(lab, variant))) if lab else "")
@@ -167,8 +194,10 @@ class StreamJob:
         self.timeout = timeout
         ctx = mp.get_context("spawn")
         self._conn, child = ctx.Pipe(duplex=True)
-        self._proc = ctx.Process(target=_stream_child, args=(child, target, variant, dict(params or {})),
-                                 daemon=True)
+        fd, self._stuck = tempfile.mkstemp(prefix="labs-stuck-", suffix=".txt")  # where it is, if it hangs
+        os.close(fd)
+        self._proc = ctx.Process(target=_stream_child,
+                                 args=(child, target, variant, dict(params or {}), self._stuck), daemon=True)
         self._proc.start()
         child.close()
         self._asked: float | None = None
@@ -204,8 +233,29 @@ class StreamJob:
         if not self._proc.is_alive():
             return self._dead(screen_text().RUN_CRASHED.format(code=self._proc.exitcode))
         if time.monotonic() - self._asked > self.timeout:
-            return self._dead(screen_text().NO_RESULT.format(seconds=f"{self.timeout:.0f}"))
+            message = screen_text().NO_RESULT.format(seconds=f"{self.timeout:.0f}")
+            where = self._where_stuck()
+            return self._dead(f"{message}  ({screen_text().EDIT_HERE.format(where=where)})" if where else message)
         return None
+
+    def _where_stuck(self, wait: float = 0.5) -> str:
+        """Ask the child where your code is (it writes the line to a file), before it is stopped."""
+        if not hasattr(signal, "SIGUSR1") or not self._proc.is_alive():
+            return ""
+        try:
+            os.kill(self._proc.pid, signal.SIGUSR1)
+        except OSError:
+            return ""
+        until = time.monotonic() + wait
+        while time.monotonic() < until:
+            try:
+                text = Path(self._stuck).read_text().strip()
+            except OSError:
+                text = ""
+            if text:
+                return text
+            time.sleep(0.02)
+        return ""
 
     def _dead(self, message: str) -> tuple[str, str]:
         self._asked = None
@@ -218,6 +268,10 @@ class StreamJob:
             self._proc.kill()
             self._proc.join(timeout=2)
         self._conn.close()
+        try:
+            os.unlink(self._stuck)
+        except OSError:
+            pass
 
     def next_sync(self) -> tuple[str, Any]:
         self.request()
