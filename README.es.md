@@ -139,7 +139,9 @@ explica; pulsa `v` para cambiar. Algunos tienen además una variación de carril
 pone un segundo servidor en medio (un balanceador, una pasarela, una caché, una cola) y las
 peticiones van usuario → puerta → relevo → servidor; **abanico** hace que el relevo llame a
 varios servidores pequeños, cada uno con su indicador (un orquestador y sus servicios, un
-coordinador y sus fragmentos).
+coordinador y sus fragmentos). **pares** pone los nodos en un anillo (un pentágono, un
+octógono), cada uno una caja pequeña con su indicador y su nombre, con los enlaces que llevan
+mensajes en ese momento, y una ✕ roja en cada enlace que corta una partición.
 
 Cada uno de estos laboratorios abre con ese dibujo.
 
@@ -147,6 +149,7 @@ Cada uno de estos laboratorios abre con ese dibujo.
 |---|---|
 | relevo | `load_balancing`, `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
 | abanico | `saga_orchestration`, `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
+| pares | `raft_consensus`, `paxos_consensus`, `failure_detection`, `vector_clocks_crdts` |
 
 Tráfico y fiabilidad:
 
@@ -233,7 +236,7 @@ labs/   <lab>/ main.py  reference.py  README.md     tus archivos, en inglés
                scenario.py  lab.py (números, stage_of)  test_lab.py
 live/   canvas.py (Braille + color)  screen.py (terminal)  runner.py (procesos hijo, Feed)
         frame.py (cabecera, gráfica, pie)  panel.py (panel)  text/ (las palabras de la pantalla)
-        views/ (View, Adapter: lanes, cluster, y las variaciones de carriles relay, fanout)
+        views/ (View, Adapter: lanes, cluster, y las variaciones de carriles relay, fanout, peers)
         adapters/ (un módulo por laboratorio)
         worlds/ (un World por laboratorio)  viewer.py (el bucle: estados, comandos de teclas, avisos,
         redibujar solo si cambia)  __main__.py  views/parts.py (las piezas de los dibujos)

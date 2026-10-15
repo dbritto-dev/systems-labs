@@ -133,7 +133,7 @@ GOALS = [
 
 class PaxosWorld(World):
     id = "paxos_consensus"
-    view = "cluster"
+    view = "peers"  # the five nodes on a pentagon, the links between them, and the clients
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(GREEN, "leader", "◉"), (BLUE, "node", "◉"), (EXTRA2, "candidate", "◉"), (RED, "split", "◉"),
               (MUTED, "down", "◉"), (WHITE, "request"), (PURPLE, "propose"), (EXTRA1, "phase1"),

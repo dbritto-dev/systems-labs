@@ -231,7 +231,7 @@ def test_both_pictures_show_the_replicas_and_the_devices():
 
     for v in ("main", "reference"):
         world = world_of(v)
-        assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster first
+        assert views_for(world) == ["peers", "cluster", "lanes"] and world.view == "peers"  # peers first
         set_view(world, "cluster")
         during = adapter_for(world).frame(v, 25.0)
         assert during.groups == [0, 0, 1, 1, 1] and during.drops  # the gossip across the cut is dropped
@@ -245,4 +245,26 @@ def test_both_pictures_show_the_replicas_and_the_devices():
         lanes = [adapter_for(world).frame(v, t, 100) for t in range(30, 40)]
         assert all(len(f.state[0]) <= 13 for f in lanes)
         assert any(c == RED for f in lanes for c, _ in f.outcomes) is (v == "main")
-        set_view(world, "cluster")
+        set_view(world, "peers")  # back to the one it opens with (world_of keeps the world)
+
+
+@starting_code
+def test_the_peers_picture_cuts_the_links_and_flashes_the_lost_adds_at_the_heal():
+    from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, RED
+    from live.views import adapter_for, set_view
+
+    for v in ("main", "reference"):
+        world = world_of(v)
+        assert type(world).view == "peers"
+        set_view(world, "peers")
+        during = adapter_for(world).frame(v, 25.0, 90)
+        assert during.groups == [0, 0, 1, 1, 1] and during.drops
+        cut = [(a, b) for a, b, _ in during.links if during.groups[a] != during.groups[b]]
+        assert len(cut) == 6  # every link between the two sides, cut
+        assert any(p.outline in (EXTRA1, EXTRA2, EXTRA3) for p in during.peers)  # the two sides diverge
+        assert any(p.label[0] == world.s("peer_differ", node=f"n{i}", n=k)
+                   for i, (p, k) in enumerate(zip(during.peers, world.behind_at(world.runs[v], 25.0))) if k)
+        healed = [adapter_for(world).frame(v, t, 90) for t in (30.25, 30.5, 30.75, 31.0)]
+        assert any(f.links and f.groups is None for f in healed)  # the links light up again
+        assert any(p.outline == RED for f in healed for p in f.peers) is (v == "main")  # adds vanish
+        assert all(p.outline == BLUE for p in adapter_for(world).frame(v, 40.0, 90).peers)  # converged

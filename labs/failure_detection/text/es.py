@@ -87,6 +87,11 @@ STRINGS = {
     "lanes_failing": "FALLANDO",
     "lanes_needless": "CAMBIO INÚTIL",
     "lanes_in_use": "{n}/{of} EN USO",
+    # el dibujo de pares: bajo cada nodo, lo que el clúster cree de él, corto
+    "peer_dead": "{node} muerto",
+    "peer_false": "{node} FALSO",
+    "peer_down": "{node} caído",
+    "peer_suspect": "{node} sospechoso",
     # errores en tu código
     "no_status": "Detector debe guardar self.status: un dict, id del par -> 'alive', 'suspect' o 'dead'",
 }

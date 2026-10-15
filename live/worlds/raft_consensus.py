@@ -150,11 +150,11 @@ GOALS = [
 
 class RaftWorld(World):
     id = "raft_consensus"
-    view = "cluster"
+    view = "peers"  # the five nodes on a pentagon, the links between them, and the clients
     stage_colours = (RED, EXTRA3, EXTRA2, BLUE)
     legend = [(GREEN, "leader", "◉"), (BLUE, "follower", "◉"), (EXTRA2, "candidate", "◉"),
               (MUTED, "down", "◉"), (WHITE, "request"), (BLUE, "append"), (EXTRA1, "vote"),
-              (RED, "dropped"), (RED, "partition", "┆")]
+              (RED, "dropped"), (RED, "partition", "✕")]  # a cut link (the cluster view draws a dashed line)
     incident_verbs = ("split", "heal")
     tables = {
         "ops": Table(sort=OP_START, times=(OP_START, OP_END)),

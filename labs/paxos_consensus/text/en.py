@@ -87,6 +87,13 @@ STRINGS = {
     "lanes_split": "DISAGREE",
     "lanes_lost": "LOST",
     "lanes_stalled": "STALLED",
+    # the peers picture: under each node, its role and ballot (b: ballot), short
+    "peer_leader": "{node} leader b{ballot}",
+    "peer_candidate": "{node} cand b{ballot}",
+    "peer_ballot": "{node} b{ballot}",
+    "peer_down": "{node} down",
+    "peer_paused": "{node} paused",
+    "peer_split": "{node} differs",
     # errors in your code
     "no_state": "PaxosNode must keep self.promised, self.accepted, self.decided and self.role (no {name})",
 }

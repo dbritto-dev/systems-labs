@@ -196,7 +196,8 @@ def test_the_cluster_picture_shows_the_crash_found_and_the_lanes_what_clients_se
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("failure_detection", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["peers", "cluster", "lanes"]  # peers first: it opens with it
+    set_view(world, "cluster")
     cluster = adapter_for(world)
     assert cluster.frame("reference", 20.4).nodes[2] == MUTED  # crashed, nobody noticed yet
     assert cluster.frame("reference", 23.0).nodes[2] == RED  # declared dead
@@ -212,3 +213,35 @@ def test_the_cluster_picture_shows_the_crash_found_and_the_lanes_what_clients_se
     set_view(fixed, "lanes")
     seen = {c for t in range(5, 60) for c, _ in adapter_for(fixed).frame(FIXED, float(t), 90).outcomes}
     assert EXTRA3 in seen  # sessions moved off healthy nodes
+
+
+@starting_code
+def test_the_peers_picture_shows_false_deaths_behind_the_flaky_links_and_the_cost():
+    from labs.failure_detection.scenario import FLAKY
+    from live.adapters.failure_detection import FLAKY_LINK
+    from live.canvas import EXTRA2, RED
+    from live.views import adapter_for
+
+    def peers(v):
+        world = build_world("failure_detection", v, 1)
+        assert world.view == "peers"
+        return world, [adapter_for(world).frame(v, t / 2, 90) for t in range(10, 60)]  # 0:05 to 0:30
+
+    world, given = peers("main")
+    _, solved = peers("reference")
+
+    def false(frames) -> set[int]:
+        return {i for f in frames for i, p in enumerate(f.peers)
+                if p.outline == RED and p.label[0] == world.s("peer_false", node=f"n{i}")}
+
+    for frames in (given, solved):
+        flaky = {(a, b) for f in frames for a, b, c in f.links if c == FLAKY_LINK}
+        assert {tuple(sorted(link)) for link in FLAKY} <= flaky  # the flaky links, always drawn
+        assert all(len(f.links) < 8 * 7 // 2 for f in frames)  # never the whole mesh
+        assert any(f.peers[2].label[0] == world.s("peer_dead", node="n2") for f in frames)  # the crash, found
+    ends = {i for link in FLAKY for i in link}
+    before = given[:20]  # 0:05 to 0:15, before the crash
+    assert false(before) and false(before) <= ends  # healthy nodes buried behind the flaky links
+    assert not false(solved)
+    assert all(p.gauge == EXTRA2 and p.fill == 1.0 for p in given[0].peers)  # every node over 10 messages/s
+    assert sum(p.fill < 1.0 for f in solved for p in f.peers) > len(solved) * 4  # mostly under it

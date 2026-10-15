@@ -1,13 +1,16 @@
-"""The pictures for lab raft_consensus: nodes coloured by role, AppendEntries and votes in flight; and the
-clients' view."""
+"""The pictures for lab raft_consensus: the peers (five nodes on a pentagon, by role, AppendEntries and votes
+between them), the cluster (the same on a grid), and the clients' view (lanes)."""
 
 from __future__ import annotations
 
-from live.adapters.common import client_lanes, every, message_gauge
-from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, RED, WHITE
+from live.adapters.common import (
+    client_lanes, every, link_list, message_gauge, peer_gauge, peer_traffic, sent_per_second,
+)
+from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_peers import LINE, Leaf, PeersAdapter, PeersFrame
 
 DROP_FADE = 0.6  # seconds a dropped message stays on screen
 MAX_FLIGHTS = 80
@@ -102,3 +105,60 @@ class RaftLanes(LaneAdapter):
             state = (words["connected"], GREEN)
         return LaneFrame(users=waiting, flights=flights, outcomes=outcomes, closed=leader is None, fill=fill,
                          gauge=gauge, outline=RED if lied else OUTLINE, state=state)
+
+
+# ---------------------------------------------------------------- the peers picture: the nodes, and the clients
+
+SENT_MAX = 60  # messages a node sends per second that fill its gauge (a leader sends ~50: heartbeats, entries)
+
+
+@adapts("raft_consensus", "peers")
+class RaftPeers(PeersAdapter):
+    """The clients (the users and the door, as in lanes: shut while there is no leader) and the five nodes on
+    a pentagon, outlined by role (green leader, orange candidate, blue follower, grey down), each named with
+    its role and term ("n3 leader t4"), its gauge the messages it sends per second. A link is drawn while it
+    carries messages: blue AppendEntries, light orange RequestVote. During a partition every link between the
+    two sides is drawn and cut (a red ✕): a stale leader cut off on the minority side shows as a second
+    "leader" whose links are all cut, its AppendEntries lost half way."""
+
+    def frame(self, variant: str, t: float, users: int) -> PeersFrame:
+        from labs.raft_consensus.scenario import CANDIDATE, DOWN, LEADER, VOTE
+        from live.worlds.raft_consensus import (
+            MSG_ARRIVED, MSG_DEST, MSG_KIND, MSG_SENT, MSG_SRC, OP_NODE, OP_START, ROLE_COLOURS, ST_TERMS, name,
+            state_at,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return PeersFrame()
+        lane = RaftLanes(w).frame(variant, t, users)  # the users, the door, the answers and the state
+        row = state_at(run, t)
+        roles = w.roles_at(variant, t)
+        terms = row[ST_TERMS] if row else (0,) * len(roles)
+        flights, drops, recent = peer_traffic(run, t, (MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED),
+                                              lambda m: EXTRA1 if m[MSG_KIND] == VOTE else BLUE, most=MAX_FLIGHTS)
+        for o in run.rows("ops", t - 0.12, t + 1e-9):  # client commands, from the door to a node
+            flights.append((-1, o[OP_NODE], min(1.0, (t - o[OP_START]) / 0.1), WHITE))
+        groups = w.groups_at(variant, t)
+        sent = sent_per_second(run, t, MSG_SRC)
+        peers = []
+        for i, role in enumerate(roles):
+            node, term = name(i), terms[i] if i < len(terms) else 0
+            if role == DOWN:
+                label = w.s("peer_down", node=node)
+            elif role == LEADER:
+                label = w.s("peer_leader", node=node, term=term)
+            elif role == CANDIDATE:
+                label = w.s("peer_candidate", node=node, term=term)
+            else:
+                label = w.s("peer_follower", node=node, term=term) if term else node
+            colour = ROLE_COLOURS.get(role, BLUE)
+            fill, gauge = peer_gauge(sent.get(i, 0) / SENT_MAX)
+            peers.append(Leaf(label=(label, MUTED if role == DOWN else colour),
+                              short=w.s("peer_follower", node=node, term=term) if term and role != DOWN else node,
+                              tiny=node, fill=0.0 if role == DOWN else fill, gauge=gauge, outline=colour))
+        return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, state=lane.state, peers=peers,
+                          links=link_list(recent, groups, LINE), groups=groups,  # a partition: all its links cut
+                          flights=every(flights, MAX_FLIGHTS), drops=drops)

@@ -212,3 +212,91 @@ def test_a_new_picture_is_just_a_list_of_parts():
                     Server(st.server_x, fill=0.5), Caption("DOWN", RED, st.server_x)])
     lines = cv.plain()
     assert lines[0].startswith(" ●") and "DOWN" in lines[-1] and all(len(line) <= 60 for line in lines)
+
+
+def _peers_frame(n: int, groups=None, names=None):
+    from live.canvas import BLUE, GREEN, WHITE
+    from live.views.lanes_peers import LINE, Leaf, PeersFrame
+
+    names = names or [(f"n{i} leader t4" if i == 0 else f"n{i} t4", f"n{i} t4", f"n{i}") for i in range(n)]
+    peers = [Leaf((full, GREEN if i == 0 else BLUE), 0.5, short=short, tiny=tiny, outline=GREEN if i == 0 else BLUE)
+             for i, (full, short, tiny) in enumerate(names)]
+    return PeersFrame(users={0: (WHITE, True)}, requests=[(0, 0.5, WHITE, False)], peers=peers,
+                      links=[(0, j, BLUE) for j in range(1, n)] + [(1, 2, LINE)], groups=groups,
+                      flights=[(-1, 0, 0.5, WHITE)], state=("CONNECTED", GREEN))
+
+
+def _draw_peers(fr, cols: int, rows: int):
+    from live.views.lanes_peers import door_x, draw_peers
+    from live.views.parts import PeerRing, Stage
+
+    cv = Canvas(cols, rows)
+    draw_peers(cv, lambda n: fr)
+    st = Stage.on(Canvas(cols, rows))
+    spots = PeerRing(fr.peers, int(door_x(st) // 2) + 3).place(st)
+    return cv, spots
+
+
+def test_the_peers_variation_puts_the_peers_on_a_ring_clockwise_from_the_top():
+    from live.views.lanes_peers import door_x
+    from live.views.parts import Stage
+
+    for n in (3, 5, 8):
+        for cols, rows in ((50, 12), (54, 14), (61, 20), (68, 28)):
+            fr = _peers_frame(n)
+            cv, spots = _draw_peers(fr, cols, rows)
+            lines = cv.plain()
+            assert len(lines) == rows and all(len(line) == cols for line in lines)
+            assert "CONNECTED" in lines[-1]  # the state, under the ring
+            top = min(s.y for s in spots)
+            assert spots[0].y == top  # the first one at the top ...
+            right = [s for s in spots[1:] if s.x > spots[0].x + 1]
+            assert right and all(spots.index(s) <= (n + 1) // 2 for s in right)  # ... then clockwise
+            for s in spots:  # every name whole, on the row under its peer, inside the picture
+                assert s.name and lines[s.name_row][s.name_col:s.name_col + len(s.name)] == s.name
+                assert s.name_row <= rows - 2 and s.name_col + len(s.name) <= cols
+            door = int(door_x(Stage.on(cv)) // 2)
+            assert all(s.col > door and s.name_col > door for s in spots)  # right of the door
+
+
+def test_the_peers_variation_shrinks_names_then_boxes_when_cramped():
+    from live.views.parts import ring_spots
+
+    def cells(spots):
+        out = []
+        for s in spots:
+            wc = 1 if s.box is None else (s.box[1] - s.box[0] + 1) // 2
+            box = {(r, c) for r in range(s.row, s.name_row) for c in range(s.col, s.col + wc)}
+            out.append(box | {(s.name_row, c) for c in range(s.name_col, s.name_col + len(s.name))})
+        return out
+
+    long = [(f"n{i} declared dead", f"n{i} dead", f"n{i}") for i in range(8)]
+    roomy = ring_spots(68, 27, 8, 17, long)
+    tight = ring_spots(50, 11, 8, 17, long)
+    assert all(s.box is not None for s in roomy) and all(s.box is not None for s in tight)
+    assert len(tight[0].name) < len(roomy[0].name)  # a shorter name when cramped, the same form for all
+    assert len({len(s.name) - len(str(i)) for i, s in enumerate(tight)}) == 1
+    crowd = ring_spots(50, 11, 10, 17, [(f"n{i}",) for i in range(10)])
+    assert all(s.box is None for s in crowd)  # no room for boxes: a ◉ each
+    for spots in (roomy, tight, crowd):
+        taken = cells(spots)
+        assert all(not (taken[i] & taken[j]) for i in range(len(spots)) for j in range(i + 1, len(spots)))
+
+
+def test_the_peers_variation_cuts_the_links_between_groups_and_shows_what_flies():
+    from live.canvas import RED, WHITE
+
+    fr = _peers_frame(5, groups=[0, 0, 1, 1, 1])
+    fr.drops = [(0, 3, 0.0)]
+    cv, spots = _draw_peers(fr, 68, 28)
+    cuts = [(r, c) for r in range(28) for c in range(68) if cv.cell(r, c) == ("✕", RED)]
+    assert len(cuts) == 4  # 0-2, 0-3, 0-4 and 1-2 cross the cut; 0-1 does not
+    reds = [(r, c) for r in range(28) for c in range(68) if cv.cell(r, c)[1] == RED and cv.cell(r, c)[0] != "✕"]
+    assert reds  # the lost message, short of the middle of 0-3
+    plain, _ = _draw_peers(_peers_frame(5), 68, 28)
+    assert "✕" not in "\n".join(plain.plain())  # no partition, no cut
+    door_flight = [(r, c) for r in range(26) for c in range(16, 68) if cv.cell(r, c)[1] == WHITE
+                   and cv.cell(r, c)[0] not in " ○●"]
+    assert door_flight  # a request on its way from the door to n0
+    r, c = door_flight[0]
+    assert c < spots[0].col and r < 14  # between the door (left, middle) and n0 (top)

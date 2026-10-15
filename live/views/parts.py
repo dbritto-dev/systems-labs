@@ -295,3 +295,212 @@ def draw_parts(st: Stage, parts: list) -> None:
     """Draw a picture: each part, in order (later parts on top)."""
     for part in parts:
         part.draw(st)
+
+
+# ---------------------------------------------------------------- peers: nodes on a ring, the links between them
+
+CUT = "✕"  # a cut mark on a link a partition severs
+PEER_SIZES = ((7, 3), (5, 2))  # a peer's box, in (cols, rows), the biggest first; then a lone ◉
+
+
+@dataclass(slots=True)
+class Spot:
+    """Where one peer sits: its centre (dots), its box (dots; None for a ◉), its cell and its name's row."""
+
+    x: float
+    y: float
+    hw: float  # half its size, a little over, where the links stop (dots)
+    hh: float
+    box: tuple[int, int, int, int] | None  # (x0, x1, y0, y1)
+    row: int  # the ◉'s row (or the box's top row)
+    col: int  # the ◉'s column (or the box's left column)
+    name: str  # its name in the form that fits, and where it goes
+    name_row: int
+    name_col: int
+
+    def edge(self, x: float, y: float) -> tuple[float, float]:
+        """The point on the way to (x, y) where a line from the centre leaves the box."""
+        dx, dy = x - self.x, y - self.y
+        k = min(self.hw / abs(dx) if dx else 1e9, self.hh / abs(dy) if dy else 1e9, 1.0)
+        return self.x + dx * k, self.y + dy * k
+
+
+def ring_spots(cols: int, rows: int, n: int, c0: int, names: list[tuple[str, ...]]) -> list[Spot]:
+    """Lay n peers out on an ellipse between column c0 and the right edge, rows 0 .. rows-1 (each peer's name
+    on the row under it): the first at the top, then clockwise. The biggest box and the longest name that
+    leave every box and name clear of the others; else smaller boxes, shorter names, and at last a ◉."""
+    if n == 0:
+        return []
+    import math
+
+    unit = [(math.cos(-math.pi / 2 + 2 * math.pi * k / n), math.sin(-math.pi / 2 + 2 * math.pi * k / n))
+            for k in range(n)]
+    xs, ys = [u for u, _ in unit], [v for _, v in unit]
+
+    def spread(v: float, lo: float, hi: float, a: float, b: float) -> int:
+        return round((a + b) / 2 if hi - lo < 1e-9 else a + (v - lo) / (hi - lo) * (b - a))
+
+    def overlap(p, q) -> bool:  # (row, c0, c1) cells, inclusive; a name keeps one blank column round it
+        return p[0] == q[0] and p[1] <= q[2] and q[1] <= p[2]
+
+    forms = range(max(len(f) for f in names))  # a box with its whole name, a smaller box, a shorter name ...
+    tries = [(wc, hr, form) for form in forms for wc, hr in PEER_SIZES] + [(1, 1, form) for form in forms]
+    best: list[Spot] = []
+    for wc, hr, form in tries:
+        spots, cells = [], []  # cells: per peer, the (row, c0, c1) its box and name take
+        for k in range(n):
+            r = spread(ys[k], min(ys), max(ys), 0, rows - 1 - hr)
+            c = spread(xs[k], min(xs), max(xs), c0, cols - wc)
+            words = names[k]
+            word = words[min(form, len(words) - 1)] if words else ""
+            centre = c + (wc - 1) / 2
+            nc = max(c0, min(cols - len(word), round(centre - (len(word) - 1) / 2)))
+            if wc == 1:
+                x, y, box, hw, hh = c * 2 + 1, r * 4 + 2, None, 2.5, 3.0
+            else:
+                x0, x1, y0, y1 = c * 2, (c + wc) * 2 - 1, r * 4 + 1, (r + hr) * 4 - 1
+                x, y, box, hw, hh = (x0 + x1) / 2, (y0 + y1) / 2, (x0, x1, y0, y1), (x1 - x0) / 2 + 2, (y1 - y0) / 2 + 2
+            spots.append(Spot(x, y, hw, hh, box, r, c, word, r + hr, nc))
+            mine = [(rr, c, c + wc - 1) for rr in range(r, r + hr)]
+            if word:
+                mine.append((r + hr, nc - 1, nc + len(word)))
+            cells.append(mine)
+        clear = all(not overlap(p, q) for i in range(n) for j in range(i + 1, n) for p in cells[i] for q in cells[j])
+        if clear:
+            return spots
+        best = spots
+    return best  # nothing fits: the smallest there is
+
+
+@dataclass(slots=True)
+class PeerRing:
+    """The peers on an ellipse right of column `c0` (3 a triangle, 5 a pentagon, 8 an octagon), each a small
+    box with its gauge (or a ◉ when cramped) and its name on the row under it. `spots` is filled by `place`
+    (Links and PeerHops call it too: they need to know where each peer sits)."""
+
+    peers: list[Leaf]
+    c0: int
+    spots: list[Spot] = field(default_factory=list)
+
+    def place(self, st: Stage) -> list[Spot]:
+        if not self.spots and self.peers:
+            names = [tuple(w for w in (p.label[0], p.short, p.tiny) if w) or ("",) for p in self.peers]
+            self.spots = ring_spots(st.cv.cols, st.body1 + 1, len(self.peers), self.c0, names)
+        return self.spots
+
+    def cells(self, st: Stage) -> set[tuple[int, int]]:
+        """The (row, col) cells the boxes and the names take (a name with a blank column each side)."""
+        out: set[tuple[int, int]] = set()
+        for s in self.place(st):
+            wc = 1 if s.box is None else (s.box[1] - s.box[0] + 1) // 2
+            out |= {(r, c) for r in range(s.row, s.name_row) for c in range(s.col, s.col + wc)}
+            if s.name:
+                out |= {(s.name_row, c) for c in range(s.name_col - 1, s.name_col + len(s.name) + 1)}
+        return out
+
+    @property
+    def centre(self) -> float:
+        """The middle of the ring, across (dots): where the state goes under it."""
+        if not self.spots:
+            return 0.0
+        return (min(s.x for s in self.spots) + max(s.x for s in self.spots)) / 2
+
+    def draw(self, st: Stage) -> None:
+        cv = st.cv
+        for peer, s in zip(self.peers, self.place(st)):
+            if s.box is None:
+                cv.text(s.row, s.col, "◉", peer.outline)
+            else:
+                draw_leaf(cv, *s.box, peer)
+            if s.name and s.name_row <= st.body1:
+                cv.text(s.name_row, s.name_col, s.name, peer.label[1])
+
+
+@dataclass(slots=True)
+class Links:
+    """The links between peers: dotted lines from box edge to box edge, LINE-coloured unless the picture gives
+    a colour; a red ✕ at the middle of a link between different `groups` (a partition cuts it); and the
+    messages lost on a link, red, stopped short of its middle, fading."""
+
+    links: list[tuple[int, int, RGB]]
+    ring: PeerRing
+    groups: list[int] | None = None
+    drops: list[tuple[int, int, float]] = field(default_factory=list)  # (src, dest, 0..1 faded)
+    labels: dict[tuple[int, int], str] = field(default_factory=dict)  # a word at a link's middle, if it fits
+
+    def ends(self, st: Stage, a: int, b: int) -> tuple[tuple[float, float], tuple[float, float]] | None:
+        spots = self.ring.place(st)
+        if not (0 <= a < len(spots) and 0 <= b < len(spots)) or a == b:
+            return None
+        sa, sb = spots[a], spots[b]
+        return sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)
+
+    def draw(self, st: Stage) -> None:
+        import math
+
+        cv = st.cv
+        for a, b, col in self.links:
+            ends = self.ends(st, a, b)
+            if ends is None:
+                continue
+            (x0, y0), (x1, y1) = ends
+            plain = col == LINE
+            gap = 3 if plain else 2
+            steps = max(1, int(math.hypot(x1 - x0, y1 - y0) / gap))
+            for s in range(steps + 1):
+                cv.dot(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, col, 0 if plain else 1)
+        for a, b, fade in self.drops:
+            ends = self.ends(st, a, b)
+            if ends is not None:
+                (x0, y0), (x1, y1) = ends
+                cv.blob(x0 + (x1 - x0) * 0.4, y0 + (y1 - y0) * 0.4, mix(RED, BG, max(0.0, min(1.0, fade))), 7, 1)
+        taken = self.ring.cells(st)
+        if self.groups is not None:  # a cut mark at the middle of each link between groups, clear of the names
+            g = self.groups
+            for a, b, _ in self.links:
+                ends = self.ends(st, a, b)
+                if ends is None or a >= len(g) or b >= len(g) or g[a] == g[b]:
+                    continue
+                (x0, y0), (x1, y1) = ends
+                for k in (0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74):
+                    r, c = int(y0 + (y1 - y0) * k) // 4, int(x0 + (x1 - x0) * k) // 2
+                    if (r, c) not in taken and 0 <= r <= st.body1 and 0 <= c < cv.cols:
+                        cv.text(r, c, CUT, RED)
+                        taken.add((r, c))
+                        break
+        for (a, b), word in self.labels.items():  # a word on a link, where it does not cover anything
+            ends = self.ends(st, a, b)
+            if ends is None or not word:
+                continue
+            (x0, y0), (x1, y1) = ends
+            r, c = int((y0 + y1) / 2) // 4, round((x0 + x1) / 4 - len(word) / 2)
+            cells = {(r, c + k) for k in range(-1, len(word) + 1)}
+            if 0 <= r <= st.body1 and 0 <= c and c + len(word) <= cv.cols and not cells & taken:
+                cv.text(r, c, word, OUTLINE)
+                taken |= cells
+
+
+@dataclass(slots=True)
+class PeerHops:
+    """Messages between peers, along their link (0..1 of the way), and requests from the door (peer -1)
+    straight to a peer's box, or back."""
+
+    hops: list[tuple[int, int, float, RGB]]  # (src, dest, 0..1, colour)
+    ring: PeerRing
+    door: float  # the door's x, in dots
+
+    def draw(self, st: Stage) -> None:
+        spots = self.ring.place(st)
+        dx, dy = self.door + 2, st.ymid
+        for a, b, p, col in self.hops:
+            if a == b or not (-1 <= a < len(spots) and -1 <= b < len(spots)):
+                continue
+            if a == -1:
+                (x0, y0), (x1, y1) = (dx, dy), spots[b].edge(dx, dy)
+            elif b == -1:
+                (x0, y0), (x1, y1) = spots[a].edge(dx, dy), (dx, dy)
+            else:
+                sa, sb = spots[a], spots[b]
+                (x0, y0), (x1, y1) = sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)
+            p = max(0.0, min(1.0, p))
+            st.cv.blob(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, col, 6, 1)
