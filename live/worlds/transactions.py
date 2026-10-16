@@ -6,7 +6,9 @@ from core.i18n import strings
 from labs.transactions import lab
 from labs.transactions.scenario import TXN_END, TXN_OK, TXN_START
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history,
+)
 
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 ANOM_T, ANOM_NODE, ANOM_KEY, ANOM_VALUE = range(4)
@@ -39,7 +41,7 @@ def _fresh(run: Run, inc: Incident, upto: float):
 def _available(run: Run, inc: Incident, upto: float):
     done = [r for r in run.rows("txns", inc.t0, min(inc.t1, upto)) if r[TXN_END] <= upto]
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[TXN_OK] for r in done) / len(done)
     return v, f"{v:.0%}"
 
@@ -71,13 +73,10 @@ def _during(inc: Incident) -> tuple[float, float]:
 # The rule and fix of each goal are text.GOALS[key]. Intermediate reads are counted from 15 s
 # before to 5 s after the partition, and judged after it.
 GOALS = [
-    GoalSpec("", "before", "", _before, _fresh,
-             lambda v: v is not None and v >= lab.FRESH_MIN, settle_extra=lab.BEFORE[1], key="fresh"),
-    GoalSpec("", "during", "", _during, _available,
-             lambda v: v is not None and v >= lab.AVAILABLE_MIN, settle_extra=2.0, key="answered"),
-    GoalSpec("", "after", "", _after, _caught_up,
-             lambda v: v is not None and v >= lab.CAUGHT_UP_MIN, key="caught_up"),
-    GoalSpec("", "after", "", _around, _g1b, lambda v: v is not None and v <= lab.G1B_MAX,
+    GoalSpec("", "before", "", _before, _fresh, at_least(lab.FRESH_MIN), settle_extra=lab.BEFORE[1], key="fresh"),
+    GoalSpec("", "during", "", _during, _available, at_least(lab.AVAILABLE_MIN), settle_extra=2.0, key="answered"),
+    GoalSpec("", "after", "", _after, _caught_up, at_least(lab.CAUGHT_UP_MIN), key="caught_up"),
+    GoalSpec("", "after", "", _around, _g1b, at_most(lab.G1B_MAX),
              doomed=lambda run, inc, upto: _g1b(run, inc, upto)[0] > lab.G1B_MAX, key="g1b"),
 ]
 
@@ -114,9 +113,6 @@ class TxnWorld(World):
         for a in tables["anomalies"]:
             run.add("g1b", a[ANOM_T])
         run.data.setdefault("cut", {}).update(piece.get("cut", {}))
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         return self.s("cut_off", cause=self.cause(inc)) if start else self.s("whole_again")

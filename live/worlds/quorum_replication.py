@@ -7,7 +7,7 @@ from labs.quorum_replication import lab
 from labs.quorum_replication.scenario import CLIENT_TIMEOUT, GET
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, ORANGE, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, below, history,
 )
 
 OP_START, OP_KIND, OP_NODE, OP_KEY, OP_VALUE, OP_END, OP_OK, OP_STALE = range(8)
@@ -47,7 +47,7 @@ def _stale_reads(run: Run, inc: Incident, upto: float):
 def _answered(run: Run, inc: Incident, upto: float):
     ops = [o for o in run.rows("ops", inc.t0, min(inc.t1, upto)) if o[OP_END] <= upto]
     if not ops:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in ops if o[OP_OK]) / len(ops)
     return v, f"{v:.0%}"
 
@@ -55,7 +55,7 @@ def _answered(run: Run, inc: Incident, upto: float):
 def _in_sync(run: Run, inc: Incident, upto: float):
     got = _sync_at(run, min(inc.t1 + lab.SYNC_AFTER, upto))
     if got is None:
-        return None, "–"
+        return NO_VALUE
     return got[0], f"{got[0]:.0%}"
 
 
@@ -66,16 +66,16 @@ def _msgs(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "during", "", _stale_window, _stale_reads, lambda v: v is not None and v <= lab.STALE_MAX,
+    GoalSpec("", "during", "", _stale_window, _stale_reads, at_most(lab.STALE_MAX),
              doomed=lambda run, inc, upto: _stale_reads(run, inc, upto)[0] > lab.STALE_MAX,
              settle_extra=CLIENT_TIMEOUT + 0.5, key="stale"),
     GoalSpec("", "during", "", lambda i: (i.t0, i.t1), _answered,
-             lambda v: v is not None and v >= lab.ANSWERED_MIN, settle_extra=CLIENT_TIMEOUT + 0.5,
+             at_least(lab.ANSWERED_MIN), settle_extra=CLIENT_TIMEOUT + 0.5,
              key="answered"),
     GoalSpec("", "after", "", lambda i: (i.t1, i.t1 + lab.SYNC_AFTER), _in_sync,
-             lambda v: v is not None and v >= lab.SYNC_MIN, settle_extra=0.5, key="sync"),
+             at_least(lab.SYNC_MIN), settle_extra=0.5, key="sync"),
     GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs,
-             lambda v: v is not None and v < lab.MSGS_MAX, settle_extra=1.0, key="msgs"),
+             below(lab.MSGS_MAX), settle_extra=1.0, key="msgs"),
 ]
 
 
@@ -115,9 +115,6 @@ class QuorumWorld(World):
         for o in tables["ops"]:
             run.add("ops", o[OP_START])
             run.add("served" if o[OP_OK] else "failed", o[OP_END])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def node_name(self, inc: Incident) -> str:
         return f"n{self.victims.get(inc.t0, 0)}"

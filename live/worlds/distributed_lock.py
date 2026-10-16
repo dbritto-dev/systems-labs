@@ -6,7 +6,7 @@ from labs.distributed_lock import lab
 from labs.distributed_lock.scenario import DRAIN, IDS, JOB_DEADLINE, LOCK_MSG
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, RGB, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history,
 )
 
 JOB_START, JOB_ID, JOB_WORKER, JOB_END, JOB_OK = range(5)
@@ -107,7 +107,7 @@ def _window(inc: Incident) -> tuple[float, float]:
 def _stuck(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     if upto <= a:
-        return None, "–"
+        return NO_VALUE
     v = stall(run, a, min(b, upto), skip=run.data.get("victims", {}).get(inc.t0))
     return v, f"{v:.1f}s"
 
@@ -116,20 +116,20 @@ def _done(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     jobs = [r for r in run.rows("jobs", a, min(b, upto)) if r[JOB_END] <= upto]
     if not jobs:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in jobs if r[JOB_OK]) / len(jobs)
     return v, f"{v:.0%}"
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "during", "", _corrupt_window, _corrupt, lambda v: v is not None and v <= lab.CORRUPT_MAX,
+    GoalSpec("", "during", "", _corrupt_window, _corrupt, at_most(lab.CORRUPT_MAX),
              doomed=lambda run, inc, upto: _corrupt(run, inc, upto)[0] > lab.CORRUPT_MAX,
              settle_extra=1.0, key="corrupt"),
-    GoalSpec("", "during", "", _window, _stuck, lambda v: v is not None and v <= lab.STUCK_MAX,
+    GoalSpec("", "during", "", _window, _stuck, at_most(lab.STUCK_MAX),
              doomed=lambda run, inc, upto: (_stuck(run, inc, upto)[0] or 0.0) > lab.STUCK_MAX,
              settle_extra=0.5, key="stuck"),
-    GoalSpec("", "after", "", _window, _done, lambda v: v is not None and v >= lab.DONE_MIN,
+    GoalSpec("", "after", "", _window, _done, at_least(lab.DONE_MIN),
              settle_extra=JOB_DEADLINE + 0.5, key="done"),
 ]
 
@@ -176,17 +176,8 @@ class DistributedLockWorld(World):
             if m[MSG_KIND] == LOCK_MSG:
                 run.add("lock_msgs", m[MSG_SENT])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def victim(self, inc: Incident) -> str:
         return name(self.victims.get(inc.t0, 1))
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def sick_at(self, variant: str, t: float) -> tuple[int, str] | None:
         """(worker, kind) of the incident going on at t, if any."""

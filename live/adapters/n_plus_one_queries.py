@@ -5,7 +5,7 @@ the server is the database), cluster (clients -> the app -> the database, every 
 from __future__ import annotations
 
 from labs.n_plus_one_queries import lab
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -33,12 +33,11 @@ class NPlusOneLanes(LaneAdapter):
             return LaneFrame()
         found = {slot(p[PAGE_ID], users): (_cost(p[PAGE_QUERIES]), True)
                  for p in run.active("pages", t, PAGE_END)}
-        flying = run.rows("queries", t - FLY, t + 1e-9)
-        flights = [(slot(q[Q_PAGE], users), (t - q[Q_QUEUED]) / FLY, KIND_COLOUR[q[Q_KIND]], False)
-                   for q in every(flying, FLIGHTS)]
-        span = run.max_dur.get("pages", 0.0)
-        ended = [p for p in run.rows("pages", t - BACK - span, t + 1e-9) if t - BACK <= p[PAGE_END] <= t]
-        outcomes = [(GREEN if p[PAGE_OK] else RED, (t - p[PAGE_END]) / BACK) for p in every(ended, OUTCOMES)]
+        flying = just_sent(run, "queries", t)
+        flights = user_flights(every(flying, FLIGHTS), t, Q_QUEUED,
+                               lambda q: (slot(q[Q_PAGE], users), KIND_COLOUR[q[Q_KIND]], False))
+        ended = just_ended(run, "pages", PAGE_END, t)
+        outcomes = user_outcomes(ended, t, PAGE_END, lambda p: GREEN if p[PAGE_OK] else RED)
 
         busy = w.busy_at(run, t)
         words = w.screen.STATES
@@ -83,14 +82,14 @@ class NPlusOneCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = [(-1, self.APP, (t - p[PAGE_START]) / FLY, WHITE)
-                   for p in every(run.rows("pages", t - FLY, t + 1e-9), FLIGHTS)]
-        for q in every(run.rows("queries", t - FLY, t + 1e-9), QUERY_DOTS):
+                   for p in every(just_sent(run, "pages", t), FLIGHTS)]
+        for q in every(just_sent(run, "queries", t), QUERY_DOTS):
             p = (t - q[Q_QUEUED]) / FLY
             if q[Q_START] > t:  # no free connection yet: it waits before the database
                 p = min(p, 0.85)
             flights.append((self.APP, self.DB, p, KIND_COLOUR[q[Q_KIND]]))
         span = run.max_dur.get("pages", 0.0)
-        ended = [p for p in run.rows("pages", t - BACK - span, t + 1e-9) if t - BACK <= p[PAGE_END] <= t]
+        ended = just_ended(run, "pages", PAGE_END, t)
         drops = [(-1, self.APP, (t - p[PAGE_END]) / BACK) for p in every(ended, OUTCOMES) if not p[PAGE_OK]]
 
         recent = [p for p in run.rows("pages", t - 5 - span, t + 1e-9) if t - 5 <= p[PAGE_END] <= t]
@@ -131,10 +130,10 @@ class NPlusOneRelay(RelayAdapter):
         if run is None:
             return RelayFrame()
         lane = NPlusOneLanes(w).frame(variant, t, users)
-        flights = [(slot(p[PAGE_ID], users), (t - p[PAGE_START]) / FLY, WHITE, False)
-                   for p in every(run.rows("pages", t - FLY, t + 1e-9), FLIGHTS)]
+        flights = user_flights(every(just_sent(run, "pages", t), FLIGHTS), t, PAGE_START,
+                               lambda p: (slot(p[PAGE_ID], users), WHITE, False))
         hops = []
-        for q in every(run.rows("queries", t - FLY, t + 1e-9), QUERY_DOTS):
+        for q in every(just_sent(run, "queries", t), QUERY_DOTS):
             k = (t - q[Q_QUEUED]) / FLY
             if q[Q_START] > t:  # no free connection yet: it waits before the database
                 k = min(k, 0.85)

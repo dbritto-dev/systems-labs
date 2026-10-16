@@ -8,8 +8,8 @@ from live.canvas import (
     BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, RGB, WHITE,
 )
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, fmt_int,
+    fmt_ms, history, percentile, so_far,
 )
 
 DOWN_KEY: RGB = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -49,14 +49,13 @@ def _ended(run: Run, table: str, a: float, b: float, upto: float, end: int) -> l
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0 - 2.0
+_before = baseline_window(lab, gap=2.0)
 
 
 def _tail(run: Run, inc: Incident, upto: float):
     """The p99 of a read before the incident: the rare slow replies set it, unless you hedge."""
     v = _p99(_ended(run, "requests", *_before(inc), upto, REQ_END))
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -65,18 +64,18 @@ def _during(inc: Incident) -> tuple[float, float]:
 
 def _extra_load(run: Run, inc: Incident, upto: float):
     v = _extra(_ended(run, "requests", inc.t0, inc.t1, upto, REQ_END))
-    return (None, "–") if v is None else (v, f"+{v:.0%}")
+    return NO_VALUE if v is None else (v, f"+{v:.0%}")
 
 
 def _wasted(run: Run, inc: Incident, upto: float):
     v = _waste(_ended(run, "calls", inc.t0, inc.t1, upto, CALL_END))
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def _served(run: Run, inc: Incident, upto: float):
     rows = _ended(run, "requests", inc.t0, inc.t1, upto, REQ_END)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OUTCOME] == OK for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -87,21 +86,16 @@ def _after(inc: Incident) -> tuple[float, float]:
 
 def _back(run: Run, inc: Incident, upto: float):
     v = _p99(_ended(run, "requests", *_after(inc), upto, REQ_END))
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _tail,
-             lambda v: v is not None and v <= lab.TAIL_MAX, settle_extra=DEADLINE, key="tail"),
-    GoalSpec("", "during", "", _during, _extra_load,
-             lambda v: v is not None and v <= lab.EXTRA_MAX, settle_extra=DEADLINE, key="extra"),
-    GoalSpec("", "during", "", _during, _wasted,
-             lambda v: v is not None and v <= lab.WASTE_MAX, settle_extra=DEADLINE + 0.5, key="waste"),
-    GoalSpec("", "during", "", _during, _served,
-             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=DEADLINE, key="served"),
-    GoalSpec("", "after", "", _after, _back,
-             lambda v: v is not None and v <= lab.TAIL_MAX, settle_extra=DEADLINE, key="back"),
+    GoalSpec("", "before", "", _before, _tail, at_most(lab.TAIL_MAX), settle_extra=DEADLINE, key="tail"),
+    GoalSpec("", "during", "", _during, _extra_load, at_most(lab.EXTRA_MAX), settle_extra=DEADLINE, key="extra"),
+    GoalSpec("", "during", "", _during, _wasted, at_most(lab.WASTE_MAX), settle_extra=DEADLINE + 0.5, key="waste"),
+    GoalSpec("", "during", "", _during, _served, at_least(lab.SERVED_MIN), settle_extra=DEADLINE, key="served"),
+    GoalSpec("", "after", "", _after, _back, at_most(lab.TAIL_MAX), settle_extra=DEADLINE, key="back"),
 ]
 
 
@@ -134,9 +128,6 @@ class HedgedRequestsWorld(World):
             run.add("busy", c[CALL_START], c[CALL_END] - c[CALL_START])
             run.add("wasted", c[CALL_START], c[CALL_WASTED])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1)):
             asked, copies = run.series("asked", s, s + 1)[0], run.series("copies", s, s + 1)[0]
@@ -163,12 +154,6 @@ class HedgedRequestsWorld(World):
         if start:
             return self.s("slow_one", replica=name, ms=fmt_ms(inc.severity), cause=self.cause(inc))
         return self.s("fast_one", replica=name)
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def ended(self, run: Run, t: float, seconds: float) -> list[tuple]:
         """Reads that ended in the last `seconds` before t."""
@@ -277,11 +262,8 @@ class HedgedRequestsWorld(World):
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("requests", 0.0)
-        partial = [r for r in run.rows("requests", s - span - 1, t) if s <= r[REQ_END] < t]
-        served = run.total("served", t) + sum(r[REQ_OUTCOME] == OK for r in partial)
-        failed = run.total("failed", t) + sum(r[REQ_OUTCOME] != OK for r in partial)
+        served = so_far(run, t, "served", "requests", REQ_END, lambda r: r[REQ_OUTCOME] == OK)
+        failed = so_far(run, t, "failed", "requests", REQ_END, lambda r: r[REQ_OUTCOME] != OK)
         waiting = len(run.active("requests", t, REQ_END))
         recent = [r[REQ_END] - r[REQ_START] for r in self.ended(run, t, 5.0)]
         words = self.screen.STATS

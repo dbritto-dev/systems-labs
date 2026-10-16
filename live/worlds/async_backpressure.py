@@ -10,7 +10,8 @@ from labs.async_backpressure.api import BASE_MEMORY, MEMORY_LIMIT, SIZE
 from labs.async_backpressure.scenario import LOST, PENDING, SHED, TICK, WRITTEN
 from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, below,
+    fmt_int, fmt_ms, history, percentile,
 )
 
 INCIDENT_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -60,8 +61,7 @@ def capacity_at(run: Run, t: float) -> float:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0 - 1.0
+_before = baseline_window(lab, gap=1.0)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -85,7 +85,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     rows = _ticks(run, *_before(inc), upto)
     arrived = sum(r[T_ARR] for r in rows)
     if not arrived:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[T_WR] for r in rows) / arrived
     return v, f"{min(v, 1.0):.0%}"
 
@@ -93,7 +93,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
 def _ooms(run: Run, inc: Incident, upto: float):
     rows = _ticks(run, *_busy(inc), upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = sum(r[T_OOMS] for r in rows)
     return n, _s("count", n=n)
 
@@ -101,7 +101,7 @@ def _ooms(run: Run, inc: Incident, upto: float):
 def _lost(run: Run, inc: Incident, upto: float):
     rows = _ticks(run, *_busy(inc), upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = sum(lost(r) for r in rows)
     return n, _s("count", n=n)
 
@@ -109,7 +109,7 @@ def _lost(run: Run, inc: Incident, upto: float):
 def _peak(run: Run, inc: Incident, upto: float):
     rows = _ticks(run, *_busy(inc), upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = max(r[T_PEAK] for r in rows) / MEMORY_LIMIT
     return v, f"{v:.0%}"
 
@@ -120,7 +120,7 @@ def _throughput(run: Run, inc: Incident, upto: float):
     a, b = _during(inc)
     a, b = float(math.ceil(a)), float(math.floor(min(b, upto)))
     if b - a < 1.0:
-        return None, "–"
+        return NO_VALUE
     rows = _ticks(run, a, b, upto)
     cap = lab.capacity(inc.kind, inc.severity)
     arrived: dict[int, int] = {}
@@ -129,7 +129,7 @@ def _throughput(run: Run, inc: Incident, upto: float):
         arrived[k] = arrived.get(k, 0) + r[T_ARR]
     possible = sum(min(n, cap) for n in arrived.values())
     if possible < 1.0:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[T_WR] for r in rows) / possible
     return v, f"{min(v, 9.99):.0%}"
 
@@ -149,7 +149,7 @@ def _p99_after(run: Run, inc: Incident, upto: float):
             waits.append(math.inf)
     v = percentile(waits, 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, "∞" if math.isinf(v) else fmt_ms(v)
 
 
@@ -164,17 +164,16 @@ def _peak_doomed(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
     GoalSpec("", "during", "", _busy, _ooms, lambda v: v == 0, doomed=_doomed_count(_ooms),
              settle_extra=1.0, key="oom"),
     GoalSpec("", "during", "", _busy, _lost, lambda v: v == 0, doomed=_doomed_count(_lost),
              settle_extra=1.0, key="lost"),
-    GoalSpec("", "during", "", _busy, _peak, lambda v: v is not None and v <= lab.PEAK_MAX,
+    GoalSpec("", "during", "", _busy, _peak, at_most(lab.PEAK_MAX),
              doomed=_peak_doomed, settle_extra=1.0, key="peak"),
     GoalSpec("", "during", "", _during, _throughput, lambda v: v is None or v >= lab.THROUGHPUT_MIN,
              settle_extra=1.0, key="throughput"),
-    GoalSpec("", "after", "", _after, _p99_after, lambda v: v is not None and v < lab.P99_MAX,
+    GoalSpec("", "after", "", _after, _p99_after, below(lab.P99_MAX),
              settle_extra=lab.SETTLE, key="p99"),
 ]
 
@@ -219,9 +218,6 @@ class AsyncBackpressureWorld(World):
                 peak.extend([0.0] * (s + 1 - len(peak)))
             peak[s] = max(peak[s], r[T_PEAK] / MEMORY_LIMIT)
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")
 
@@ -246,12 +242,6 @@ class AsyncBackpressureWorld(World):
         if shed:
             out.append((inc.t1, self.s("warn_shed", n=shed)))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def tick_at(self, run: Run, t: float) -> tuple | None:
         """The last tick at or before t."""

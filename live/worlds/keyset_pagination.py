@@ -10,7 +10,8 @@ from live.canvas import (
     BLUE, EXTRA, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PURPLE, RED, WHITE,
 )
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, fmt_int,
+    fmt_ms, history, percentile,
 )
 
 INCIDENT_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -45,8 +46,7 @@ def cost_colour(read: int):
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -61,7 +61,7 @@ def _ended(run: Run, a: float, b: float, upto: float) -> list[tuple]:
 def _baseline(run: Run, inc: Incident, upto: float):
     done = _ended(run, *_before(inc), upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(p[P_OUTCOME] == OK for p in done) / len(done)
     return v, f"{v:.0%}" if v < 0.995 or v == 1 else f"{v:.1%}"
 
@@ -70,7 +70,7 @@ def _count(col: int):
     def measure(run: Run, inc: Incident, upto: float):
         done = _ended(run, *_during(inc), upto)
         if not done:
-            return None, "–"
+            return NO_VALUE
         n = sum(p[col] for p in done)
         return n, _s("count", n=n)
 
@@ -86,30 +86,28 @@ def _deep(run: Run, inc: Incident, upto: float):
     v = percentile([p[P_END] - p[P_START] for p in _ended(run, *_during(inc), upto)
                     if p[P_DEPTH] >= lab.DEEP_PAGE], 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, fmt_ms(v)
 
 
 def _rows(run: Run, inc: Incident, upto: float):
     done = _ended(run, *_during(inc), upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(p[P_READ] for p in done) / len(done)
     return v, rows_text(v)
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
     GoalSpec("", "during", "", _during, _count(P_SKIPPED), lambda v: v == 0,
              doomed=_doomed(P_SKIPPED), settle_extra=lab.SETTLE, key="skipped"),
     GoalSpec("", "during", "", _during, _count(P_DUP), lambda v: v == 0,
              doomed=_doomed(P_DUP), settle_extra=lab.SETTLE, key="dup"),
     GoalSpec("", "during", "", _during, _deep,
              lambda v: v is None or v < lab.DEEP_P99_MAX, settle_extra=lab.SETTLE, key="deep"),
-    GoalSpec("", "during", "", _during, _rows,
-             lambda v: v is not None and v <= lab.ROWS_MAX, settle_extra=lab.SETTLE, key="rows"),
+    GoalSpec("", "during", "", _during, _rows, at_most(lab.ROWS_MAX), settle_extra=lab.SETTLE, key="rows"),
 ]
 
 
@@ -154,9 +152,6 @@ class KeysetPaginationWorld(World):
         if tables["writes"]:
             run.data["size"] = tables["writes"][-1][W_SIZE]
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")
 
@@ -177,12 +172,6 @@ class KeysetPaginationWorld(World):
         if dup:
             out.append((inc.t1, self.s("warn_dup", n=dup)))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def ended(self, run: Run, a: float, b: float) -> list[tuple]:
         """Pages that came back in [a, b)."""

@@ -7,7 +7,9 @@ router → the fleet)."""
 from __future__ import annotations
 
 from labs.canary_releases.scenario import FLEET
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, op_id
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, just_ended, just_sent, op_id, user_flights,
+)
 from live.canvas import GREEN, RED, RGB, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -53,7 +55,7 @@ def _flying(run, t: float, most: int) -> list[tuple]:
     percent of the traffic, and the point of the picture)."""
     from live.worlds.canary_releases import REQ_CANARY, REQ_START
 
-    rows = run.rows("requests", t - FLY, t + 1e-9)
+    rows = just_sent(run, "requests", t)
     canary = every([r for r in rows if r[REQ_CANARY]], most // 2)
     return canary + every([r for r in rows if not r[REQ_CANARY]], most - len(canary))
 
@@ -75,8 +77,8 @@ class CanaryLanes(LaneAdapter):
             return LaneFrame()
         waiting, _, outcomes = client_lanes(run, t, users, "requests", REQ_START, REQ_END, colour=_outcome,
                                             rare_first=True)
-        flights = [(slot(op_id(r[REQ_START]), users), (t - r[REQ_START]) / FLY, CANARY_C if r[REQ_CANARY] else WHITE,
-                    bool(r[REQ_CANARY])) for r in _flying(run, t, FLIGHTS)]
+        flights = user_flights(_flying(run, t, FLIGHTS), t, REQ_START, lambda r: (
+            slot(op_id(r[REQ_START]), users), CANARY_C if r[REQ_CANARY] else WHITE, bool(r[REQ_CANARY])))
         now = _now(w, run, t)
         s = int(t)
         asked, failed = run.series("ask", s - 1, s)[0], run.series("failed", s - 1, s)[0]
@@ -135,9 +137,7 @@ class CanaryCluster(ClusterAdapter):
         nodes = [colour(True, CANARY_C)] * k + [colour(False, LIVE_C)] * (FLEET - k)
         flights = [(-1, node(r), (t - r[REQ_START]) / FLY, CANARY_C if r[REQ_CANARY] else WHITE)
                    for r in _flying(run, t, 2 * FLIGHTS)]
-        span = run.max_dur.get("requests", 0.0)
-        failed = [r for r in run.rows("requests", t - BACK - span, t + 1e-9)
-                  if t - BACK <= r[REQ_END] <= t and not r[REQ_OK]]
+        failed = [r for r in just_ended(run, "requests", REQ_END, t) if not r[REQ_OK]]
         drops = [(-1, node(r), (t - r[REQ_END]) / BACK) for r in every(failed, OUTCOMES)]
         state, col = _state(w, now)
         if k:
@@ -166,7 +166,7 @@ class CanaryRelay(RelayAdapter):
         if run is None:
             return RelayFrame()
         lane = CanaryLanes(w).frame(variant, t, users)  # users, outcomes, the door and the outline
-        rows = run.rows("requests", t - FLY, t + 1e-9)
+        rows = just_sent(run, "requests", t)
         shown = every([r for r in rows if r[REQ_HARMED]], FLIGHTS // 3)
         shown += every([r for r in rows if r[REQ_CANARY] and not r[REQ_HARMED]], FLIGHTS // 3)
         shown += every([r for r in rows if not r[REQ_CANARY] and not r[REQ_HARMED]], FLIGHTS - len(shown))

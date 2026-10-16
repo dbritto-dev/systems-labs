@@ -5,7 +5,7 @@ the worker pool as the server) and fanout (the dispatcher in the middle, five en
 from __future__ import annotations
 
 from labs.webhook_delivery.api import ENDPOINTS, WORKERS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, SLOW, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, SLOW, every, just_sent, rare_rows_first, user_flights
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -87,8 +87,8 @@ class WebhookCluster(ClusterAdapter):
         flights: list[tuple] = []
         drops: list[tuple] = []
         flights += [(-1, DISPATCHER, (t - e[EV_CREATED]) / FLY, WHITE)
-                    for e in every(run.rows("events", t - FLY, t + 1e-9), FLIGHTS)]
-        for r in every(run.rows("attempts", t - FLY, t + 1e-9), FLIGHTS):
+                    for e in every(just_sent(run, "events", t), FLIGHTS)]
+        for r in every(just_sent(run, "attempts", t), FLIGHTS):
             p = (t - r[AT_START]) / FLY
             node = worker_node(r[AT_WORKER])
             if p < 0.4:
@@ -151,19 +151,16 @@ class WebhookLanes(LaneAdapter):
             shade = WHITE if waited < SLOW[0] else EXTRA1 if waited < SLOW[1] else EXTRA2 if waited < SLOW[2] \
                 else EXTRA3
             found[slot(e[EV_ID], users)] = (shade, True)
-        flying = run.rows("attempts", t - FLY, t + 1e-9)
-        retries = every([r for r in flying if r[AT_N] > 1], FLIGHTS // 2)
-        shown = retries + every([r for r in flying if r[AT_N] <= 1], FLIGHTS - len(retries))
-        flights = [(slot(r[AT_ID], users), (t - r[AT_START]) / FLY, attempt_colour(r[AT_N]), r[AT_N] > 1)
-                   for r in shown]
+        flying = just_sent(run, "attempts", t)
+        shown = rare_rows_first(flying, lambda r: r[AT_N] > 1, FLIGHTS, FLIGHTS // 2)
+        flights = user_flights(shown, t, AT_START,
+                               lambda r: (slot(r[AT_ID], users), attempt_colour(r[AT_N]), r[AT_N] > 1))
         ended = w.ended(run, t, BACK)
         late = _ooo_ids(run, ended)
         coloured = [(GREEN if r[AT_OK] and r[AT_ID] not in late else EXTRA3 if r[AT_OK] else RED,
                      (t - r[AT_END]) / BACK) for r in ended]
         coloured += [(PURPLE, (t - g[GU_T]) / BACK) for g in run.rows("gaveup", t - BACK, t + 1e-9)]
-        rare = every([o for o in coloured if o[0] != GREEN], OUTCOMES)  # a few failures among many deliveries
-        room = OUTCOMES - len(rare)
-        outcomes = rare + (every([o for o in coloured if o[0] == GREEN], room) if room else [])
+        outcomes = rare_rows_first(coloured, lambda o: o[0] != GREEN, OUTCOMES)  # a few failures among many deliveries
 
         sample = w.sample_at(run, t)
         busy = sample[SM_BUSY] if sample else 0
@@ -202,8 +199,8 @@ class WebhookFanout(FanoutAdapter):
         if run is None:
             return FanoutFrame()
         lane = WebhookLanes(w).frame(variant, t, users)  # the events, the door and the outcomes, as in lanes
-        flights = [(slot(e[EV_ID], users), (t - e[EV_CREATED]) / FLY, WHITE, False)
-                   for e in every(run.rows("events", t - FLY, t + 1e-9), FLIGHTS)]
+        flights = user_flights(every(just_sent(run, "events", t), FLIGHTS), t, EV_CREATED,
+                               lambda e: (slot(e[EV_ID], users), WHITE, False))
         inc = w.incident_at(run, t)
         bad = sick(inc)
         most = LEAVES if users // GRID_COLS >= 20 else LEAVES_SMALL
@@ -211,7 +208,7 @@ class WebhookFanout(FanoutAdapter):
         at = {e: k for k, e in enumerate(shown)}
 
         hops = []
-        flying = [r for r in run.rows("attempts", t - FLY, t + 1e-9) if r[AT_ENDPOINT] in at]
+        flying = [r for r in just_sent(run, "attempts", t) if r[AT_ENDPOINT] in at]
         for r in every(flying, FLIGHTS):
             hops.append((at[r[AT_ENDPOINT]], min((t - r[AT_START]) / FLY, 0.95), attempt_colour(r[AT_N]), False))
         in_flight = w.in_flight(run, t)

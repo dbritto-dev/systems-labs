@@ -19,6 +19,7 @@ from labs.canary_releases.scenario import (
 )
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, ORANGE, PURPLE, RED, RGB, WHITE
 from live.worlds.base import (
+    NO_VALUE,
     Bar,
     GoalSpec,
     Incident,
@@ -30,6 +31,8 @@ from live.worlds.base import (
     Traffic,
     World,
     _event_order,
+    at_most,
+    baseline_window,
     fmt_ms,
     history,
     percentile,
@@ -90,8 +93,7 @@ def _memo(measure):
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
@@ -99,7 +101,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = _ended(run, a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(not r[REQ_OK] for r in rows) / len(rows)
     return v, f"{v:.1%}"
 
@@ -114,7 +116,7 @@ def _hurt(run: Run, inc: Incident, upto: float):
     end = min(inc.t1, upto)
     rows = [r for r in run.rows("requests", inc.t0, end) if r[REQ_END] <= upto]
     if not rows or end <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     # While the window is open: the hurt so far over the requests the whole window will have (as many per
     # second as so far), so the value only grows, and is exact once the window closes.
     v = sum(r[REQ_HARMED] for r in rows) / (len(rows) * (inc.t1 - inc.t0) / (end - inc.t0))
@@ -134,7 +136,7 @@ def _outcome(run: Run, inc: Incident, upto: float) -> tuple | None:
 def _full(run: Run, inc: Incident, upto: float):
     """1 when a bad build reached 100% of the traffic."""
     if upto <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     end = _outcome(run, inc, upto)
     v = int(bad(inc.kind) and end is not None and end[E_WHAT] == FULL)
     return float(v), str(v)
@@ -148,7 +150,7 @@ def _full_doomed(run: Run, inc: Incident, upto: float) -> bool:
 def _alarms(run: Run, inc: Incident, upto: float):
     """1 when a good build was rolled back by the controller (a false alarm)."""
     if upto <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     end = _outcome(run, inc, upto)
     v = int(not bad(inc.kind) and end is not None and end[E_WHAT] == ROLLBACK)
     return float(v), str(v)
@@ -162,7 +164,7 @@ def _alarms_doomed(run: Run, inc: Incident, upto: float) -> bool:
 def _rollout(run: Run, inc: Incident, upto: float):
     """Seconds from the deploy to 100% for a good build (a bad one: nothing to time)."""
     if upto <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     if bad(inc.kind):
         return 0.0, "–"
     end = _outcome(run, inc, upto)
@@ -182,17 +184,12 @@ def _rollout_doomed(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v <= lab.BASELINE_MAX, key="baseline"),
-    GoalSpec("", "during", "", _during, _hurt,
-             lambda v: v is not None and v <= lab.HURT_MAX, doomed=_hurt_doomed, settle_extra=lab.SETTLE,
+    GoalSpec("", "before", "", _before, _baseline, at_most(lab.BASELINE_MAX), key="baseline"),
+    GoalSpec("", "during", "", _during, _hurt, at_most(lab.HURT_MAX), doomed=_hurt_doomed, settle_extra=lab.SETTLE,
              key="hurt"),
-    GoalSpec("", "during", "", _during, _full,
-             lambda v: v is not None and v <= lab.FULL_MAX, doomed=_full_doomed, key="full"),
-    GoalSpec("", "after", "", _during, _alarms,
-             lambda v: v is not None and v <= lab.ALARMS_MAX, doomed=_alarms_doomed, key="alarms"),
-    GoalSpec("", "after", "", _during, _rollout,
-             lambda v: v is not None and v <= lab.ROLLOUT_MAX, doomed=_rollout_doomed, key="rollout"),
+    GoalSpec("", "during", "", _during, _full, at_most(lab.FULL_MAX), doomed=_full_doomed, key="full"),
+    GoalSpec("", "after", "", _during, _alarms, at_most(lab.ALARMS_MAX), doomed=_alarms_doomed, key="alarms"),
+    GoalSpec("", "after", "", _during, _rollout, at_most(lab.ROLLOUT_MAX), doomed=_rollout_doomed, key="rollout"),
 ]
 
 # How each router event shows in the timeline: (VERBS key, STRINGS key, colour, kind).

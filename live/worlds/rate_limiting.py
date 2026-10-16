@@ -6,8 +6,8 @@ from labs.rate_limiting import lab
 from labs.rate_limiting.scenario import FAILED, LIMITED, SERVED
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, fmt_int,
+    fmt_ms, history, percentile, so_far,
 )
 
 REQ_ID, REQ_START, REQ_END, REQ_CLIENT, REQ_OUTCOME, REQ_FLOOD = range(6)
@@ -37,14 +37,13 @@ def _served(rows: list[tuple]) -> float | None:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     v = _served([r for r in run.rows("requests", a, min(b, upto)) if r[REQ_END] <= upto])
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -54,7 +53,7 @@ def _during(inc: Incident) -> tuple[float, float]:
 def _limited(run: Run, inc: Incident, upto: float):
     flood = [r for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if r[REQ_FLOOD]]
     if not flood:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OUTCOME] == LIMITED for r in flood) / len(flood)
     return v, f"{v:.0%}"
 
@@ -62,7 +61,7 @@ def _limited(run: Run, inc: Incident, upto: float):
 def _flood_peak(run: Run, inc: Incident, upto: float):
     flood = [r for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if r[REQ_FLOOD]]
     if not flood:
-        return None, "–"
+        return NO_VALUE
     v = _peak(flood)
     return v, f"{v:.1f}x"
 
@@ -75,7 +74,7 @@ def _peak_doomed(run: Run, inc: Incident, upto: float) -> bool:
 def _others(run: Run, inc: Incident, upto: float):
     rows = [r for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if not r[REQ_FLOOD] and r[REQ_END] <= upto]
     v = _served(rows)
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def _after(inc: Incident) -> tuple[float, float]:
@@ -90,21 +89,16 @@ def _after_served(run: Run, inc: Incident, upto: float):
     rows = [r for r in run.rows("requests", a, min(b, upto))
             if r[REQ_END] <= upto and r[REQ_CLIENT] not in flooders]
     v = _served(rows)
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "during", "", _during, _limited,
-             lambda v: v is not None and v >= lab.LIMITED_MIN, key="limited"),
-    GoalSpec("", "during", "", _during, _flood_peak,
-             lambda v: v is not None and v <= lab.PEAK_MAX, doomed=_peak_doomed, key="peak"),
-    GoalSpec("", "during", "", _during, _others,
-             lambda v: v is not None and v >= lab.OTHERS_MIN, settle_extra=1.0, key="others"),
-    GoalSpec("", "after", "", _after, _after_served,
-             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=1.0, key="served"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "during", "", _during, _limited, at_least(lab.LIMITED_MIN), key="limited"),
+    GoalSpec("", "during", "", _during, _flood_peak, at_most(lab.PEAK_MAX), doomed=_peak_doomed, key="peak"),
+    GoalSpec("", "during", "", _during, _others, at_least(lab.OTHERS_MIN), settle_extra=1.0, key="others"),
+    GoalSpec("", "after", "", _after, _after_served, at_least(lab.SERVED_MIN), settle_extra=1.0, key="served"),
 ]
 
 
@@ -151,9 +145,6 @@ class RateLimitWorld(World):
         for sec, n in peaks.items():
             run.add("peak", sec, n / lab.CLIENT_RATE)
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1) + 1):
             if run.series("failed_s", s, s + 1)[0]:
@@ -166,12 +157,6 @@ class RateLimitWorld(World):
         n = int(inc.severity)
         who = self.s("who_one") if n == 1 else self.s("who_many", n=n)
         return self.s("flooded", who=who, cause=self.cause(inc))
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def backend_at(self, run: Run, t: float) -> int:
         """Requests at the backend (working or waiting) at time t."""
@@ -243,12 +228,12 @@ class RateLimitWorld(World):
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
-        s = int(t)
         span = run.max_dur.get("requests", 0.0)
-        partial = [r for r in run.rows("requests", s - span - 1, t) if s <= r[REQ_END] < t]
-        served = run.total("served", t) + sum(1 for r in partial if r[REQ_OUTCOME] == SERVED)
-        limited = run.total("limited", t) + sum(1 for r in partial if r[REQ_OUTCOME] == LIMITED)
-        failed = run.total("failed", t) + sum(1 for r in partial if r[REQ_OUTCOME] == FAILED)
+
+        def total(name: str, outcome: int) -> float:
+            return so_far(run, t, name, "requests", REQ_END, lambda r: r[REQ_OUTCOME] == outcome)
+
+        served, limited, failed = total("served", SERVED), total("limited", LIMITED), total("failed", FAILED)
         waiting = self.backend_at(run, t)
         waits = [r[REQ_END] - r[REQ_START] for r in run.rows("requests", t - 5 - span, t)
                  if t - 5 <= r[REQ_END] < t and r[REQ_OUTCOME] == SERVED]

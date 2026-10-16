@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from labs.replication_lag import lab, scenario
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, LIMIT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_most, fmt_ms, history,
+)
 
 READ_START, READ_SESSION, READ_NODE, READ_END, READ_OK, READ_RYW, READ_MONO, READ_GAP = range(8)
 WRITE_T, WRITE_SESSION, WRITE_OWN, WRITE_LSN = range(4)  # then the delay to each replica
@@ -27,7 +29,7 @@ def _counter(col: int):
     def measure(run: Run, inc: Incident, upto: float):
         rows = _reads(run, inc, upto)
         if not rows:
-            return None, "–"
+            return NO_VALUE
         n = sum(1 for r in rows if r[col])
         return n, str(n)
 
@@ -44,7 +46,7 @@ _mono, _mono_doomed = _counter(READ_MONO)
 def _primary(run: Run, inc: Incident, upto: float):
     rows = _reads(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in rows if r[READ_NODE] == 0) / len(rows)
     return v, f"{v:.0%}"
 
@@ -54,7 +56,7 @@ GOALS = [
     GoalSpec("", "during", "", _window, _ryw, lambda v: v == 0, doomed=_ryw_doomed, settle_extra=0.5, key="ryw"),
     GoalSpec("", "during", "", _window, _mono, lambda v: v == 0, doomed=_mono_doomed, settle_extra=0.5,
              key="mono"),
-    GoalSpec("", "during", "", _window, _primary, lambda v: v is not None and v <= lab.PRIMARY_MAX,
+    GoalSpec("", "during", "", _window, _primary, at_most(lab.PRIMARY_MAX),
              settle_extra=0.5, key="primary"),
 ]
 
@@ -102,9 +104,6 @@ class ReplicationLagWorld(World):
         for w in tables["writes"]:
             run.add("writes", w[WRITE_T])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(VERBS.get(inc.kind, VERBS["behind"])[0 if start else 1])
 
@@ -129,12 +128,6 @@ class ReplicationLagWorld(World):
             if first is not None:
                 out.append((first[READ_START], self.s(key)))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def lag_at(self, run: Run, t: float) -> tuple[tuple[float, ...], tuple[bool, ...]]:
         """Seconds behind, and up or not, for each replica at t."""

@@ -8,7 +8,9 @@ from labs.paxos_consensus.scenario import (
     ACCEPT, ACCEPTED, DECIDE, DOWN, LEADER, PAUSED, PREPARE, PROMISE, PROPOSE,
 )
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history,
+)
 
 OP_START, OP_VALUE, OP_END, OP_OK, OP_NODE, OP_KEPT = range(6)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED, MSG_KIND = range(5)
@@ -87,7 +89,7 @@ def _lost(run: Run, inc: Incident, upto: float):
 def _live(run: Run, inc: Incident, upto: float):
     ops = _ops(run, *_live_window(inc), upto)
     if not ops:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in ops if o[OP_OK]) / len(ops)
     return v, f"{v:.0%}"
 
@@ -111,10 +113,10 @@ def cost(run: Run, a: float, b: float) -> float | None:
 def _cheap(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     if upto < b:
-        return None, "–"
+        return NO_VALUE
     v = cost(run, a, b)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, "∞" if v == INF else f"{v:.1f}"
 
 
@@ -124,9 +126,9 @@ GOALS = [
              lambda run, inc, upto: _disagree(run, _whole(inc)[0], upto) > 0, settle_extra=1.0, key="agree"),
     GoalSpec("", "after", "", _whole, _lost, lambda v: v == 0,
              lambda run, inc, upto: _lost(run, inc, upto)[0] > 0, settle_extra=lab.DEADLINE + 1.0, key="kept"),
-    GoalSpec("", "after", "", _live_window, _live, lambda v: v is not None and v >= lab.LIVE_MIN,
+    GoalSpec("", "after", "", _live_window, _live, at_least(lab.LIVE_MIN),
              _live_doomed, settle_extra=lab.DEADLINE + 1.0, key="live"),
-    GoalSpec("", "before", "", _before, _cheap, lambda v: v is not None and v <= lab.COST_MAX,
+    GoalSpec("", "before", "", _before, _cheap, at_most(lab.COST_MAX),
              settle_extra=lab.DEADLINE + 1.0, key="cheap"),
 ]
 
@@ -185,9 +187,6 @@ class PaxosWorld(World):
         for e in tables["events"]:
             run.add("split", e[EV_TIME])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         verbs = {"proposer_crash": ("crash", "back"), "acceptor_crash": ("crash", "back"),
                  "lossy": ("lossy", "clean"), "partition": ("split", "heal"), "duel": ("pause", "wake")}
@@ -217,12 +216,6 @@ class PaxosWorld(World):
         if lost:
             out.append((inc.t1, self.s("warn_lost", n=lost)))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def groups_at(self, variant: str, t: float) -> list[int] | None:
         inc = self.incident_at(variant, t)

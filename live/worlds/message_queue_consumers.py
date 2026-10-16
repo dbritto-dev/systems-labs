@@ -9,7 +9,8 @@ from live.canvas import (
     BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PURPLE, RED, WHITE,
 )
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, below,
+    fmt_int, history, percentile,
 )
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -46,8 +47,7 @@ def try_colour(row: tuple):
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _window(inc: Incident) -> tuple[float, float]:
@@ -62,7 +62,7 @@ def _sent(run: Run, inc: Incident, upto: float, window=_window) -> list[tuple]:
 def _baseline(run: Run, inc: Incident, upto: float):
     done = [j for j in _sent(run, inc, upto, _before) if ended_by(j, upto)]
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for j in done if j[JOB_OUTCOME] == DONE) / len(done)
     return v, f"{v:.0%}"
 
@@ -73,7 +73,7 @@ def _lost_rows(run: Run, inc: Incident, upto: float) -> list[tuple]:
 
 def _lost(run: Run, inc: Incident, upto: float):
     if not _sent(run, inc, upto):
-        return None, "–"
+        return NO_VALUE
     n = len(_lost_rows(run, inc, upto))
     return n, fmt_int(n)
 
@@ -81,7 +81,7 @@ def _lost(run: Run, inc: Incident, upto: float):
 def _dups(run: Run, inc: Incident, upto: float):
     seen = [j for j in _sent(run, inc, upto) if ended_by(j, upto) or (j[JOB_RECV] or INF) <= upto]
     if not seen:
-        return None, "–"
+        return NO_VALUE
     # A job is a duplicate once a second try started while another ran (or after it was done).
     n = sum(1 for j in seen if j[JOB_DUP] and _dup_seen(run, j, upto))
     v = n / len(seen)
@@ -98,7 +98,7 @@ def _dup_seen(run: Run, job: tuple, upto: float) -> bool:
 def _age(run: Run, inc: Incident, upto: float):
     v = percentile([age(j, upto) for j in _sent(run, inc, upto)], 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, "∞" if v == INF else f"{v:.1f}s"
 
 
@@ -129,13 +129,12 @@ def _doomed_dlq(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, settle_extra=5.0, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), settle_extra=5.0, key="baseline"),
     GoalSpec("", "during", "", _window, _lost, lambda v: v == 0,
              doomed=lambda run, inc, upto: bool(_lost_rows(run, inc, upto)), settle_extra=lab.SETTLE, key="lost"),
-    GoalSpec("", "during", "", _window, _dups, lambda v: v is not None and v <= lab.DUP_MAX,
+    GoalSpec("", "during", "", _window, _dups, at_most(lab.DUP_MAX),
              settle_extra=lab.SETTLE, key="dups"),
-    GoalSpec("", "during", "", _window, _age, lambda v: v is not None and v < lab.AGE_MAX,
+    GoalSpec("", "during", "", _window, _age, below(lab.AGE_MAX),
              doomed=_doomed_age, settle_extra=lab.SETTLE, key="age"),
     GoalSpec("", "after", "", _window, _dlq, lambda v: v is None or v >= lab.PARK_MIN,
              doomed=_doomed_dlq, settle_extra=lab.DLQ_SETTLE, key="dlq"),
@@ -175,9 +174,6 @@ class MessageQueueWorld(World):
             run.add("ended", j[JOB_END])
         for r in tables["tries"]:
             run.add("dup_tries" if r[TRY_DUP] else "first_tries" if r[TRY_N] <= 1 else "retries", r[TRY_START])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")

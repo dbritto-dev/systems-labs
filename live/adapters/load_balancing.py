@@ -5,7 +5,9 @@ door → the fleet of servers)."""
 from __future__ import annotations
 
 from labs.load_balancing.scenario import BALANCERS, WORKERS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, op_id
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, just_ended, just_sent, op_id, rare_rows_first, user_flights,
+)
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -50,7 +52,7 @@ class LoadBalancingCluster(ClusterAdapter):
         servers = [PURPLE if i == sick else _load_colour(n) for i, n in enumerate(loads)]
 
         flights = []
-        for r in every(run.rows("requests", t - FLY, t + 1e-9), 2 * FLIGHTS):
+        for r in every(just_sent(run, "requests", t), 2 * FLIGHTS):
             p = (t - r[REQ_START]) / FLY
             if p < 0.5:
                 flights.append((-1, r[REQ_BALANCER], 2 * p, WHITE))
@@ -62,9 +64,7 @@ class LoadBalancingCluster(ClusterAdapter):
             colour = EXTRA1 if waited < 0.5 else EXTRA2 if waited < 0.8 else EXTRA3
             flights.append((r[REQ_BALANCER], BALANCERS + r[REQ_SERVER], 0.9, colour))
 
-        span = run.max_dur.get("requests", 0.0)
-        failed = [r for r in run.rows("requests", t - BACK - span, t + 1e-9)
-                  if t - BACK <= r[REQ_END] <= t and not r[REQ_OK]]
+        failed = [r for r in just_ended(run, "requests", REQ_END, t) if not r[REQ_OK]]
         drops = [(r[REQ_BALANCER], BALANCERS + r[REQ_SERVER], (t - r[REQ_END]) / BACK)
                  for r in every(failed, OUTCOMES)]
         text, colour = _state(w, run, t, sick, bool(failed))
@@ -88,11 +88,10 @@ class LoadBalancingLanes(LaneAdapter):
             return LaneFrame()
         waiting, _, outcomes = client_lanes(run, t, users, "requests", REQ_START, REQ_END,
                                             colour=lambda r: GREEN if r[REQ_OK] else RED, rare_first=True)
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        shown = every([r for r in flying if r[REQ_SICK]], FLIGHTS // 2)
-        shown += every([r for r in flying if not r[REQ_SICK]], FLIGHTS - len(shown))
-        flights = [(slot(op_id(r[REQ_START]), users), (t - r[REQ_START]) / FLY,
-                    PURPLE if r[REQ_SICK] else WHITE, bool(r[REQ_SICK])) for r in shown]
+        flying = just_sent(run, "requests", t)
+        shown = rare_rows_first(flying, lambda r: r[REQ_SICK], FLIGHTS, FLIGHTS // 2)
+        flights = user_flights(shown, t, REQ_START, lambda r: (
+            slot(op_id(r[REQ_START]), users), PURPLE if r[REQ_SICK] else WHITE, bool(r[REQ_SICK])))
 
         sick = w.sick_at(run, t)
         busiest = max(w.loads_at(run, t))
@@ -125,9 +124,8 @@ class LoadBalancingRelay(RelayAdapter):
             return RelayFrame()
         waiting, _, outcomes = client_lanes(run, t, users, "requests", REQ_START, REQ_END,
                                             colour=lambda r: GREEN if r[REQ_OK] else RED, rare_first=True)
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        shown = every([r for r in flying if r[REQ_SICK]], FLIGHTS // 2)
-        shown += every([r for r in flying if not r[REQ_SICK]], FLIGHTS - len(shown))
+        flying = just_sent(run, "requests", t)
+        shown = rare_rows_first(flying, lambda r: r[REQ_SICK], FLIGHTS, FLIGHTS // 2)
         flights, hops = [], []  # the first half of the way: user → door; the second: balancer → server
         for r in shown:
             p = (t - r[REQ_START]) / FLY

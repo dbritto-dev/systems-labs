@@ -5,7 +5,9 @@ from __future__ import annotations
 from labs.vector_clocks_crdts import lab
 from labs.vector_clocks_crdts.scenario import BACK, LOST
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, ORANGE, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history,
+)
 
 OP_START, OP_KIND, OP_NODE, OP_CART, OP_PRODUCT, OP_END, OP_OK, OP_VERDICT = range(8)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
@@ -41,14 +43,14 @@ def _counter(kind: int):
 def _in_sync(run: Run, inc: Incident, upto: float):
     got = _sync_at(run, min(inc.t1 + lab.CONVERGE, upto))
     if got is None:
-        return None, "–"
+        return NO_VALUE
     return got[0], f"{got[0]:.0%}"
 
 
 def _msgs(run: Run, inc: Incident, upto: float):
     a, b = inc.t0 - lab.BEFORE, min(inc.t0, upto)
     if b <= a:
-        return None, "–"
+        return NO_VALUE
     v = run.count("msgs", a, b) / (b - a)
     return v, f"{v:.0f}/s"
 
@@ -57,14 +59,14 @@ _lost, _back = _counter(LOST), _counter(BACK)
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "after", "", _window, _lost, lambda v: v is not None and v <= lab.LOST_MAX,
+    GoalSpec("", "after", "", _window, _lost, at_most(lab.LOST_MAX),
              doomed=lambda run, inc, upto: _lost(run, inc, upto)[0] > lab.LOST_MAX, settle_extra=0.5, key="lost"),
-    GoalSpec("", "after", "", _window, _back, lambda v: v is not None and v <= lab.BACK_MAX,
+    GoalSpec("", "after", "", _window, _back, at_most(lab.BACK_MAX),
              doomed=lambda run, inc, upto: _back(run, inc, upto)[0] > lab.BACK_MAX, settle_extra=0.5, key="back"),
     GoalSpec("", "after", "", lambda i: (i.t1, i.t1 + lab.CONVERGE), _in_sync,
-             lambda v: v is not None and v >= lab.SYNC_MIN, settle_extra=0.5, key="sync"),
+             at_least(lab.SYNC_MIN), settle_extra=0.5, key="sync"),
     GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs,
-             lambda v: v is not None and v <= lab.MSGS_MAX, settle_extra=0.5, key="msgs"),
+             at_most(lab.MSGS_MAX), settle_extra=0.5, key="msgs"),
 ]
 
 
@@ -101,15 +103,6 @@ class CartsWorld(World):
             run.add("delivered" if m[MSG_ARRIVED] is not None else "dropped", m[MSG_SENT])
         for o in tables["ops"]:
             run.add("served" if o[OP_OK] else "failed", o[OP_END])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def groups_at(self, variant: str, t: float) -> list[int] | None:
         """During a partition: the group of each replica."""

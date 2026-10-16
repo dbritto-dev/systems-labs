@@ -6,7 +6,8 @@ from labs.connection_pool import lab
 from labs.connection_pool.scenario import SAMPLE, TIMED_OUT, TOO_MANY
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, baseline_window, below, fmt_int,
+    fmt_ms, history, percentile,
 )
 
 REQ_ID, REQ_START, REQ_END, REQ_OK, REQ_WAIT, REQ_NEW, REQ_FAIL = range(7)
@@ -24,15 +25,14 @@ def _ended(run: Run, a: float, b: float) -> list[tuple]:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = _ended(run, a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OK] for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -42,7 +42,7 @@ def _reuse(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = [r for r in run.rows("requests", a, min(b, upto)) if r[REQ_OK]]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = 1 - sum(r[REQ_NEW] for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -69,7 +69,7 @@ def _wait(run: Run, inc: Incident, upto: float):
     rows = run.rows("requests", inc.t0, min(inc.t1, upto))
     waits = [min(r[REQ_WAIT], cut - r[REQ_START]) for r in rows]
     v = percentile(waits, 99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _after(inc: Incident) -> tuple[float, float]:
@@ -81,7 +81,7 @@ def _recovered(run: Run, inc: Incident, upto: float):
     cut = min(b + lab.SETTLE, upto)
     rows = run.rows("requests", a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     good = sum(r[REQ_OK] and r[REQ_WAIT] < lab.WAIT_MAX and r[REQ_END] <= cut for r in rows)
     v = good / len(rows)
     return v, f"{v:.0%}"
@@ -89,16 +89,13 @@ def _recovered(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "before", "", _before, _reuse,
-             lambda v: v is not None and v >= lab.REUSE_MIN, key="reuse"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "before", "", _before, _reuse, at_least(lab.REUSE_MIN), key="reuse"),
     GoalSpec("", "during", "", _during, _errors,
              lambda v: v == 0, doomed=_errors_doomed, settle_extra=lab.SETTLE, key="errors"),
-    GoalSpec("", "during", "", _during, _wait,
-             lambda v: v is not None and v < lab.WAIT_MAX, settle_extra=lab.SETTLE, key="wait"),
+    GoalSpec("", "during", "", _during, _wait, below(lab.WAIT_MAX), settle_extra=lab.SETTLE, key="wait"),
     GoalSpec("", "after", "", _after, _recovered,
-             lambda v: v is not None and v >= lab.RECOVERED_MIN, settle_extra=lab.SETTLE, key="recovered"),
+             at_least(lab.RECOVERED_MIN), settle_extra=lab.SETTLE, key="recovered"),
 ]
 
 
@@ -141,9 +138,6 @@ class ConnPoolWorld(World):
             run.add("idle", t, (open_ - busy) * SAMPLE)
             run.add("open", t, open_ * SAMPLE)
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1) + 1):
             refused = run.series("too_many", s, s + 1)[0]
@@ -164,12 +158,6 @@ class ConnPoolWorld(World):
         if start:
             return self.s("gets_traffic", times=inc.severity, cause=self.cause(inc))
         return self.s("traffic_normal")
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def sample_at(self, run: Run, t: float) -> tuple[int, int]:
         """(open, busy) connections at time t."""

@@ -8,7 +8,7 @@ from labs.graceful_shutdown.scenario import (
 )
 from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PURPLE, RED, RGB, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, history,
 )
 
 REQ_ID, REQ_START, REQ_END, REQ_OK, REQ_OUT, REQ_SLOT, REQ_LB, REQ_KEPT, REQ_OLD = range(9)
@@ -44,14 +44,13 @@ def _stopped(run: Run, inc: Incident, upto: float) -> list[tuple]:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     v = _share(_ended(run, a, min(b - EDGE, upto)))  # a request cut by the first SIGTERM is not the baseline
-    return (None, "–") if v is None else (v, _pct(v))
+    return NO_VALUE if v is None else (v, _pct(v))
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -62,7 +61,7 @@ def _errors(run: Run, inc: Incident, upto: float):
     """The share of the requests started during the incident that failed (refused, or cut)."""
     rows = [r for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if r[REQ_END] <= upto]
     v = _share(rows)
-    return (None, "–") if v is None else (v, _pct(v))
+    return NO_VALUE if v is None else (v, _pct(v))
 
 
 def _errors_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -76,7 +75,7 @@ def _cut(run: Run, inc: Incident, upto: float):
     """Requests and streams cut mid-flight by the instances this incident stopped."""
     rows = _stopped(run, inc, upto)
     if not rows and upto < inc.t0 + 0.5:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[IN_CUT] for r in rows)
     return v, f"{v:,}"
 
@@ -89,7 +88,7 @@ def _capacity(run: Run, inc: Incident, upto: float):
     """The fewest instances serving (in the balancer and accepting) at any moment of the incident."""
     rows = run.rows("samples", inc.t0, min(inc.t1, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = min(r[S_SERVING] for r in rows)
     return v, f"{v}/{INSTANCES}"
 
@@ -107,7 +106,7 @@ def _exited(run: Run, inc: Incident, upto: float):
     """The longest shutdown (SIGTERM to exit) of this incident's instances; killed ones fail."""
     rows = _stopped(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     killed = sum(r[IN_KILLED] for r in rows)
     longest = max(r[IN_EXIT] - r[IN_SIGTERM] for r in rows)
     if killed:
@@ -121,18 +120,14 @@ def _exited_doomed(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v <= lab.ERRORS_MAX, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_most(lab.ERRORS_MAX), key="baseline"),
     GoalSpec("", "during", "", _during, _errors,
-             lambda v: v is not None and v <= lab.ERRORS_MAX, doomed=_errors_doomed, settle_extra=lab.SETTLE,
+             at_most(lab.ERRORS_MAX), doomed=_errors_doomed, settle_extra=lab.SETTLE,
              key="errors"),
-    GoalSpec("", "during", "", _during, _cut,
-             lambda v: v is not None and v <= lab.CUT_MAX, doomed=_cut_doomed, settle_extra=lab.KILL_WAIT,
+    GoalSpec("", "during", "", _during, _cut, at_most(lab.CUT_MAX), doomed=_cut_doomed, settle_extra=lab.KILL_WAIT,
              key="cut"),
-    GoalSpec("", "during", "", _during, _capacity,
-             lambda v: v is not None and v >= lab.CAPACITY_MIN, doomed=_capacity_doomed, key="capacity"),
-    GoalSpec("", "after", "", _after, _exited,
-             lambda v: v is not None and v >= 0, doomed=_exited_doomed, settle_extra=1.0, key="exited"),
+    GoalSpec("", "during", "", _during, _capacity, at_least(lab.CAPACITY_MIN), doomed=_capacity_doomed, key="capacity"),
+    GoalSpec("", "after", "", _after, _exited, at_least(0), doomed=_exited_doomed, settle_extra=1.0, key="exited"),
 ]
 
 
@@ -259,9 +254,6 @@ class GracefulShutdownWorld(World):
         for r in tables["streams"]:
             if r[ST_OUT] == CUT:
                 run.add("cut", r[ST_END])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     # ---------------------------------------------------------------- panel
 

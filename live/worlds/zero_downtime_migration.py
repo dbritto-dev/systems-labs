@@ -9,8 +9,8 @@ from labs.zero_downtime_migration.scenario import (
 )
 from live.canvas import BLUE, EXTRA2, EXTRA3, GREEN, IDLE_DOT, MUTED, PURPLE, RED, RGB, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, TimelineEvent, Traffic, World, _event_order,
-    fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, TimelineEvent, Traffic, World, _event_order, at_most,
+    fmt_int, fmt_ms, history, percentile, so_far,
 )
 
 REQ_ID, REQ_START, REQ_END, REQ_KIND, REQ_OUTCOME, REQ_INST, REQ_NEW, REQ_COLS = range(8)
@@ -64,7 +64,7 @@ def _in_window(run: Run, inc: Incident, upto: float) -> list[tuple]:
 def _errors(run: Run, inc: Incident, upto: float):
     rows = _in_window(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = sum(r[REQ_OUTCOME] == ERROR for r in rows)
     return n, fmt_int(n)
 
@@ -81,7 +81,7 @@ def _writes(run: Run, inc: Incident, upto: float) -> list[float]:
 
 def _p99(run: Run, inc: Incident, upto: float):
     v = percentile(_writes(run, inc, upto), 99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _p99_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -107,7 +107,7 @@ def _wrong(run: Run, inc: Incident, upto: float):
     if w is not None and w[W_T1] <= upto:
         n += w[W_WRONG]
     elif not rows:
-        return None, "–"
+        return NO_VALUE
     return n, fmt_int(n)
 
 
@@ -132,13 +132,13 @@ def _done(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "during", "", _window, _errors, lambda v: v is not None and v <= lab.ERRORS_MAX,
+    GoalSpec("", "during", "", _window, _errors, at_most(lab.ERRORS_MAX),
              doomed=_errors_doomed, settle_extra=lab.SETTLE, key="errors"),
-    GoalSpec("", "during", "", _window, _p99, lambda v: v is not None and v <= lab.P99_MAX,
+    GoalSpec("", "during", "", _window, _p99, at_most(lab.P99_MAX),
              doomed=_p99_doomed, settle_extra=lab.SETTLE, key="p99"),
-    GoalSpec("", "after", "", _window, _wrong, lambda v: v is not None and v <= lab.WRONG_MAX,
+    GoalSpec("", "after", "", _window, _wrong, at_most(lab.WRONG_MAX),
              doomed=_wrong_doomed, settle_extra=lab.SETTLE, key="wrong"),
-    GoalSpec("", "after", "", _window, _done, lambda v: v is not None and v <= lab.WINDOW,
+    GoalSpec("", "after", "", _window, _done, at_most(lab.WINDOW),
              settle_extra=lab.SETTLE, key="done"),
 ]
 
@@ -220,9 +220,6 @@ class ZeroDowntimeMigrationWorld(World):
     def _cause(self, key) -> str:
         return getattr(self.text, "CAUSES", {}).get(key, "") if isinstance(key, str) else ""
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_title(self, inc: Incident) -> str:
         return self.screen.INCIDENT_TITLE.format(name=self.incident_name, n=inc.index + 1)
 
@@ -233,12 +230,6 @@ class ZeroDowntimeMigrationWorld(World):
         if inc.kind == "deploy":
             return self.s("open_cause", old=old, new=new, cause=self.cause(inc))
         return self.s("open", old=old, new=new)
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def bands(self, variant: str, t: float):
         run = self.runs.get(variant)
@@ -355,12 +346,11 @@ class ZeroDowntimeMigrationWorld(World):
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("requests", 0.0)
-        partial = [r for r in run.rows("requests", s - span - 1, t) if s <= r[REQ_END] < t]
-        served = run.total("served", t) + sum(1 for r in partial if r[REQ_OUTCOME] == OK)
-        failed = run.total("failed", t) + sum(1 for r in partial if r[REQ_OUTCOME] == ERROR)
-        wrong = run.total("wrong", t) + sum(1 for r in partial if r[REQ_OUTCOME] == WRONG)
+
+        def total(name: str, outcome: int) -> float:
+            return so_far(run, t, name, "requests", REQ_END, lambda r: r[REQ_OUTCOME] == outcome)
+
+        served, failed, wrong = total("served", OK), total("failed", ERROR), total("wrong", WRONG)
         last5 = self.recent(run, t)
         took = [r[REQ_END] - r[REQ_START] for r in last5]
         writes = [r[REQ_END] - r[REQ_START] for r in last5 if r[REQ_KIND] == WRITE]

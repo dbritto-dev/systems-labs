@@ -7,7 +7,7 @@ from labs.raft_consensus import lab
 from labs.raft_consensus.scenario import CANDIDATE, COMMITTED, DOWN, LEADER, LOST, TWO_LEADERS, VOTE
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, RED, WHITE
 from live.worlds.base import (
-    KEEP, PIECE, Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history,
+    KEEP, NO_VALUE, PIECE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, below, history,
 )
 
 OP_START, OP_VALUE, OP_END, OP_OK, OP_NODE = range(5)
@@ -65,7 +65,7 @@ def _has_leader(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = run.rows("state", a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in rows if _leaders(r[ST_ROLES])) / len(rows)
     return v, f"{v:.0%}"
 
@@ -85,7 +85,7 @@ def _election(run: Run, inc: Incident, upto: float):
         return v, f"{v:.1f}s"
     if upto >= inc.t1 + lab.AFTER:
         return INF, _s("never")
-    return None, "–"
+    return NO_VALUE
 
 
 def _election_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -100,7 +100,7 @@ def _commits(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     ops = _ops(run, a, b, upto)
     if not ops:
-        return None, "–"
+        return NO_VALUE
     committed = _committed(run)
     stored = [o[OP_OK] and committed.get(o[OP_VALUE], INF) < min(upto, INF) for o in ops]
     good = sum(stored)
@@ -121,7 +121,7 @@ def _safe(run: Run, inc: Incident, upto: float):
 def _available(run: Run, inc: Incident, upto: float):
     ops = _ops(run, inc.t0, inc.t1, upto)
     if not ops:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in ops if o[OP_OK]) / len(ops)
     return v, f"{v:.0%}"
 
@@ -134,17 +134,17 @@ def _available_doomed(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _has_leader, lambda v: v is not None and v >= lab.LEADER_MIN,
+    GoalSpec("", "before", "", _before, _has_leader, at_least(lab.LEADER_MIN),
              settle_extra=lab.BEFORE[1], key="leader"),
     GoalSpec("", "after", "", lambda i: (i.t0, i.t1 + lab.AFTER), _election,
-             lambda v: v is not None and v < lab.ELECTION_MAX, _election_doomed, key="election"),
+             below(lab.ELECTION_MAX), _election_doomed, key="election"),
     GoalSpec("", "before", "", _before, _commits,
              lambda v: v is not None and v[0] >= lab.COMMITTED_MIN and v[1] == 0,
              settle_extra=lab.BEFORE[1], key="committed"),
     GoalSpec("", "after", "", lambda i: (i.t0, i.t1 + lab.AFTER), _safe, lambda v: v == 0,
              lambda run, inc, upto: _lost(run, inc.t0, upto) > 0, settle_extra=1.0, key="safe"),
     GoalSpec("", "during", "", lambda i: (i.t0, i.t1), _available,
-             lambda v: v is not None and v >= lab.AVAILABLE_MIN, settle_extra=lab.SETTLE, key="available"),
+             at_least(lab.AVAILABLE_MIN), settle_extra=lab.SETTLE, key="available"),
 ]
 
 
@@ -191,9 +191,6 @@ class RaftWorld(World):
             run.add("ops", o[OP_START])
             run.add("served" if o[OP_OK] else "failed", o[OP_END])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         verbs = {"partition": ("split", "heal"), "crash": ("crash", "back"), "slow": ("slow", "fast")}
         return self.word(verbs[inc.kind][0 if start else 1])
@@ -221,12 +218,6 @@ class RaftWorld(World):
         if wrong:
             out.append((inc.t1, self.s("warn_wrong", n=wrong)))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def groups_at(self, variant: str, t: float) -> list[int] | None:
         inc = self.incident_at(variant, t)

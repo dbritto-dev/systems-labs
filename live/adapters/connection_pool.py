@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from labs.connection_pool import lab as pool_lab
 from labs.connection_pool.scenario import TIMED_OUT, TOO_MANY
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -37,12 +37,11 @@ class ConnPoolLanes(LaneAdapter):
                 colour = WHITE  # running its query
             found[slot(r[REQ_ID], users)] = (colour, True)
 
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        flights = [(slot(r[REQ_ID], users), (t - r[REQ_START]) / FLY,
-                    EXTRA2 if r[REQ_NEW] else WHITE, bool(r[REQ_NEW])) for r in every(flying, FLIGHTS)]
-        span = run.max_dur.get("requests", 0.0)
-        ended = [r for r in run.rows("requests", t - BACK - span, t + 1e-9) if t - BACK <= r[REQ_END] <= t]
-        outcomes = [(GREEN if r[REQ_OK] else RED, (t - r[REQ_END]) / BACK) for r in every(ended, OUTCOMES)]
+        flying = just_sent(run, "requests", t)
+        flights = user_flights(every(flying, FLIGHTS), t, REQ_START,
+                               lambda r: (slot(r[REQ_ID], users), EXTRA2 if r[REQ_NEW] else WHITE, bool(r[REQ_NEW])))
+        ended = just_ended(run, "requests", REQ_END, t)
+        outcomes = user_outcomes(ended, t, REQ_END, lambda r: GREEN if r[REQ_OK] else RED)
 
         open_, busy = w.sample_at(run, t)
         refusing = any(r[REQ_FAIL] == TOO_MANY for r in ended)
@@ -81,7 +80,7 @@ class ConnPoolCluster(ClusterAdapter):
             return ClusterFrame()
         waiting = {r[REQ_ID] for r in w.waiting_at(run, t)}
         flights = []
-        for r in every(run.rows("requests", t - FLY, t + 1e-9), FLIGHTS):
+        for r in every(just_sent(run, "requests", t), FLIGHTS):
             p = (t - r[REQ_START]) / FLY
             if r[REQ_ID] in waiting:  # still waiting for a connection: it stays at the pool
                 flights.append((-1, self.POOL, min(0.95, 2 * p), EXTRA1))
@@ -89,9 +88,7 @@ class ConnPoolCluster(ClusterAdapter):
                 flights.append((-1, self.POOL, 2 * p, WHITE))
             else:
                 flights.append((self.POOL, self.DB, 2 * p - 1, EXTRA2 if r[REQ_NEW] else WHITE))
-        span = run.max_dur.get("requests", 0.0)
-        ended = [r for r in run.rows("requests", t - BACK - span, t + 1e-9)
-                 if t - BACK <= r[REQ_END] <= t and not r[REQ_OK]]
+        ended = [r for r in just_ended(run, "requests", REQ_END, t) if not r[REQ_OK]]
         drops = [((self.POOL, self.DB) if r[REQ_FAIL] == TOO_MANY else (-1, self.POOL))
                  + ((t - r[REQ_END]) / BACK,) for r in every(ended, OUTCOMES)]
 

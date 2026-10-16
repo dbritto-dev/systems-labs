@@ -9,7 +9,10 @@ from labs.optimistic_locking.scenario import CONFLICT, ERROR, OK, TIMEOUT_
 from live.canvas import (
     BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE,
 )
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history, percentile
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, below,
+    history, percentile,
+)
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 
@@ -22,8 +25,7 @@ _s = strings("optimistic_locking")  # one of the lab's STRINGS, for the goal mea
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -40,7 +42,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     b = min(b, upto)
     done = [r for r in run.rows("requests", a - run.max_dur.get("requests", 0.0), b) if a <= r[REQ_END] < b]
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OUTCOME] == OK for r in done) / len(done)
     return v, f"{v:.0%}"
 
@@ -48,7 +50,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
 def _lost(run: Run, inc: Incident, upto: float):
     done = _ended(run, *_during(inc), upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     n = sum(r[REQ_LOST] for r in done)
     return n, _s("count", n=n)
 
@@ -60,7 +62,7 @@ def _doomed_lost(run: Run, inc: Incident, upto: float) -> bool:
 def _conflicts(run: Run, inc: Incident, upto: float):
     done = _ended(run, *_during(inc), upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OUTCOME] == CONFLICT for r in done) / len(done)
     return v, f"{v:.1%}"
 
@@ -68,30 +70,27 @@ def _conflicts(run: Run, inc: Incident, upto: float):
 def _fast(run: Run, inc: Incident, upto: float):
     v = percentile([r[REQ_END] - r[REQ_START] for r in _ended(run, *_during(inc), upto)], 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, f"{v * 1000:.0f}ms"
 
 
 def _served(run: Run, inc: Incident, upto: float):
     done = _ended(run, *_during(inc), upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OUTCOME] == OK for r in done) / len(done)
     return v, f"{v:.1%}"
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
     GoalSpec("", "during", "", _during, _lost, lambda v: v == 0,
              doomed=_doomed_lost, settle_extra=lab.SETTLE, key="lost"),
     GoalSpec("", "during", "", _during, _conflicts,
-             lambda v: v is not None and v <= lab.CONFLICT_MAX, settle_extra=lab.SETTLE, key="conflicts"),
-    GoalSpec("", "during", "", _during, _fast,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=lab.SETTLE, key="fast"),
-    GoalSpec("", "during", "", _during, _served,
-             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=lab.SETTLE, key="served"),
+             at_most(lab.CONFLICT_MAX), settle_extra=lab.SETTLE, key="conflicts"),
+    GoalSpec("", "during", "", _during, _fast, below(lab.P99_MAX), settle_extra=lab.SETTLE, key="fast"),
+    GoalSpec("", "during", "", _during, _served, at_least(lab.SERVED_MIN), settle_extra=lab.SETTLE, key="served"),
 ]
 
 
@@ -128,9 +127,6 @@ class OptimisticLockingWorld(World):
         for w in tables["writes"]:
             run.add(names[w[W_RESULT]], w[W_END])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")
 
@@ -143,12 +139,6 @@ class OptimisticLockingWorld(World):
     def warnings(self, run: Run, inc: Incident):
         n = sum(r[REQ_LOST] for r in run.rows("requests", inc.t0, inc.t1))
         return [(inc.t1, self.s("warn_lost", n=n))] if n else []
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     # ---------------------------------------------------------------- panel
 

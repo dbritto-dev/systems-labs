@@ -5,7 +5,9 @@ and relay (clients -> the payments API, where the key store replays answers -> t
 from __future__ import annotations
 
 from labs.idempotency.scenario import CONFLICT, LOST, OK
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, rare_rows_first, user_flights, user_outcomes,
+)
 from live.canvas import BG, BLUE, EXTRA, EXTRA2, GREEN, MUTED, RED, WHITE, mix
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -43,9 +45,9 @@ class IdempotencyLanes(LaneAdapter):
             colour = RED if pid in doubled else EXTRA[min(3, tries.get(pid, 0))]
             found[slot(pid, users)] = (colour, True)
 
-        flying = run.rows("attempts", t - FLY, t + 1e-9)
-        flights = [(slot(r[TRY_PAY], users), (t - r[TRY_START]) / FLY, EXTRA[min(3, r[TRY_N])], r[TRY_N] > 0)
-                   for r in every(flying, FLIGHTS)]
+        flying = just_sent(run, "attempts", t)
+        flights = user_flights(every(flying, FLIGHTS), t, TRY_START,
+                               lambda r: (slot(r[TRY_PAY], users), EXTRA[min(3, r[TRY_N])], r[TRY_N] > 0))
         ended = [r for r in run.rows("attempts", t - BACK - span, t + 1e-9) if t - BACK <= r[TRY_END] <= t]
 
         def colour(r: tuple):
@@ -53,7 +55,7 @@ class IdempotencyLanes(LaneAdapter):
                 return RED
             return GREEN if r[TRY_OUTCOME] == OK else EXTRA2 if r[TRY_OUTCOME] == CONFLICT else MUTED
 
-        outcomes = [(colour(r), (t - r[TRY_END]) / BACK) for r in every(ended, OUTCOMES)]
+        outcomes = user_outcomes(ended, t, TRY_END, colour)
         charging = sum(1 for r in run.active("attempts", t, TRY_END) if r[TRY_CHARGED])
 
         inc = w.incident_at(variant, t)
@@ -95,7 +97,7 @@ class IdempotencyCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = []
-        for r in every(run.rows("attempts", t - FLY, t + 1e-9), FLIGHTS):
+        for r in every(just_sent(run, "attempts", t), FLIGHTS):
             p = (t - r[TRY_START]) / FLY
             if p < 0.5:  # into the service
                 flights.append((-1, self.SERVICE, p * 2, EXTRA[min(3, r[TRY_N])]))
@@ -112,8 +114,7 @@ class IdempotencyCluster(ClusterAdapter):
                      RED if r[TRY_DUP] else WHITE) for r in every(charging, FLIGHTS)]
         # Answers lost on the way back: half way to the clients, fading.
         span = run.max_dur.get("attempts", 0.0)
-        lost = [r for r in run.rows("attempts", t - BACK - span, t + 1e-9)
-                if t - BACK <= r[TRY_END] <= t and r[TRY_OUTCOME] == LOST]
+        lost = [r for r in just_ended(run, "attempts", TRY_END, t) if r[TRY_OUTCOME] == LOST]
         flights += [(self.SERVICE, -1, 0.5, mix(MUTED, BG, (t - r[TRY_END]) / BACK))
                     for r in every(lost, OUTCOMES)]
 
@@ -157,8 +158,7 @@ class IdempotencyRelay(RelayAdapter):
         span = run.max_dur.get("attempts", 0.0)
         recent = run.rows("attempts", t - span - FLY - 1e-9, t + 1e-9)
         charges = [r for r in recent if r[TRY_CHARGED] and t <= r[TRY_START] + max(FLY, r[TRY_END] - r[TRY_START])]
-        shown = every([r for r in charges if r[TRY_DUP]], FLIGHTS // 2)
-        shown += every([r for r in charges if not r[TRY_DUP]], FLIGHTS - len(shown))
+        shown = rare_rows_first(charges, lambda r: r[TRY_DUP], FLIGHTS, FLIGHTS // 2)
         hops = [(min(0.95, (t - r[TRY_START]) / max(FLY, r[TRY_END] - r[TRY_START])), RED if r[TRY_DUP] else WHITE,
                  bool(r[TRY_DUP])) for r in shown]
         ended = [r for r in recent if t - BACK <= r[TRY_END] <= t and not r[TRY_CHARGED]]

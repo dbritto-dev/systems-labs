@@ -8,8 +8,8 @@ from live.canvas import (
     BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, RGB, WHITE,
 )
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, below,
+    fmt_int, fmt_ms, history, percentile, so_far,
 )
 
 DOWN_KEY: RGB = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -30,14 +30,13 @@ def _served(rows: list[tuple]) -> float | None:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0 - 2.0
+_before = baseline_window(lab, gap=2.0)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     v = _served([r for r in run.rows("requests", a, min(b, upto)) if r[REQ_END] <= upto])
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -50,14 +49,14 @@ def _calls(run: Run, inc: Incident, upto: float):
     took = [c[CALL_END] - c[CALL_START] for c in run.rows("calls", inc.t0, min(inc.t1, upto))
             if c[CALL_DEP] == sick and c[CALL_END] <= upto]
     v = percentile(took, 99)
-    return (None, "–") if v is None else (v, f"{v:.1f}s")
+    return NO_VALUE if v is None else (v, f"{v:.1f}s")
 
 
 def _healthy(run: Run, inc: Incident, upto: float):
     sick = _sick(inc)
     v = _served([r for r in run.rows("requests", inc.t0, min(inc.t1, upto))
                  if r[REQ_DEP] != sick and r[REQ_END] <= upto])
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def _fast_window(inc: Incident) -> tuple[float, float]:
@@ -71,7 +70,7 @@ def _fast(run: Run, inc: Incident, upto: float):
     took = [r[REQ_END] - r[REQ_START] for r in run.rows("requests", a, min(b, upto))
             if r[REQ_DEP] == sick and r[REQ_END] <= upto]
     v = percentile(took, 99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _after(inc: Incident) -> tuple[float, float]:
@@ -82,21 +81,16 @@ def _back(run: Run, inc: Incident, upto: float):
     sick = _sick(inc)
     a, b = _after(inc)
     v = _served([r for r in run.rows("requests", a, min(b, upto)) if r[REQ_DEP] == sick and r[REQ_END] <= upto])
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "during", "", _during, _calls,
-             lambda v: v is not None and v <= lab.CALL_MAX, key="calls"),
-    GoalSpec("", "during", "", _during, _healthy,
-             lambda v: v is not None and v >= lab.HEALTHY_MIN, key="healthy"),
-    GoalSpec("", "during", "", _fast_window, _fast,
-             lambda v: v is not None and v < lab.FAST_MAX, settle_extra=2.5, key="fast"),
-    GoalSpec("", "after", "", _after, _back,
-             lambda v: v is not None and v >= lab.RECOVERED_MIN, settle_extra=2.5, key="back"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "during", "", _during, _calls, at_most(lab.CALL_MAX), key="calls"),
+    GoalSpec("", "during", "", _during, _healthy, at_least(lab.HEALTHY_MIN), key="healthy"),
+    GoalSpec("", "during", "", _fast_window, _fast, below(lab.FAST_MAX), settle_extra=2.5, key="fast"),
+    GoalSpec("", "after", "", _after, _back, at_least(lab.RECOVERED_MIN), settle_extra=2.5, key="back"),
 ]
 
 
@@ -139,9 +133,6 @@ class CircuitBreakerWorld(World):
                 run.add(name, s, min(b, s + 1) - max(a, s))
                 s += 1
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1)):
             busy = sum(run.series(n, s, s + 1)[0] for n in ("busy_ok", "busy_sick"))
@@ -162,12 +153,6 @@ class CircuitBreakerWorld(World):
         if start:
             return self.s("slow", dep=name, seconds=inc.severity, cause=self.cause(inc))
         return self.s("fast_again", dep=name)
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def busy_at(self, run: Run, t: float) -> int:
         """Workers busy at t (the server side, whether or not the user still waits)."""
@@ -253,12 +238,9 @@ class CircuitBreakerWorld(World):
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
-        s = int(t)
         span = run.max_dur.get("requests", 0.0)
-        partial = [r for r in run.rows("requests", s - span - 1, t) if s <= r[REQ_END] < t]
-        served = run.total("served", t) + sum(1 for r in partial if r[REQ_OUTCOME] == OK)
-        failed = sum(run.total(n, t) for n in ("failed", "refused", "gave_up")) + sum(
-            1 for r in partial if r[REQ_OUTCOME] != OK)
+        served = so_far(run, t, "served", "requests", REQ_END, lambda r: r[REQ_OUTCOME] == OK)
+        failed = so_far(run, t, ("failed", "refused", "gave_up"), "requests", REQ_END, lambda r: r[REQ_OUTCOME] != OK)
         waiting = len(run.active("requests", t, REQ_END))
         recent = [r[REQ_END] - r[REQ_START] for r in run.rows("requests", t - 5 - span, t)
                   if t - 5 <= r[REQ_END] < t]

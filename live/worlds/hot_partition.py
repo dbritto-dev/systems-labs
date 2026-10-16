@@ -9,7 +9,8 @@ from labs.hot_partition.api import CAPACITY, FAN, FOLD, HOT, PARTITIONS, PLAIN
 from labs.hot_partition.scenario import SAMPLE, THROTTLED
 from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PURPLE, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_most, below, fmt_int, fmt_ms, history,
+    percentile,
 )
 
 OP_START, OP_END, OP_WRITE, OP_OK, OP_REQS, OP_HOT = range(6)
@@ -56,7 +57,7 @@ def _busiest(run: Run, inc: Incident, upto: float):
     a, b = _hot_window(inc)
     rows = [r for r in run.rows("load", a, min(b, upto)) if r[LOAD_T] + SAMPLE <= min(b, upto) + 1e-9]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(max(r[LOAD_BUSY]) for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -69,7 +70,7 @@ def _ops(run: Run, inc: Incident, upto: float) -> list[tuple]:
 def _throttled(run: Run, inc: Incident, upto: float):
     ops = _ops(run, inc, upto)
     if not ops:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in ops if o[OP_OK] == THROTTLED) / len(ops)
     return v, f"{v:.1%}"
 
@@ -81,7 +82,7 @@ def _doomed_throttled(run: Run, inc: Incident, upto: float) -> bool:
 
 def _p99(run: Run, inc: Incident, upto: float):
     v = percentile([o[OP_END] - o[OP_START] for o in _ops(run, inc, upto) if o[OP_OK] != THROTTLED], 99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _lost_n(run: Run, inc: Incident, upto: float) -> int | None:
@@ -96,29 +97,29 @@ def _lost_n(run: Run, inc: Incident, upto: float) -> int | None:
 
 def _correct(run: Run, inc: Incident, upto: float):
     n = _lost_n(run, inc, upto)
-    return (None, "–") if n is None else (n, fmt_int(n))
+    return NO_VALUE if n is None else (n, fmt_int(n))
 
 
 def _fanin(run: Run, inc: Incident, upto: float):
     a, b = _cool_window(inc)
     ops = [o for o in run.rows("ops", a, min(b, upto)) if o[OP_END] <= upto]
     if not ops:
-        return None, "–"
+        return NO_VALUE
     v = sum(o[OP_REQS] for o in ops) / len(ops)
     return v, f"{v:.2f}x"
 
 
 # The rule and fix of each goal are text.GOALS[key]; the order is lab.stage_of's.
 GOALS = [
-    GoalSpec("", "during", "", _hot_window, _busiest, lambda v: v is not None and v < lab.BUSY_MAX,
+    GoalSpec("", "during", "", _hot_window, _busiest, below(lab.BUSY_MAX),
              settle_extra=0.5, key="busiest"),
-    GoalSpec("", "during", "", _op_window, _throttled, lambda v: v is not None and v <= lab.THROTTLED_MAX,
+    GoalSpec("", "during", "", _op_window, _throttled, at_most(lab.THROTTLED_MAX),
              doomed=_doomed_throttled, settle_extra=1.0, key="throttled"),
-    GoalSpec("", "during", "", _op_window, _p99, lambda v: v is not None and v <= lab.P99_MAX,
+    GoalSpec("", "during", "", _op_window, _p99, at_most(lab.P99_MAX),
              settle_extra=1.0, key="p99"),
     GoalSpec("", "after", "", _audit_window, _correct, lambda v: v == 0,
              doomed=lambda run, inc, upto: bool(_lost_n(run, inc, upto)), settle_extra=0.5, key="correct"),
-    GoalSpec("", "after", "", _cool_window, _fanin, lambda v: v is not None and v <= lab.FANIN_MAX,
+    GoalSpec("", "after", "", _cool_window, _fanin, at_most(lab.FANIN_MAX),
              settle_extra=1.0, key="fanin"),
 ]
 
@@ -171,9 +172,6 @@ class HotPartitionWorld(World):
                 if e.kind in ("start", "end") and e.incident == h[HOT_INC]:
                     inc = run.incidents[e.incident]
                     run.timeline[k] = replace(e, text=self._incident_text(inc, e.kind == "start", h[HOT_KEY], h[HOT_P]))
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_title(self, inc: Incident) -> str:
         return self.screen.INCIDENT_TITLE.format(name=self.s(f"title_{inc.kind}"), n=inc.index + 1)

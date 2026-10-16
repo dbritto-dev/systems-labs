@@ -8,7 +8,7 @@ from labs.zero_downtime_migration import lab
 from labs.zero_downtime_migration.scenario import (
     ERROR, HAS_NEW, HAS_OLD, INSTANCES, NEW_COL, OK, OLD_COL, WRITE,
 )
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_sent, user_flights
 from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -74,9 +74,9 @@ class ZeroDowntimeMigrationLanes(LaneAdapter):
         waiting = {}
         for r in run.active("requests", t, REQ_END):
             waiting[slot(r[REQ_ID], users)] = (EXTRA2 if t - r[REQ_START] > lab.P99_MAX else WHITE, True)
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        flights = [(slot(r[REQ_ID], users), (t - r[REQ_START]) / FLY, WHITE, r[REQ_KIND] == WRITE)
-                   for r in every(flying, FLIGHTS)]
+        flying = just_sent(run, "requests", t)
+        flights = user_flights(every(flying, FLIGHTS), t, REQ_START,
+                               lambda r: (slot(r[REQ_ID], users), WHITE, r[REQ_KIND] == WRITE))
         ended = _ended(run, t, BACK)
         bad = every([r for r in ended if r[4] != OK], OUTCOMES)
         if len(bad) < OUTCOMES:  # failures and wrong names first: a few among hundreds still show
@@ -146,7 +146,7 @@ class ZeroDowntimeMigrationCluster(ClusterAdapter):
         nodes.append(RED if x is not None and x[S_SHUNNED] else EXTRA2 if lag > 0.5 else BLUE)
 
         flights = []
-        for r in every(run.rows("requests", t - FLY, t + 1e-9), 2 * FLIGHTS):
+        for r in every(just_sent(run, "requests", t), 2 * FLIGHTS):
             p = (t - r[REQ_START]) / FLY
             if p < 0.5:
                 flights.append((-1, r[REQ_INST], 2 * p, WHITE))
@@ -195,7 +195,7 @@ class ZeroDowntimeMigrationRelay(RelayAdapter):
             return RelayFrame()
         lane = ZeroDowntimeMigrationLanes(w).frame(variant, t, users)
         flights, hops = [], []  # the first half of the way: user → door; the second: fleet → database
-        for r in every(run.rows("requests", t - FLY, t + 1e-9), 2 * FLIGHTS):
+        for r in every(just_sent(run, "requests", t), 2 * FLIGHTS):
             p = (t - r[REQ_START]) / FLY
             if p < 0.5:
                 flights.append((slot(r[REQ_ID], users), 2 * p, WHITE, r[REQ_KIND] == WRITE))

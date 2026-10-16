@@ -7,7 +7,10 @@ from labs.idempotency import lab
 from live.canvas import (
     BLUE, EXTRA, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE,
 )
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history, percentile
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, baseline_window, below, history,
+    percentile,
+)
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 INF = float("inf")
@@ -21,8 +24,7 @@ _s = strings("idempotency")  # one of the lab's STRINGS, for the goal measures b
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -47,7 +49,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     b = min(b, upto)
     done = [p for p in run.rows("payments", a - run.max_dur.get("payments", 0.0), b) if a <= p[PAY_END] < b]
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(p[PAY_OK] for p in done) / len(done)
     return v, f"{v:.0%}"
 
@@ -64,7 +66,7 @@ def _replay(run: Run, inc: Incident, upto: float):
 def _doubles(run: Run, inc: Incident, upto: float):
     paid = _ended(run, *_during(inc), upto)
     if not paid:
-        return None, "–"
+        return NO_VALUE
     n = sum(1 for p in paid if p[PAY_CHARGES] > 1)
     return n, _s("doubles", n=n)
 
@@ -76,7 +78,7 @@ def _doomed_doubles(run: Run, inc: Incident, upto: float) -> bool:
 def _different(run: Run, inc: Incident, upto: float):
     paid = _ended(run, *_during(inc), upto)
     if not paid:
-        return None, "–"
+        return NO_VALUE
     n = sum(1 for p in paid if p[PAY_ANSWERS] > 1)
     return n, _s("doubles", n=n)
 
@@ -89,22 +91,20 @@ def _fast(run: Run, inc: Incident, upto: float):
     times = [(p[PAY_END] - p[PAY_START]) if p[PAY_OK] else INF for p in _ended(run, *_after(inc), upto)]
     v = percentile(times, 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, "∞" if v == INF else f"{v * 1000:.0f}ms"
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
     GoalSpec("", "during", "", _replay_window, _replay,
              lambda v: v is None or v >= lab.REPLAY_MIN, settle_extra=lab.SETTLE, key="replay"),
     GoalSpec("", "during", "", _during, _doubles, lambda v: v == 0,
              doomed=_doomed_doubles, settle_extra=lab.SETTLE, key="once"),
     GoalSpec("", "during", "", _during, _different, lambda v: v == 0,
              doomed=_doomed_different, settle_extra=lab.SETTLE, key="same"),
-    GoalSpec("", "after", "", _after, _fast,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=lab.SETTLE, key="fast"),
+    GoalSpec("", "after", "", _after, _fast, below(lab.P99_MAX), settle_extra=lab.SETTLE, key="fast"),
 ]
 
 
@@ -145,9 +145,6 @@ class IdempotencyWorld(World):
                 if not r[TRY_CHARGED]:
                     run.add("replayed", r[TRY_START])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")
 
@@ -159,12 +156,6 @@ class IdempotencyWorld(World):
     def warnings(self, run: Run, inc: Incident):
         n = sum(1 for p in run.rows("payments", inc.t0, inc.t1) if p[PAY_CHARGES] > 1)
         return [(inc.t1, self.s("warn_double", n=n))] if n else []
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     # ---------------------------------------------------------------- panel
 

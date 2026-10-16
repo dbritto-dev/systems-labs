@@ -5,7 +5,7 @@ worker of every pool: a thread or a process, coloured by the work it does)."""
 from __future__ import annotations
 
 from labs.event_loop_blocking import lab
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, just_ended, just_sent
 from live.canvas import BLUE, EXTRA2, GREEN, RED, RGB, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -120,14 +120,13 @@ class EventLoopCluster(ClusterAdapter):
             if i is not None and c[CALL_START] <= t < c[CALL_END]:
                 # Holding a call but waiting for the GIL (a thread) or a core (a process), or running it.
                 nodes[i] = GIL_C if t < c[CALL_RAN] else CPU_C if c[CALL_NAME] in CPU_NAMES else IO_C
-        flying = run.rows("requests", t - FLY, t + 1e-9)
+        flying = just_sent(run, "requests", t)
         flights = [(-1, 0, (t - r[REQ_START]) / FLY, WHITE) for r in every(flying, FLIGHTS)]
-        sent = [c for c in run.rows("calls", t - FLY, t + 1e-9) if (c[CALL_POOL], c[CALL_WORKER]) in index]
+        sent = [c for c in just_sent(run, "calls", t) if (c[CALL_POOL], c[CALL_WORKER]) in index]
         flights += [(0, index[(c[CALL_POOL], c[CALL_WORKER])], (t - c[CALL_START]) / FLY,
                      CPU_C if c[CALL_NAME] in CPU_NAMES else IO_C) for c in every(sent, FLIGHTS)]
         span = run.max_dur.get("requests", 0.0)
-        failed = [r for r in run.rows("requests", t - BACK - span, t + 1e-9)
-                  if t - BACK <= r[REQ_END] <= t and not r[REQ_OK]]
+        failed = [r for r in just_ended(run, "requests", REQ_END, t) if not r[REQ_OK]]
         drops = [(-1, 0, (t - r[REQ_END]) / BACK) for r in every(failed, OUTCOMES)]
         if down:
             text = w.s("cluster_down", state=text)

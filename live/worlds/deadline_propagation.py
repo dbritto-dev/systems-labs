@@ -8,8 +8,8 @@ import math
 from labs.deadline_propagation.scenario import FAILED, GAVE_UP, HOPS, OK, WORK
 from live.canvas import BLUE, EXTRA2, GREEN, IDLE_DOT, MUTED, RED, RGB, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World,
-    fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, fmt_int,
+    fmt_ms, history, percentile, so_far,
 )
 
 DOWN_KEY: RGB = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -53,14 +53,13 @@ def _waste_of(rows: list[tuple]) -> float | None:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0 - 2.0
+_before = baseline_window(lab, gap=2.0)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     v = _served([r for r in run.rows("requests", a, min(b, upto)) if r[REQ_END] <= upto])
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -75,7 +74,7 @@ def _waste(run: Run, inc: Incident, upto: float):
     """The share of the services' own work (the db's queries, mostly) done for users who had left."""
     a, b = _busy(inc)
     v = _waste_of([w for w in run.rows("work", a, min(b, upto)) if w[W_FREED] <= upto])
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def capacity_at(run: Run, connections: int, t: float) -> float:
@@ -102,14 +101,14 @@ def served_share(run: Run, connections: int, a: float, b: float) -> float | None
 def _served_during(run: Run, inc: Incident, upto: float):
     a, b = _during(inc)
     v = served_share(run, run.data.get("connections", 3), a, min(b, upto))
-    return (None, "–") if v is None else (v, f"{v:.0%}")
+    return NO_VALUE if v is None else (v, f"{v:.0%}")
 
 
 def _overrun(run: Run, inc: Incident, upto: float):
     """How long callers kept waiting after their user had left (p99 of every call)."""
     a, b = _during(inc)
     v = percentile([overrun(c) for c in run.rows("calls", a, min(b, upto)) if c[C_END] <= upto], 99)
-    return (None, "–") if v is None else (v, fmt_ms(v) if v > 0 else "0ms")
+    return NO_VALUE if v is None else (v, fmt_ms(v) if v > 0 else "0ms")
 
 
 def _overrun_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -125,14 +124,10 @@ def _overrun_doomed(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "during", "", _busy, _waste,
-             lambda v: v is not None and v <= lab.WASTE_MAX, settle_extra=3.0, key="waste"),
-    GoalSpec("", "during", "", _during, _served_during,
-             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=2.5, key="served"),
-    GoalSpec("", "during", "", _during, _overrun,
-             lambda v: v is not None and v <= lab.OVERRUN_MAX, doomed=_overrun_doomed, settle_extra=3.0,
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "during", "", _busy, _waste, at_most(lab.WASTE_MAX), settle_extra=3.0, key="waste"),
+    GoalSpec("", "during", "", _during, _served_during, at_least(lab.SERVED_MIN), settle_extra=2.5, key="served"),
+    GoalSpec("", "during", "", _during, _overrun, at_most(lab.OVERRUN_MAX), doomed=_overrun_doomed, settle_extra=3.0,
              key="overrun"),
 ]
 
@@ -184,9 +179,6 @@ class DeadlinePropagationWorld(World):
             if overrun(c) > lab.OVERRUN_MAX:
                 run.add("overran", c[C_END])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1 + lab.TAIL)):
             live, dead = run.series("q_live", s, s + 1)[0], run.series("q_dead", s, s + 1)[0]
@@ -204,12 +196,6 @@ class DeadlinePropagationWorld(World):
         if start:
             return self.s("slow", ms=inc.severity * 1000, cause=self.cause(inc))
         return self.s("fast_again")
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def at_hops(self, run: Run, t: float) -> list[tuple[int, int, int]]:
         """Per service at t: (requests it is working on for a waiting user, queued for a worker,
@@ -300,12 +286,8 @@ class DeadlinePropagationWorld(World):
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("requests", 0.0)
-        partial = [r for r in run.rows("requests", s - span - 1, t) if s <= r[REQ_END] < t]
-        served = run.total("served", t) + sum(1 for r in partial if r[REQ_OUTCOME] == OK)
-        failed = sum(run.total(n, t) for n in ("failed", "gave_up")) + sum(
-            1 for r in partial if r[REQ_OUTCOME] != OK)
+        served = so_far(run, t, "served", "requests", REQ_END, lambda r: r[REQ_OUTCOME] == OK)
+        failed = so_far(run, t, ("failed", "gave_up"), "requests", REQ_END, lambda r: r[REQ_OUTCOME] != OK)
         waiting = len(run.active("requests", t, REQ_END))
         recent = [r[REQ_END] - r[REQ_START] for r in self._recent(run, "requests", REQ_END, t)]
         words = self.screen.STATS

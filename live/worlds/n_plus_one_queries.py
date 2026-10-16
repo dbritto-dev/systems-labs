@@ -6,7 +6,10 @@ from core.i18n import strings
 from labs.n_plus_one_queries import lab
 from labs.n_plus_one_queries.scenario import JOIN, LIST, MANY, ONE
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, IDLE_DOT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history, percentile
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, below,
+    history, percentile,
+)
 
 PAGE_ID, PAGE_START, PAGE_END, PAGE_OK, PAGE_ITEMS, PAGE_QUERIES = range(6)
 Q_QUEUED, Q_PAGE, Q_KIND, Q_START, Q_END = range(5)
@@ -37,8 +40,7 @@ def _busy(run: Run, a: float, b: float) -> float | None:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -53,7 +55,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     pages = _ended(run, a, min(b, upto))
     if not pages:
-        return None, "–"
+        return NO_VALUE
     v = sum(p[PAGE_OK] for p in pages) / len(pages)
     return v, f"{v:.0%}"
 
@@ -62,7 +64,7 @@ def _queries(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     pages = _ended(run, a, min(b, upto))
     if not pages:
-        return None, "–"
+        return NO_VALUE
     v = sum(p[PAGE_QUERIES] for p in pages) / len(pages)
     return v, f"{v:.1f}"
 
@@ -70,7 +72,7 @@ def _queries(run: Run, inc: Incident, upto: float):
 def _db_busy(run: Run, inc: Incident, upto: float):
     b = min(inc.t1, upto)
     if b <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     v = _busy(run, inc.t0, b)
     return v, "–" if v is None else f"{v:.0%}"
 
@@ -86,7 +88,7 @@ def _p99(run: Run, inc: Incident, upto: float):
     times = [_page_time(p) for p in run.rows("pages", inc.t0, min(inc.t1, upto)) if p[PAGE_END] <= upto]
     v = percentile(times, 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, "> 2s" if v == INF else f"{v * 1000:.0f}ms"
 
 
@@ -94,22 +96,22 @@ def _served(run: Run, inc: Incident, upto: float):
     a, b = _after(inc)
     pages = [p for p in run.rows("pages", a, min(b, upto)) if p[PAGE_END] <= upto]
     if not pages:
-        return None, "–"
+        return NO_VALUE
     v = sum(p[PAGE_OK] for p in pages) / len(pages)
     return v, f"{v:.0%}"
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline, lambda v: v is not None and v >= lab.BASELINE_MIN,
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN),
              key="baseline"),
-    GoalSpec("", "before", "", _before, _queries, lambda v: v is not None and v <= lab.QUERIES_MAX,
+    GoalSpec("", "before", "", _before, _queries, at_most(lab.QUERIES_MAX),
              key="queries"),
-    GoalSpec("", "during", "", _during, _db_busy, lambda v: v is not None and v < lab.BUSY_MAX,
+    GoalSpec("", "during", "", _during, _db_busy, below(lab.BUSY_MAX),
              doomed=_busy_doomed, key="busy"),
-    GoalSpec("", "during", "", _during, _p99, lambda v: v is not None and v < lab.P99_MAX,
+    GoalSpec("", "during", "", _during, _p99, below(lab.P99_MAX),
              settle_extra=2.5, key="p99"),
-    GoalSpec("", "after", "", _after, _served, lambda v: v is not None and v >= lab.SERVED_MIN,
+    GoalSpec("", "after", "", _after, _served, at_least(lab.SERVED_MIN),
              settle_extra=2.5, key="served"),
 ]
 
@@ -140,9 +142,6 @@ class NPlusOneWorld(World):
             run.add("queries", t, row[SEC_LIST] + row[SEC_ONE] + row[SEC_MANY] + row[SEC_JOIN])
             run.add("busy", t, row[SEC_BUSY])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_title(self, inc: Incident) -> str:
         return self.screen.INCIDENT_TITLE.format(name=self.s(f"title_{inc.kind}"), n=inc.index + 1)
 
@@ -163,12 +162,6 @@ class NPlusOneWorld(World):
             if busy >= lab.BUSY_MAX:
                 return [(s + 1.0, self.s("warn_busy", busy=busy))]
         return []
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def busy_at(self, run: Run, t: float) -> float:
         """Share of connections busy in the last whole second."""

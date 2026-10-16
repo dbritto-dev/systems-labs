@@ -7,7 +7,9 @@ from core.i18n import strings
 from labs.unique_id_generation import lab
 from labs.unique_id_generation.scenario import ECHO, GENERATE
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, fmt_int, history, so_far,
+)
 
 
 _s = strings("unique_id_generation")  # one of the lab's STRINGS, for the goal measures below
@@ -57,7 +59,7 @@ def _echo(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = [o for o in run.rows("ops", a, min(b, upto)) if o[OP_KIND] == ECHO]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(o[OP_OK] for o in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -73,7 +75,7 @@ def _unique(run: Run, inc: Incident, upto: float):
 def _available(run: Run, inc: Incident, upto: float):
     rows = _gen(run, inc.t0, inc.t1, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(o[OP_OK] for o in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -82,7 +84,7 @@ def _compact(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = [o for o in _gen(run, a, b, upto) if o[OP_OK]]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(o[OP_COMPACT] for o in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -98,7 +100,7 @@ def _monotonic(run: Run, inc: Incident, upto: float):
     rows = _gen(run, inc.t0 - 2, inc.t1, upto)
     v = ordered_share(rows, lab.REPLY_JITTER, per_node=True)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     judged = sum(1 for o in rows if o[OP_OK])
     back = round((1 - v) * judged)
     return back, _s("back", n=back)
@@ -114,13 +116,13 @@ def _calm_and_during(inc: Incident) -> tuple[float, float]:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _echo, lambda v: v is not None and v >= lab.ECHO_MIN, key="echo"),
+    GoalSpec("", "before", "", _before, _echo, at_least(lab.ECHO_MIN), key="echo"),
     GoalSpec("", "during", "", _calm_and_during, _unique, lambda v: v == 0, settle_extra=2.0, key="unique"),
-    GoalSpec("", "during", "", _during, _available, lambda v: v is not None and v >= lab.AVAILABLE_MIN,
+    GoalSpec("", "during", "", _during, _available, at_least(lab.AVAILABLE_MIN),
              settle_extra=2.0, key="available"),
-    GoalSpec("", "before", "", _before, _compact, lambda v: v is not None and v >= lab.COMPACT_MIN,
+    GoalSpec("", "before", "", _before, _compact, at_least(lab.COMPACT_MIN),
              key="compact"),
-    GoalSpec("", "before", "", _before, _ordered, lambda v: v is not None and v >= lab.ORDERED_MIN,
+    GoalSpec("", "before", "", _before, _ordered, at_least(lab.ORDERED_MIN),
              key="ordered"),
     GoalSpec("", "during", "", _during, _monotonic, lambda v: v == 0, settle_extra=2.0, key="monotonic"),
 ]
@@ -155,9 +157,6 @@ class UniqueIdsWorld(World):
             run.add("msgs", m[MSG_SENT])
         run.data.setdefault("groups", {}).update(piece.get("groups", {}))
         run.data.setdefault("victims", {}).update(piece.get("victims", {}))
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(VERB_KEYS[inc.kind][0 if start else 1])
@@ -253,9 +252,7 @@ class UniqueIdsWorld(World):
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
         stats = self.request_stats(run, "ops", OP_START, OP_END, OP_OK, t)
-        s = int(t)
-        partial = [o for o in run.rows("ops", s - run.max_dur.get("ops", 0.0) - 1, t) if s <= o[OP_END] < t]
-        dups = run.total("dup", t) + sum(1 for o in partial if o[OP_DUP])
+        dups = so_far(run, t, "dup", "ops", OP_END, lambda o: o[OP_DUP])
         stats[2] = (self.s("stat_dups"), fmt_int(dups), RED if dups else MUTED)  # dups instead of waiting
         return stats
 

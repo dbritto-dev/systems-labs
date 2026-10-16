@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from labs.stream_windowing import lab
 from labs.stream_windowing.scenario import DROPPED, SIDE, UPDATED, WRONG
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_sent, rare_rows_first, user_flights
 from live.canvas import BLUE, EXTRA2, GREEN, MUTED, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -33,13 +33,6 @@ def _state(w, run, t: float) -> tuple[str, tuple[int, int, int]]:
     return text, GREEN
 
 
-def _late_first(rows: list[tuple], late_col: int) -> list[tuple]:
-    """Late events first, so a few among hundreds a second still show."""
-    late = [r for r in rows if r[late_col] >= 0]
-    room = FLIGHTS - min(len(late), FLIGHTS // 2)
-    return every(late, FLIGHTS // 2) + every([r for r in rows if r[late_col] < 0], room)
-
-
 @adapts("stream_windowing", "lanes")
 class StreamWindowingLanes(LaneAdapter):
     """Phones on the left light up when their event arrives, coloured by how late it is; the door
@@ -56,9 +49,10 @@ class StreamWindowingLanes(LaneAdapter):
             return LaneFrame()
         lit = sorted(run.rows("events", t - SHOW, t + 1e-9), key=lambda e: e[E_LATE])
         found = {slot(e[E_SOURCE], users): (lateness_colour(e[E_LATE]), True) for e in lit}
-        flying = _late_first(run.rows("events", t - FLY, t + 1e-9), E_LATE)
-        flights = [(slot(e[E_SOURCE], users), (t - e[E_AT]) / FLY, lateness_colour(e[E_LATE]), e[E_LATE] >= 0)
-                   for e in flying]
+        # Late events first, so a few among hundreds a second still show.
+        flying = rare_rows_first(just_sent(run, "events", t), lambda e: e[E_LATE] >= 0, FLIGHTS, FLIGHTS // 2)
+        flights = user_flights(flying, t, E_AT,
+                               lambda e: (slot(e[E_SOURCE], users), lateness_colour(e[E_LATE]), e[E_LATE] >= 0))
         ended = run.rows("events", t - BACK, t + 1e-9)
         rare = [e for e in ended if e[E_OUTCOME] in (UPDATED, SIDE, DROPPED, WRONG)]
         shown = every(rare, OUTCOMES // 2)
@@ -94,9 +88,9 @@ class StreamWindowingCluster(ClusterAdapter):
         run = w.runs.get(variant)
         if run is None:
             return ClusterFrame()
-        arriving = run.rows("events", t - FLY, t + 1e-9)
+        arriving = just_sent(run, "events", t)
         flights = [(-1, PART_NODES[e[E_PART]], (t - e[E_AT]) / FLY, WHITE) for e in every(arriving, FLIGHTS // 2)]
-        for e in _late_first(arriving, E_LATE):
+        for e in rare_rows_first(arriving, lambda e: e[E_LATE] >= 0, FLIGHTS, FLIGHTS // 2):
             flights.append((PART_NODES[e[E_PART]], PROC, (t - e[E_AT]) / FLY, lateness_colour(e[E_LATE])))
         for m in every(run.rows("emits", t - 2 * FLY, t + 1e-9), OUTCOMES):
             flights.append((PROC, SINK, (t - m[EM_T]) / (2 * FLY), GREEN if m[EM_FIRST] else BLUE))

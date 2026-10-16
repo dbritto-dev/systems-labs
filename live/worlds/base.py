@@ -12,6 +12,7 @@ the screen never shows what has not happened yet.
 
 from __future__ import annotations
 
+import importlib
 import math
 from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
@@ -202,7 +203,8 @@ class World:
     Words come from the lab's catalog (labs/<lab>/text/<lang>.py) when it has one:
     TITLE, INCIDENT, STAGES, GOALS, LEGEND, VERBS, CAUSES and STRINGS. `self.text` is
     that catalog and `self.screen` the screen's (live/text/<lang>.py); `self.s(key, ...)`
-    formats one of the lab's STRINGS.
+    formats one of the lab's STRINGS. `self.lab` is labs/<lab>/lab.py: its numbers and
+    `stage_of`.
     """
 
     id: str = ""
@@ -221,7 +223,13 @@ class World:
         self.params = dict(params or {})
         self.runs: dict[str, Run] = {}
         self.screen: ModuleType = screen_text()
+        self.lab: ModuleType | None = None
         self.text: ModuleType | None = None
+        if self.id:
+            try:
+                self.lab = importlib.import_module(f"labs.{self.id}.lab")
+            except ModuleNotFoundError:
+                pass
         try:
             self.text = lab_text(self.id)
         except ModuleNotFoundError:
@@ -487,7 +495,15 @@ class World:
         """Add a piece's (already shifted) rows to the per-second history."""
 
     def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return 0
+        """The stage, from the first incident's results in goal order: the lab's stage_of(ok, ok, ...)."""
+        return self.lab.stage_of(*(r.ok for r in first)) if self.lab else 0
+
+    def incident_at(self, variant: str, t: float) -> Incident | None:
+        """The incident going on at t (None between incidents)."""
+        run = self.runs.get(variant)
+        if run is None:
+            return None
+        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def warnings(self, run: Run, inc: Incident) -> list[tuple[float, str]]:
         return []
@@ -522,11 +538,9 @@ class World:
         from live.canvas import EXTRA2, WHITE
 
         words = self.screen.STATS
-        s = int(t)
         span = run.max_dur.get(table, 0.0)
-        partial = [r for r in run.rows(table, s - span - 1, t) if s <= r[end] < t]
-        served = run.total("served", t) + sum(1 for r in partial if r[ok])
-        failed = run.total("failed", t) + sum(1 for r in partial if not r[ok])
+        served = so_far(run, t, "served", table, end, lambda r: r[ok])
+        failed = so_far(run, t, "failed", table, end, lambda r: not r[ok])
         waiting = len(run.active(table, t, end))
         recent = [r[end] - r[start] for r in run.rows(table, t - 5 - span, t) if t - 5 <= r[end] < t]
         return [
@@ -536,6 +550,51 @@ class World:
             (words["p50"], fmt_ms(percentile(recent, 50)), WHITE),
             (words["p99"], fmt_ms(percentile(recent, 99)), WHITE),
         ]
+
+
+# ---- for the goals: windows, measures and pass marks
+
+NO_VALUE = (None, "–")  # what a measure returns with nothing to judge yet: no value, shown as a dash
+
+
+def baseline_window(lab: ModuleType, gap: float = 0.0) -> Callable[[Incident], tuple[float, float]]:
+    """A goal window: the lab's BASELINE_WINDOW seconds before an incident starts, ending `gap` seconds early."""
+    return lambda inc: (inc.t0 - lab.BASELINE_WINDOW, inc.t0 - gap if gap else inc.t0)
+
+
+def at_least(x: float) -> Callable[[float | None], bool]:
+    """A goal's pass mark: a value of at least x."""
+    return lambda v: v is not None and v >= x
+
+
+def at_most(x: float) -> Callable[[float | None], bool]:
+    """A goal's pass mark: a value of at most x."""
+    return lambda v: v is not None and v <= x
+
+
+def above(x: float) -> Callable[[float | None], bool]:
+    """A goal's pass mark: a value above x."""
+    return lambda v: v is not None and v > x
+
+
+def below(x: float) -> Callable[[float | None], bool]:
+    """A goal's pass mark: a value below x."""
+    return lambda v: v is not None and v < x
+
+
+# ---- for the panel
+
+
+def so_far(run: Run, t: float, names: str | tuple[str, ...], table: str, end: int,
+           counts: Callable[[tuple], bool]) -> float:
+    """How many so far: the per-second history `names` (one, or several added up) over the whole seconds
+    before t, plus the rows of `table` that ended since then (`end` is their end column) for which
+    `counts(row)` is true."""
+    s = int(t)
+    span = run.max_dur.get(table, 0.0)
+    partial = [r for r in run.rows(table, s - span - 1, t) if s <= r[end] < t]
+    done = run.total(names, t) if isinstance(names, str) else sum(run.total(n, t) for n in names)
+    return done + sum(1 for r in partial if counts(r))
 
 
 def _event_order(e: TimelineEvent) -> tuple[float, int]:

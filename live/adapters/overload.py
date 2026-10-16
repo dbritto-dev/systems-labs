@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from labs.overload import lab as overload_lab
 from labs.overload.scenario import LATE, OK, REJECTED
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_sent, user_flights
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -36,9 +36,9 @@ class OverloadLanes(LaneAdapter):
                  for q in run.active("requests", t, REQ_DONE)}
 
         # Tries flying to the door, and what came back: in time, rejected, or work wasted on a user who left.
-        flying = run.rows("tries", t - FLY, t + 1e-9)
-        flights = [(slot(r[TRY_CLIENT], users), (t - r[TRY_SENT]) / FLY, TRIES[min(2, r[TRY_ATTEMPT])],
-                    r[TRY_ATTEMPT] > 0) for r in every(flying, FLIGHTS)]
+        flying = just_sent(run, "tries", t)
+        flights = user_flights(every(flying, FLIGHTS), t, TRY_SENT, lambda r: (
+            slot(r[TRY_CLIENT], users), TRIES[min(2, r[TRY_ATTEMPT])], r[TRY_ATTEMPT] > 0))
         answered = [r for r in run.rows("tries", t - BACK - 1.0, t + 1e-9)
                     if t - BACK <= r[TRY_END] <= t and r[TRY_RESULT] in (OK, REJECTED)]
         wasted = [x for x in run.rows("work", t - BACK, t + 1e-9) if x[WORK_KIND] == LATE and x[WORK_END] <= t]
@@ -89,8 +89,8 @@ class OverloadCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = [(-1, self.QUEUE, (t - r[TRY_SENT]) / FLY, TRIES[min(2, r[TRY_ATTEMPT])])
-                   for r in every(run.rows("tries", t - FLY, t + 1e-9), FLIGHTS)]
-        work = [x for x in run.rows("work", t - FLY, t + 1e-9) if x[WORK_KIND] != SKIPPED]
+                   for r in every(just_sent(run, "tries", t), FLIGHTS)]
+        work = [x for x in just_sent(run, "work", t) if x[WORK_KIND] != SKIPPED]
         flights += [(self.QUEUE, self.SERVER, (t - x[WORK_START]) / FLY, EXTRA3 if x[WORK_KIND] == LATE else WHITE)
                     for x in every(work, FLIGHTS)]
         rejected = [r for r in run.rows("tries", t - BACK - 1.0, t + 1e-9)

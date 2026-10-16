@@ -8,7 +8,9 @@ from core.i18n import strings
 from labs.consistent_hashing import lab
 from labs.consistent_hashing.scenario import SLOTS
 from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, LIMIT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history,
+)
 
 R_START, R_SLOT, R_HIT, R_END, R_OK = range(5)
 C_T, C_OP, C_SLOT, C_MOVED, C_IDEAL, C_IMBALANCE, C_COUNTS, C_LIVE = range(8)
@@ -62,14 +64,14 @@ def _calm(run: Run, inc: Incident) -> tuple[float, float] | None:
 def _balance(run: Run, inc: Incident, upto: float):
     c = _layout_at(run, min(upto, inc.t0 - 1e-6))
     if c is None:
-        return None, "–"
+        return NO_VALUE
     return c[C_IMBALANCE], f"{c[C_IMBALANCE]:.2f}x"
 
 
 def _moved(run: Run, inc: Incident, upto: float):
     c = _change_at(run, inc.t0)
     if c is None or c[C_T] > upto:
-        return None, "–"
+        return NO_VALUE
     v = c[C_MOVED] / c[C_IDEAL]
     return v, _s("per_n", value=v)
 
@@ -79,7 +81,7 @@ def _hits(run: Run, inc: Incident, upto: float):
     b = min(inc.t0 + lab.AFTER, upto)
     now = _hit_ratio(run, inc.t0, b) if b > inc.t0 else None
     if calm is None or now is None:
-        return None, "–"
+        return NO_VALUE
     v = now / calm[0] if calm[0] else 1.0
     return v, f"{v:.0%}"
 
@@ -88,7 +90,7 @@ def _db(run: Run, inc: Incident, upto: float):
     calm = _calm(run, inc)
     b = min(inc.t0 + lab.AFTER, upto)
     if calm is None or b <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     misses = sum(1 for r in run.rows("reads", inc.t0, b) if not r[R_HIT])
     v = misses / max(1.0, b - inc.t0) / calm[1]
     return v, f"{v:.1f}x"
@@ -96,14 +98,12 @@ def _db(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key]; the order is lab.stage_of's.
 GOALS = [
-    GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _balance,
-             lambda v: v is not None and v <= lab.BALANCE_MAX, key="balance"),
-    GoalSpec("", "during", "", lambda i: (i.t0, i.t0 + 0.5), _moved,
-             lambda v: v is not None and v <= lab.MOVED_MAX, key="moved"),
+    GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _balance, at_most(lab.BALANCE_MAX), key="balance"),
+    GoalSpec("", "during", "", lambda i: (i.t0, i.t0 + 0.5), _moved, at_most(lab.MOVED_MAX), key="moved"),
     GoalSpec("", "after", "", lambda i: (i.t0, i.t0 + lab.AFTER), _hits,
-             lambda v: v is not None and v >= lab.HIT_KEEP, settle_extra=1.5, key="hits"),
+             at_least(lab.HIT_KEEP), settle_extra=1.5, key="hits"),
     GoalSpec("", "after", "", lambda i: (i.t0, i.t0 + lab.AFTER), _db,
-             lambda v: v is not None and v <= lab.DB_PEAK, settle_extra=1.5, key="db"),
+             at_most(lab.DB_PEAK), settle_extra=1.5, key="db"),
 ]
 
 
@@ -144,9 +144,6 @@ class ConsistentHashingWorld(World):
                 if e.kind in ("start", "end") and abs(e.t - c[C_T]) < 1e-6:
                     inc = run.incidents[e.incident]
                     run.timeline[k] = replace(e, text=self._incident_text(inc, e.kind == "start", SLOTS[c[C_SLOT]]))
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_title(self, inc: Incident) -> str:
         return self.screen.INCIDENT_TITLE.format(name=self.s(f"title_{inc.kind}"), n=inc.index + 1)

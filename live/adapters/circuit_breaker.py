@@ -5,7 +5,7 @@ dependency), cluster (the topology: clients → service → payments and recomme
 from __future__ import annotations
 
 from labs.circuit_breaker.scenario import DEPS, OK, REFUSED
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -41,13 +41,11 @@ class CircuitBreakerLanes(LaneAdapter):
                 colour = WHITE
             found[slot(r[REQ_ID], users)] = (colour, True)
 
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        flights = [(slot(r[REQ_ID], users), (t - r[REQ_START]) / FLY, WHITE, False)
-                   for r in every(flying, FLIGHTS)]
-        span = run.max_dur.get("requests", 0.0)
-        ended = [r for r in run.rows("requests", t - BACK - span, t + 1e-9) if t - BACK <= r[REQ_END] <= t]
-        outcomes = [(GREEN if r[REQ_OUTCOME] == OK else EXTRA3 if r[REQ_OUTCOME] == REFUSED else RED,
-                     (t - r[REQ_END]) / BACK) for r in every(ended, OUTCOMES)]
+        flying = just_sent(run, "requests", t)
+        flights = user_flights(every(flying, FLIGHTS), t, REQ_START, lambda r: (slot(r[REQ_ID], users), WHITE, False))
+        ended = just_ended(run, "requests", REQ_END, t)
+        outcomes = user_outcomes(ended, t, REQ_END, lambda r: (
+            GREEN if r[REQ_OUTCOME] == OK else EXTRA3 if r[REQ_OUTCOME] == REFUSED else RED))
 
         # The door: shut while calls to a dependency are refused at once (an open breaker),
         # orange while some are (a full bulkhead, or a half-open breaker letting a probe through).
@@ -92,7 +90,7 @@ class CircuitBreakerCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = [(-1, self.SERVICE, (t - r[REQ_START]) / FLY, WHITE)
-                   for r in every(run.rows("requests", t - FLY, t + 1e-9), FLIGHTS // 2)]
+                   for r in every(just_sent(run, "requests", t), FLIGHTS // 2)]
         span = run.max_dur.get("calls", 0.0)
         # Calls that just started (at the same cosmetic pace as the requests), and slow calls still
         # running, parked by their dependency while they hold a worker.
@@ -176,9 +174,8 @@ class CircuitBreakerRelay(RelayAdapter):
         for c in every(parked, FLIGHTS):
             place = 0.55 + 0.4 * ((int(c[CALL_START] * 1_000_003) * 2654435761) % 97) / 96  # a steady spot
             hops.append((place, EXTRA2, False))
-        rspan = run.max_dur.get("requests", 0.0)
-        refused = [r for r in run.rows("requests", t - BACK - rspan, t + 1e-9)
-                   if t - BACK <= r[REQ_END] <= t and r[REQ_DEP] == dep and r[REQ_OUTCOME] == REFUSED]
+        refused = [r for r in just_ended(run, "requests", REQ_END, t)
+                   if r[REQ_DEP] == dep and r[REQ_OUTCOME] == REFUSED]
         hops += [(0.04 * j, EXTRA3, False) for j in range(min(3, len(refused) // 2 + bool(refused)))]
 
         # The breaker and the bulkhead, as the requests show them: refused at once, with calls still going?

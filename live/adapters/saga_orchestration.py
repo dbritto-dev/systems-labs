@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from labs.saga_orchestration.api import DECLINED, OK
 from labs.saga_orchestration.scenario import DONE, ORPHAN, TIMEOUT_CAUSES
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import FLIGHTS, FLY, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -62,9 +62,9 @@ class SagaCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights, drops = [], []
-        for o in every(run.rows("orders", t - FLY, t + 1e-9), FLIGHTS):
+        for o in every(just_sent(run, "orders", t), FLIGHTS):
             flights.append((-1, self.ORCH, (t - o[ORD_START]) / FLY, WHITE))
-        for c in every(run.rows("calls", t - FLY, t + 1e-9), MAX_CALLS):
+        for c in every(just_sent(run, "calls", t), MAX_CALLS):
             p, dest = (t - c[CALL_START]) / FLY, c[CALL_SVC] + 1
             if c[CALL_OUTCOME] not in (OK, DECLINED):  # a timeout: the answer never comes back
                 if p < 0.5:
@@ -111,18 +111,15 @@ class SagaLanes(LaneAdapter):
                 shade.setdefault(c[CALL_ORDER], EXTRA1)
         found = {slot(o[ORD_ID], users): (shade.get(o[ORD_ID], WHITE), True)
                  for o in run.active("orders", t, ORD_END)}
-        flights = [(slot(o[ORD_ID], users), (t - o[ORD_START]) / FLY, WHITE, False)
-                   for o in every(run.rows("orders", t - FLY, t + 1e-9), FLIGHTS)]
+        flights = user_flights(every(just_sent(run, "orders", t), FLIGHTS), t, ORD_START,
+                               lambda o: (slot(o[ORD_ID], users), WHITE, False))
         span = run.max_dur.get("orders", 0.0)
-        ended = [o for o in run.rows("orders", t - BACK - span, t + 1e-9) if t - BACK <= o[ORD_END] <= t]
-        bad = [o for o in ended if o[ORD_STATUS] == ORPHAN]
-        shown = every(bad, OUTCOMES)
-        shown += every([o for o in ended if o[ORD_STATUS] != ORPHAN], OUTCOMES - len(shown)) if len(shown) < OUTCOMES else []
+        ended = just_ended(run, "orders", ORD_END, t)
 
         def colour(o: tuple):
             return RED if o[ORD_STATUS] == ORPHAN else GREEN if o[ORD_STATUS] == DONE else EXTRA2
 
-        outcomes = [(colour(o), (t - o[ORD_END]) / BACK) for o in shown]
+        outcomes = user_outcomes(ended, t, ORD_END, colour, rare=lambda o: o[ORD_STATUS] == ORPHAN)
         recent = run.rows("orders", t - RECENT - span, t + 1e-9)
         orphans = any(o[ORD_STATUS] == ORPHAN and t - RECENT <= o[ORD_END] <= t for o in recent)
         in_flight = run.active("calls", t, CALL_END)
@@ -158,7 +155,7 @@ class SagaFanout(FanoutAdapter):
             return FanoutFrame()
         lane = SagaLanes(w).frame(variant, t, users)  # the users, the door and the outcomes, as in lanes
         hops = []
-        for c in every(run.rows("calls", t - FLY, t + 1e-9), MAX_CALLS):
+        for c in every(just_sent(run, "calls", t), MAX_CALLS):
             p = (t - c[CALL_START]) / FLY
             if c[CALL_OUTCOME] not in (OK, DECLINED):  # a timeout: it never gets an answer
                 hops.append((c[CALL_SVC], min(p, 0.5), RED if p >= 0.5 else EXTRA2 if c[CALL_UNDO] else WHITE, False))

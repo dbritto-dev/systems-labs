@@ -4,7 +4,7 @@ storage)."""
 
 from __future__ import annotations
 
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, user_flights
 from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -119,14 +119,13 @@ class DistributedLockLanes(LaneAdapter):
             shade = (WHITE if waited < WAITED[0] else EXTRA1 if waited < WAITED[1] else EXTRA2
                      if waited < WAITED[2] else EXTRA3)
             waiting[slot(r[JOB_ID], users)] = (shade, True)
-        flights = [(slot(r[JOB_ID], users), (t - r[JOB_START]) / FLY, WHITE, False)
-                   for r in every(run.rows("jobs", t - FLY, t + 1e-9), FLIGHTS)]
+        flights = user_flights(every(just_sent(run, "jobs", t), FLIGHTS), t, JOB_START,
+                               lambda r: (slot(r[JOB_ID], users), WHITE, False))
         # Late writes from a lost lock fly in big, from their job's circle, as they land.
         late = [x for x in landed(run, t - FLY, t + 1e-9) if corrupt(x) or refused(x)]
-        flights += [(slot(x[W_JOB], users), (t - x[W_ARRIVED]) / FLY, RED if corrupt(x) else EXTRA2, True)
-                    for x in late]
-        span = run.max_dur.get("jobs", 0.0)
-        ended = [r for r in run.rows("jobs", t - BACK - span, t + 1e-9) if t - BACK <= r[JOB_END] <= t]
+        flights += user_flights(late, t, W_ARRIVED,
+                                lambda x: (slot(x[W_JOB], users), RED if corrupt(x) else EXTRA2, True))
+        ended = just_ended(run, "jobs", JOB_END, t)
         bad = [x for x in landed(run, t - BACK, t + 1e-9) if corrupt(x) or refused(x)]
         outcomes = [(RED if corrupt(x) else EXTRA2, (t - x[W_ARRIVED]) / BACK) for x in bad[:OUTCOMES]]
         room = OUTCOMES - len(outcomes)  # the rare late writes first, then the jobs that ended

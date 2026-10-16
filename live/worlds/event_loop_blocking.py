@@ -20,7 +20,8 @@ from labs.event_loop_blocking.scenario import (
 )
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, PURPLE, RED, RGB, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, below, fmt_ms, history,
+    percentile,
 )
 
 REQ_ID, REQ_START, REQ_END, REQ_ROUTE, REQ_OK, REQ_OUT = range(6)
@@ -86,14 +87,14 @@ def _during(inc: Incident) -> tuple[float, float]:
 def _lag(run: Run, inc: Incident, upto: float):
     """p99 of the loop's lag (the probe, every 50 ms) during the incident."""
     v = percentile([r[LAG_V] for r in run.rows("lags", inc.t0, min(inc.t1, upto))], 99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _health(run: Run, inc: Incident, upto: float):
     """Health checks sent during the incident that failed (late, unanswered, or refused while down)."""
     rows = [r for r in run.rows("health", inc.t0, min(inc.t1, upto)) if r[HC_END] <= upto]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in rows if not r[HC_OK])
     return float(v), str(v)
 
@@ -107,14 +108,14 @@ def _light(run: Run, inc: Incident, upto: float):
     """p99 latency of the light requests started during the incident."""
     v = percentile([lat(r, upto) for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if r[REQ_ROUTE] == LIGHT],
                    99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _served(run: Run, inc: Incident, upto: float):
     """The share of the heavy requests (a blocking call) started during the incident that were answered in time."""
     rows = [r for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if r[REQ_ROUTE] != LIGHT and r[REQ_END] <= upto]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in rows if r[REQ_OK]) / len(rows)
     return v, f"{v:.0%}"
 
@@ -123,7 +124,7 @@ def _queued(run: Run, inc: Incident, upto: float):
     """The most calls waiting in the executors' queues at once during the incident."""
     rows = run.rows("samples", inc.t0, min(inc.t1, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = max(r[S_WAITING] for r in rows)
     return float(v), str(v)
 
@@ -137,7 +138,7 @@ def _watched(run: Run, inc: Incident, upto: float):
     """The share of the incident's whole seconds with at least one lag report from your watchdog."""
     a, b = int(inc.t0), int(min(inc.t1, upto))
     if b <= a:
-        return None, "–"
+        return NO_VALUE
     seen = run.series("reports", a, b)
     v = sum(1 for x in seen if x) / (b - a)
     return v, f"{v:.0%}"
@@ -145,16 +146,16 @@ def _watched(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "during", "", _during, _lag, lambda v: v is not None and v < lab.LAG_MAX, key="lag"),
-    GoalSpec("", "during", "", _during, _health, lambda v: v is not None and v <= lab.HEALTH_MAX,
+    GoalSpec("", "during", "", _during, _lag, below(lab.LAG_MAX), key="lag"),
+    GoalSpec("", "during", "", _during, _health, at_most(lab.HEALTH_MAX),
              doomed=_health_doomed, settle_extra=HC_TIMEOUT + 0.5, key="health"),
-    GoalSpec("", "during", "", _during, _light, lambda v: v is not None and v < lab.LIGHT_P99_MAX,
+    GoalSpec("", "during", "", _during, _light, below(lab.LIGHT_P99_MAX),
              settle_extra=lab.SETTLE, key="light"),
-    GoalSpec("", "during", "", _during, _served, lambda v: v is not None and v >= lab.SERVED_MIN,
+    GoalSpec("", "during", "", _during, _served, at_least(lab.SERVED_MIN),
              settle_extra=lab.SETTLE, key="served"),
-    GoalSpec("", "during", "", _during, _queued, lambda v: v is not None and v <= lab.QUEUED_MAX,
+    GoalSpec("", "during", "", _during, _queued, at_most(lab.QUEUED_MAX),
              doomed=_queued_doomed, key="queued"),
-    GoalSpec("", "during", "", _during, _watched, lambda v: v is not None and v >= lab.WATCHED_MIN, key="watched"),
+    GoalSpec("", "during", "", _during, _watched, at_least(lab.WATCHED_MIN), key="watched"),
 ]
 
 
@@ -260,9 +261,6 @@ class EventLoopWorld(World):
             run.add(CHART[col if busy[col] > 0.002 else OWN], s, lag * 1000)
         for k in tables["kills"]:
             run.data["down_until"] = max(run.data.get("down_until", -1), k[K_BACK])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def warnings(self, run: Run, inc: Incident):
         out = []

@@ -4,7 +4,7 @@ the database's queue -> its 4 workers, each coloured by the query it is running)
 from __future__ import annotations
 
 from labs.database_index import lab as db_lab
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, DIM, EXTRA, EXTRA1, EXTRA2, GREEN, RED
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -39,12 +39,11 @@ class DbIndexLanes(LaneAdapter):
         found = {slot(q[Q_ID], users): (colour(q), True) for q in waiting}
 
         # Queries on their way to the database, and what came back.
-        flying = run.rows("queries", t - FLY, t + 1e-9)
-        flights = [(slot(q[Q_ID], users), (t - q[Q_START]) / FLY, colour(q),
-                    q[Q_READ] > db_lab.BUCKETS[-1]) for q in every(flying, FLIGHTS)]
-        span = run.max_dur.get("queries", 0.0)
-        ended = [q for q in run.rows("queries", t - BACK - span, t + 1e-9) if t - BACK <= q[Q_END] <= t]
-        outcomes = [(GREEN if q[Q_OK] else RED, (t - q[Q_END]) / BACK) for q in every(ended, OUTCOMES)]
+        flying = just_sent(run, "queries", t)
+        flights = user_flights(every(flying, FLIGHTS), t, Q_START,
+                               lambda q: (slot(q[Q_ID], users), colour(q), q[Q_READ] > db_lab.BUCKETS[-1]))
+        ended = just_ended(run, "queries", Q_END, t)
+        outcomes = user_outcomes(ended, t, Q_END, lambda q: GREEN if q[Q_OK] else RED)
 
         overloaded = w.timeouts_at(run, t) > 0
         busy = len(waiting) > db_lab.WORKERS * 2
@@ -93,16 +92,14 @@ class DbIndexCluster(ClusterAdapter):
         at = {q[Q_ID]: 1 + k for k, q in enumerate(running)}
 
         flights = []
-        for q in every(run.rows("queries", t - FLY, t + 1e-9), FLIGHTS):
+        for q in every(just_sent(run, "queries", t), FLIGHTS):
             p = (t - q[Q_START]) / FLY
             if p < 0.5 or began(q) > t:  # into the queue, where it waits for a worker
                 flights.append((-1, self.QUEUE, min(2 * p, 0.95 if p >= 0.5 else 1.0), colour(q)))
             else:  # on to a worker (the one running it, if it still is)
                 worker = at.get(q[Q_ID], 1 + q[Q_ID] % db_lab.WORKERS)
                 flights.append((self.QUEUE, worker, 2 * p - 1, colour(q)))
-        span = run.max_dur.get("queries", 0.0)
-        gave_up = [q for q in run.rows("queries", t - BACK - span, t + 1e-9)
-                   if t - BACK <= q[Q_END] <= t and not q[Q_RAN]]
+        gave_up = [q for q in just_ended(run, "queries", Q_END, t) if not q[Q_RAN]]
         drops = [(-1, self.QUEUE, (t - q[Q_END]) / BACK) for q in every(gave_up, OUTCOMES)]
 
         logins = [q for q in run.rows("queries", t - 5, t + 1e-9) if q[Q_KIND] == LOOKUP and q[Q_RAN]]

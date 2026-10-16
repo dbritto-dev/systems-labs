@@ -4,7 +4,7 @@ db's connections as the gauge) and cluster (the chain gateway → api → orders
 from __future__ import annotations
 
 from labs.deadline_propagation.scenario import CALL_OK, HOPS, OK
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -49,13 +49,11 @@ class DeadlinePropagationLanes(LaneAdapter):
         for r in run.active("requests", t, REQ_END):
             found[slot(r[REQ_ID], users)] = (EXTRA2 if t - r[REQ_START] >= LONG_WAIT else WHITE, True)
 
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        flights = [(slot(r[REQ_ID], users), (t - r[REQ_START]) / FLY, WHITE, False)
-                   for r in every(flying, FLIGHTS)]
+        flying = just_sent(run, "requests", t)
+        flights = user_flights(every(flying, FLIGHTS), t, REQ_START, lambda r: (slot(r[REQ_ID], users), WHITE, False))
         span = run.max_dur.get("requests", 0.0)
-        ended = [r for r in run.rows("requests", t - BACK - span, t + 1e-9) if t - BACK <= r[REQ_END] <= t]
-        outcomes = [(GREEN if r[REQ_OUTCOME] == OK else RED, (t - r[REQ_END]) / BACK)
-                    for r in every(ended, OUTCOMES)]
+        ended = just_ended(run, "requests", REQ_END, t)
+        outcomes = user_outcomes(ended, t, REQ_END, lambda r: GREEN if r[REQ_OUTCOME] == OK else RED)
         # The door (the gateway) turns orange while many answers in the last second were not served.
         last = [r for r in ended if t - 1.0 <= r[REQ_END]] or [
             r for r in run.rows("requests", t - 1.0 - span, t) if t - 1.0 <= r[REQ_END] < t]
@@ -92,7 +90,7 @@ class DeadlinePropagationCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = [(-1, 0, (t - r[REQ_START]) / FLY, WHITE)
-                   for r in every(run.rows("requests", t - FLY, t + 1e-9), FLIGHTS // 2)]
+                   for r in every(just_sent(run, "requests", t), FLIGHTS // 2)]
         span = run.max_dur.get("calls", 0.0)
         calls = [c for c in run.rows("calls", t - span - 1e-9, t + 1e-9)
                  if c[C_START] >= t - FLY or c[C_END] > t]

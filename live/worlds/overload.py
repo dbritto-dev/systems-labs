@@ -10,7 +10,8 @@ from labs.overload import lab
 from labs.overload.scenario import FAILED, GAVE_UP, IN_TIME, LATE, OK, REFUSED, REJECTED, SERVED
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, below,
+    fmt_int, fmt_ms, history, percentile, so_far,
 )
 
 REQ_CLIENT, REQ_FIRST, REQ_DONE, REQ_OUTCOME, REQ_TRIES = range(5)
@@ -41,15 +42,14 @@ def _seconds(a: float, b: float) -> range:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0 - 1.0  # the last second's answers come after t0
+_before = baseline_window(lab, gap=1.0)  # the last second's answers come after t0
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     firsts = [r for r in run.rows("tries", a, min(b, upto)) if r[TRY_ATTEMPT] == 0 and r[TRY_END] <= upto]
     if not firsts:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[TRY_RESULT] == OK for r in firsts) / len(firsts)
     return v, f"{v:.0%}"
 
@@ -61,7 +61,7 @@ def _busy(inc: Incident) -> tuple[float, float]:
 def _queue(run: Run, inc: Incident, upto: float):
     a, b = _busy(inc)
     longest = max((q[Q_LEN] for q in run.rows("queue", a, min(b, upto))), default=None)
-    return (None, "–") if longest is None else (float(longest), fmt_int(longest))
+    return NO_VALUE if longest is None else (float(longest), fmt_int(longest))
 
 
 def _queue_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -73,7 +73,7 @@ def _waste(run: Run, inc: Incident, upto: float):
     a, b = _busy(inc)
     work = [w for w in run.rows("work", a, min(b, upto)) if w[WORK_KIND] != 2]
     if not work:
-        return None, "–"
+        return NO_VALUE
     v = sum(w[WORK_KIND] == LATE for w in work) / len(work)
     return v, f"{v:.0%}"
 
@@ -94,14 +94,14 @@ def _goodput(run: Run, inc: Incident, upto: float):
     a, b = _during(inc)
     a, b = float(math.ceil(a)), float(math.floor(min(b, upto)))
     if b - a < 1.0:
-        return None, "–"
+        return NO_VALUE
     possible = 0.0
     for s in _seconds(a, b):
         asked = sum(1 for r in run.rows("tries", s, s + 1) if r[TRY_ATTEMPT] == 0)
         possible += min(capacity_at(run, s + 0.5), asked)
     got = len(_in_time(run, a, b, upto))
     if not possible:
-        return None, "–"
+        return NO_VALUE
     v = got / possible
     return v, f"{v:.0%}"
 
@@ -110,7 +110,7 @@ def _fast(run: Run, inc: Incident, upto: float):
     a, b = _during(inc)
     waits = [r[TRY_END] - r[TRY_SENT] for r in _in_time(run, a, b, upto)]
     v = percentile(waits, 50)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _after(inc: Incident) -> tuple[float, float]:
@@ -128,7 +128,7 @@ def _recovered(run: Run, inc: Incident, upto: float):
     for s in range(start, int(inc.t1 + lab.RECOVERY) + 1):
         shares = [_first_ok(run, x, upto) for x in range(s, s + lab.RECOVERY_RUN)]
         if any(v is None for v in shares):
-            return None, "–"  # not known yet
+            return NO_VALUE  # not known yet
         if all(v >= lab.RECOVERED_MIN for v in shares):
             v = max(0.0, s - inc.t1)
             return v, _s("seconds", seconds=v)
@@ -137,18 +137,12 @@ def _recovered(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "during", "", _busy, _queue,
-             lambda v: v is not None and v <= lab.QUEUE_MAX, doomed=_queue_doomed, key="queue"),
-    GoalSpec("", "during", "", _busy, _waste,
-             lambda v: v is not None and v < lab.WASTE_MAX, key="waste"),
-    GoalSpec("", "during", "", _during, _goodput,
-             lambda v: v is not None and v >= lab.GOODPUT_MIN, key="goodput"),
-    GoalSpec("", "during", "", _during, _fast,
-             lambda v: v is not None and v < lab.FAST_MAX, key="fast"),
-    GoalSpec("", "after", "", _after, _recovered,
-             lambda v: v is not None and v <= lab.RECOVERY, key="recovered"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "during", "", _busy, _queue, at_most(lab.QUEUE_MAX), doomed=_queue_doomed, key="queue"),
+    GoalSpec("", "during", "", _busy, _waste, below(lab.WASTE_MAX), key="waste"),
+    GoalSpec("", "during", "", _during, _goodput, at_least(lab.GOODPUT_MIN), key="goodput"),
+    GoalSpec("", "during", "", _during, _fast, below(lab.FAST_MAX), key="fast"),
+    GoalSpec("", "after", "", _after, _recovered, at_most(lab.RECOVERY), key="recovered"),
 ]
 
 
@@ -193,9 +187,6 @@ class OverloadWorld(World):
         for q in tables["requests"]:
             name = {SERVED: "served", FAILED: "failed", REFUSED: "refused"}[q[REQ_OUTCOME]]
             run.add(name, q[REQ_DONE])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def warnings(self, run: Run, inc: Incident):
         a, b = _busy(inc)
@@ -290,12 +281,10 @@ class OverloadWorld(World):
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
-        s = int(t)
         span = run.max_dur.get("requests", 0.0)
-        partial = [r for r in run.rows("requests", s - span - 1, t) if s <= r[REQ_DONE] < t]
 
         def total(name: str, outcome: int) -> float:
-            return run.total(name, t) + sum(1 for r in partial if r[REQ_OUTCOME] == outcome)
+            return so_far(run, t, name, "requests", REQ_DONE, lambda r: r[REQ_OUTCOME] == outcome)
 
         served, failed, refused = total("served", SERVED), total("failed", FAILED), total("refused", REFUSED)
         waiting = len(run.active("requests", t, REQ_DONE))

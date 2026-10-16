@@ -7,7 +7,10 @@ from labs.saga_orchestration import lab
 from labs.saga_orchestration.api import DECLINED, OK
 from labs.saga_orchestration.scenario import DONE, ORPHAN, ROLLED_BACK
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history, percentile
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, baseline_window, below, history,
+    percentile,
+)
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 INF = float("inf")
@@ -22,8 +25,7 @@ _s = strings("saga_orchestration")  # one of the lab's STRINGS, for the goal mea
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -44,7 +46,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     b = min(b, upto)
     done = [o for o in run.rows("orders", a - run.max_dur.get("orders", 0.0), b) if a <= o[ORD_END] < b]
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in done if o[ORD_STATUS] != ORPHAN) / len(done)
     return v, f"{v:.0%}"
 
@@ -60,7 +62,7 @@ def _rolled(run: Run, inc: Incident, upto: float):
 def _orphans(run: Run, inc: Incident, upto: float):
     sagas = _ended(run, *_during(inc), upto)
     if not sagas:
-        return None, "–"
+        return NO_VALUE
     n = sum(1 for o in sagas if o[ORD_STATUS] == ORPHAN)
     return n, f"{n}"
 
@@ -72,7 +74,7 @@ def _doomed_orphans(run: Run, inc: Incident, upto: float) -> bool:
 def _doubles(run: Run, inc: Incident, upto: float):
     sagas = _ended(run, *_during(inc), upto)
     if not sagas:
-        return None, "–"
+        return NO_VALUE
     n = sum(1 for o in sagas if o[ORD_CHARGES] > 1)
     return n, f"{n}"
 
@@ -84,7 +86,7 @@ def _doomed_doubles(run: Run, inc: Incident, upto: float) -> bool:
 def _completed(run: Run, inc: Incident, upto: float):
     could = [o for o in _ended(run, *_during(inc), upto) if not o[ORD_DECLINED]]
     if not could:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in could if o[ORD_DONE]) / len(could)
     return v, f"{v:.0%}"
 
@@ -94,14 +96,13 @@ def _fast(run: Run, inc: Incident, upto: float):
              for o in _ended(run, *_after(inc), upto)]
     v = percentile(times, 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, "∞" if v == INF else f"{v * 1000:.0f}ms" if v < 1 else f"{v:.1f}s"
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
     GoalSpec("", "during", "", _during, _rolled, lambda v: v is None or v >= 1.0,
              settle_extra=lab.SETTLE, key="rolled"),
     GoalSpec("", "during", "", _during, _orphans, lambda v: v == 0,
@@ -110,8 +111,7 @@ GOALS = [
              doomed=_doomed_doubles, settle_extra=lab.SETTLE, key="once"),
     GoalSpec("", "during", "", _during, _completed,
              lambda v: v is None or v >= lab.COMPLETED_MIN, settle_extra=lab.SETTLE, key="completed"),
-    GoalSpec("", "after", "", _after, _fast,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=lab.SETTLE, key="fast"),
+    GoalSpec("", "after", "", _after, _fast, below(lab.P99_MAX), settle_extra=lab.SETTLE, key="fast"),
 ]
 
 
@@ -147,9 +147,6 @@ class SagaWorld(World):
                 if o[ORD_DONE]:
                     run.add("could_done", end)
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         if start:
             return self.word(inc.kind)
@@ -173,12 +170,6 @@ class SagaWorld(World):
         if doubles:
             out.append((inc.t1, self.s("warn_doubles", n=doubles)))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def down_at(self, variant: str, t: float) -> bool:
         """Is the orchestrator down (crashed, not back yet) at t?"""
