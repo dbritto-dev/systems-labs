@@ -239,6 +239,10 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
 
 ## Adding a lab
 
+Start from a working lab: `uv run python -m live new my_lab --like caching` copies it (both
+languages, its World, its pictures, its tests) and renames its id; the copy passes its tests as it is.
+Then make it yours:
+
 1. **`labs/<lab>/`** with:
    - `main.py`: stage 0 working, the rest as contracts and `NotImplementedError` stubs;
      `reference.py`: the same names, working; `README.md`;

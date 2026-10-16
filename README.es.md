@@ -245,6 +245,10 @@ live/   canvas.py (Braille + color)  screen.py (terminal)  runner.py (procesos h
 
 ## Añadir un laboratorio
 
+Empieza desde uno que funcione: `uv run python -m live new mi_lab --like caching` lo copia (en los
+dos idiomas, con su World, sus dibujos y sus tests) y le cambia el id; la copia pasa sus tests tal cual.
+Después hazlo tuyo:
+
 1. **`labs/<lab>/`** con:
    - `main.py`: la etapa 0 funcionando y el resto como contratos y huecos
      `NotImplementedError`; `reference.py`: los mismos nombres, funcionando; `README.md`;

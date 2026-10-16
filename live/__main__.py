@@ -1,6 +1,7 @@
 """uv run python -m live [lab] [--lang en|es] [--view NAME] [--at SECONDS] [--size WxH] [--color]
                      [--set name=value] [--variant main|reference|FILE.py] [--seed N] [--lesson]
                      [--record FILE] [--replay FILE]
+       uv run python -m live new <name> --like <lab>
 
 With no lab, list the labs. With a lab, watch it live: edit labs/<lab>/main.py (in Spanish,
 labs/<lab>/es/main.py) and save, and this window reruns it.
@@ -146,10 +147,32 @@ def load_keys(path: str) -> list[tuple[float, str]]:
     return sorted(out)
 
 
+def new_lab(name: str | None, like: str | None) -> int:
+    """python -m live new <name> --like <lab>: a new lab, as a copy of a working one."""
+    from core.contract import ROOT
+    from core.scaffold import scaffold
+
+    if not name or not like:
+        print("usage: python -m live new <name> --like <lab>", file=sys.stderr)
+        return 2
+    try:
+        files = scaffold(like, name)
+    except ValueError as e:
+        print(screen_text().ERROR.format(error=e), file=sys.stderr)
+        return 2
+    for f in files:
+        print(f"  {f.relative_to(ROOT)}")
+    print(f"\nlabs/{name} is a working copy of {like}. Next: uv run pytest labs/{name}, "
+          f"then uv run python -m live {name}, then make it yours (README.md, 'Adding a lab').")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m live", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("lab", nargs="?", help="the lab to watch (omit to list labs)")
+    ap.add_argument("lab", nargs="?", help="the lab to watch (omit to list labs), or new")
+    ap.add_argument("name", nargs="?", help="with new: the new lab's name (a copy of --like)")
+    ap.add_argument("--like", help="with new: the lab to copy")
     ap.add_argument("--lang", choices=LANGS, help="language: en (default) or es; or set LABS_LANG")
     ap.add_argument("--view", help="the picture to show (default: the lab's own; key v switches)")
     ap.add_argument("--at", type=float, help="print one frame at this many seconds and exit")
@@ -170,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
     labs = discover()
     if not args.lab:
         return list_labs()
+    if args.lab == "new":
+        return new_lab(args.name, args.like)
     if args.lab not in labs:
         import difflib
 
