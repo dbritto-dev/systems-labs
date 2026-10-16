@@ -103,12 +103,6 @@ class Style:
     def paint(self, s: str, rgb: RGB | None) -> str:
         return f"{self.fg(rgb)}{s}\033[0m" if self.mode != "none" and rgb else s
 
-    def pill(self, s: str, fg: RGB, bg: RGB) -> str:
-        """A label on a tinted background. Without colour it keeps its edges: [s]."""
-        if self.mode == "none":
-            return f"[{s[1:-1]}]" if s.startswith(" ") and s.endswith(" ") else f"[{s}]"
-        return f"{self.bg(bg)}{self.fg(fg)}{s}{self.reset}"
-
 
 class Canvas:
     def __init__(self, cols: int, rows: int) -> None:

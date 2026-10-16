@@ -298,6 +298,7 @@ live/   canvas.py (Braille + colour)  screen.py (terminal)  runner.py (child pro
 
 ## Performance
 
-After 7 minutes a 110x44 frame renders in 2–4 ms; appending a minute takes
-about 10 ms (retry_storm) to 30 ms (caching). Simulating a minute takes 0.1–1.3 s in
-the child process, well ahead of the playhead.
+A 110x44 frame renders in about 1–4 ms (median 2 ms), and stays there on long runs; the
+viewer draws at a steady 30 fps and skips frames that would not change. Simulating a
+minute takes 0.01–0.6 s in the child process (geo_replication is the slowest), well ahead
+of the playhead. Press `d` for the numbers live.

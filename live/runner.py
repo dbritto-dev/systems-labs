@@ -1,8 +1,9 @@
 """Run lab code in a child process, so a bug or an endless loop never freezes the viewer.
 
-`Job("labs.caching.scenario:run", "main", {"chunk": 0, "seed": 1})` calls
-`run("main", chunk=0, seed=1)` in a fresh process (spawn). `poll()` returns
-None while it runs, then ("ok", data) or ("error", message).
+`StreamJob("labs.caching.scenario:stream", "main", {"seed": 1})` runs `stream("main", seed=1)` in a
+fresh process (spawn) and hands out one simulated minute each time it is asked; `Feed` keeps a World's run
+growing that way. (`Job` runs a function once in a child; the tests use it.) A piece that takes longer than
+its timeout stops the child, and the message says which line of your code it was stuck on.
 """
 
 from __future__ import annotations

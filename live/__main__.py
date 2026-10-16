@@ -1,5 +1,5 @@
 """uv run python -m live [lab] [--lang en|es] [--view NAME] [--at SECONDS] [--size WxH] [--color]
-                     [--set name=value]
+                     [--set name=value] [--variant main|reference|FILE.py] [--seed N] [--lesson]
 
 With no lab, list the labs. With a lab, watch it live: edit labs/<lab>/main.py (in Spanish,
 labs/<lab>/es/main.py) and save, and this window reruns it.

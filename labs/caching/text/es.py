@@ -103,6 +103,9 @@ LESSON = Lesson(
          "try:\n"
          "    fut.set_result(value := await db.read(key))\n"
          "    return value\n"
+         "except BaseException as e:  # si falla la carga, falla a todos los que esperan; no los cuelga\n"
+         "    fut.set_exception(e)\n"
+         "    raise\n"
          "finally:\n"
          "    del self.loading[key]"),
         ("TTL con jitter (Redis)",

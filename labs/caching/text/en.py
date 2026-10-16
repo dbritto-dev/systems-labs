@@ -104,6 +104,9 @@ LESSON = Lesson(
          "try:\n"
          "    fut.set_result(value := await db.read(key))\n"
          "    return value\n"
+         "except BaseException as e:  # a failed load fails every waiter too, not hangs them\n"
+         "    fut.set_exception(e)\n"
+         "    raise\n"
          "finally:\n"
          "    del self.loading[key]"),
         ("Jittered TTL (Redis)",
