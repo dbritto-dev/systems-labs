@@ -24,7 +24,12 @@ pytestmark = [pytest.mark.slow, pytest.mark.skipif(not SLOW, reason="a long run:
 
 @pytest.fixture(scope="module")
 def alerts(request):
-    """The selected (lab, seed) runs, all started at once on every core; each test waits for its own."""
+    """The selected (lab, seed) runs, all started at once on every core; each test waits for its own. Under
+    pytest-xdist the workers already share the cores, and each collects every test, so there each test just
+    runs its own job (a pool per worker would start every job once per worker)."""
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        yield None
+        return
     jobs = sorted({(item.callspec.params["lab"], item.callspec.params["seed"]) for item in request.session.items
                    if item.module is request.module and hasattr(item, "callspec")})
     pool = ProcessPoolExecutor(max_workers=os.cpu_count())
@@ -35,5 +40,8 @@ def alerts(request):
 @pytest.mark.parametrize("seed", SEEDS)
 @pytest.mark.parametrize("lab", LABS)
 def test_the_reference_passes_every_goal_for_30_minutes(alerts, lab, seed):
-    found = alerts[lab, seed].result()  # re-raises whatever the run raised
+    if alerts is None:  # under xdist: this worker runs it
+        found = settled_alerts(lab, "reference", MINUTES, seed)
+    else:
+        found = alerts[lab, seed].result()  # re-raises whatever the run raised
     assert not found, "\n".join(found)
