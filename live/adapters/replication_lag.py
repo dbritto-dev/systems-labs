@@ -151,8 +151,10 @@ class ReplicationLagFanout(FanoutAdapter):
             name = scenario.NAMES_OF[i + 1]
             colour = _behind_colour(lag) if up else RED
             text = w.s("fan_lag", name=name, lag=_lag_text(lag)) if up else w.s("fan_down", name=name)
+            short = w.s("fan_lag_short", name=name, lag=_lag_text(lag)) if up else ""
             leaves.append(Leaf(label=(text, WHITE if colour == BLUE else colour),
-                               fill=min(1.0, 2 * served[i + 1] / total), gauge=RED if bad[i + 1] else BLUE, outline=colour))
+                               fill=min(1.0, 2 * served[i + 1] / total), gauge=RED if bad[i + 1] else BLUE, outline=colour,
+                               short=short))
         share = served[0] / len(last) if last else 0.0
         wrong = any(bad)
         over = share > lab.PRIMARY_MAX

@@ -73,7 +73,8 @@ STRINGS = {
     # el dibujo en abanico: el enrutador y el nombre de cada nodo (9 letras como mucho)
     "fan_router": "enrutador",
     "fan_primary": "primario",
-    "fan_lag": "{name} +{lag}",
+    "fan_lag": "{name} atraso {lag}",
+    "fan_lag_short": "{name} +{lag}",
     "fan_down": "{name} caída",
     # errores en tu código
     "bad_pick": "Router.pick devolvió {name!r}: usa 'primary' o una de r1..r{last}",

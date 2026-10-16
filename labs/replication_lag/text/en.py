@@ -73,7 +73,8 @@ STRINGS = {
     # the fan-out picture: the router and each node's label (at most 9 letters)
     "fan_router": "router",
     "fan_primary": "primary",
-    "fan_lag": "{name} +{lag}",
+    "fan_lag": "{name} lag {lag}",
+    "fan_lag_short": "{name} +{lag}",
     "fan_down": "{name} down",
     # errors in your code
     "bad_pick": "Router.pick returned {name!r}: use 'primary' or one of r1..r{last}",

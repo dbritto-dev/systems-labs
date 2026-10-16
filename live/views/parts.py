@@ -299,6 +299,8 @@ class Leaves:
                 for k, ch in enumerate(word):
                     cv.text(top_row + k, self.x1 // 2 + 1, ch, col)
             else:
+                if len(text) > self.label_cols - 1 and leaf.short:  # a small screen: the short name
+                    text = leaf.short
                 cv.text(min(h - 2, int(ym // 4)), self.x1 // 2 + 2, text[:self.label_cols - 1], col)
 
 

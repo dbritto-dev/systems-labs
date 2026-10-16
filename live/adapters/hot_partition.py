@@ -138,10 +138,11 @@ class HotPartitionFanout(FanoutAdapter):
         leaves = []
         for p, u in enumerate(utils):
             melting = u >= lab.BUSY_MAX
-            label = w.s("fan_hot", p=p) if p == hot else w.s("fan_part", p=p, util=u)
+            label = w.s("fan_hot", p=p, util=u) if p == hot else w.s("fan_part", p=p, util=u)
+            short = w.s("fan_hot_short", p=p) if p == hot else ""
             leaves.append(Leaf(label=(label, RED if melting else PURPLE if p == hot else WHITE), fill=u,
                                gauge=util_colour(u),
-                               outline=RED if melting else PURPLE if p == hot else OUTLINE))
+                               outline=RED if melting else PURPLE if p == hot else OUTLINE, short=short))
         fanin = sum(1 for r in run.rows("reqs", t - 1.0, t) if r[REQ_KIND] == FAN)
         relay = Relay(label=(w.s("fan_counters"), EXTRA2 if fanin else OUTLINE), fill=fanin / FANIN_MAX,
                       gauge=EXTRA2, outline=EXTRA2 if fanin else OUTLINE)
