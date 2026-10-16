@@ -130,3 +130,21 @@ def test_a_stuck_run_says_which_line_of_your_code_it_is_stuck_on(tmp_path):
     job = StreamJob("labs.retry_storm.scenario:stream", str(stuck), {}, timeout=2.0)
     status, message = job.next_sync()
     assert status == "error" and f"stuck.py:{line}" in message
+
+
+def test_only_the_changed_tail_of_a_line_is_rewritten():
+    import io
+
+    from live.screen import Terminal, changed_tail
+
+    assert changed_tail("abcd", "abXd") == (2, "Xd")  # no colours: from the first change
+    red = "\x1b[38;2;255;0;0m"
+    old, new = f"{red}ab\x1b[0mcd", f"{red}ab\x1b[0mce"
+    assert changed_tail(old, new) == (2, "ce")  # after the last reset they share: colours stay right
+    assert changed_tail(f"{red}abcd\x1b[0m", f"{red}abce\x1b[0m") == (0, f"{red}abce\x1b[0m")  # no shared reset
+    out = io.StringIO()
+    term = Terminal.__new__(Terminal)
+    term.out, term._size, term._lines = out, (110, 44), [old]
+    term.size = lambda: (110, 44)
+    term.show([new])
+    assert "\x1b[1;3H" in out.getvalue() and f"{red}ab" not in out.getvalue()

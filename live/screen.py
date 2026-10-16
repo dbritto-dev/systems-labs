@@ -50,6 +50,23 @@ def parse(data: str) -> list[str]:
     return keys
 
 
+def changed_tail(old: str, new: str) -> tuple[int, str]:
+    """Where `new` starts to differ from `old` on screen, and what to write from there: the screen column
+    and the rest of `new`. It only restarts after a colour reset (or anywhere, in a line with no colours),
+    so the tail is drawn with the right colours."""
+    import os.path
+
+    from live.canvas import vis
+
+    same = os.path.commonprefix([old, new])
+    if "\x1b" not in old and "\x1b" not in new:
+        k = len(same)
+    else:
+        k = same.rfind("\x1b[0m")
+        k = 0 if k < 0 else k + len("\x1b[0m")
+    return vis(new[:k]), new[k:]
+
+
 class Terminal:
     """Context manager owning the terminal while the viewer runs."""
 
@@ -92,7 +109,11 @@ class Terminal:
             self._lines = []
             buf.append("\x1b[0m\x1b[2J")
         for i, line in enumerate(lines):
-            if i < len(self._lines) and self._lines[i] == line:
+            if i < len(self._lines):
+                if self._lines[i] == line:
+                    continue
+                col, tail = changed_tail(self._lines[i], line)  # rewrite from the first change, not the whole line
+                buf.append(f"\x1b[{i + 1};{col + 1}H{tail}\x1b[0m\x1b[K")
                 continue
             buf.append(f"\x1b[{i + 1};1H{line}\x1b[0m\x1b[K")
         for i in range(len(lines), len(self._lines)):
