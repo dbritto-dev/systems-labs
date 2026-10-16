@@ -128,7 +128,7 @@ Colores: blanco = primeros intentos y peticiones normales; naranja claro, medio 
 fallida; verde = servida; azul = sano/arreglado.
 
 Teclas: `space` pausa/sigue, `0` reinicia desde 0:00, `r` repite, `v` el siguiente dibujo
-(si el laboratorio tiene más de uno), `q` sal, `← →` avanza o retrocede 5 s, `↑ ↓` velocidad, `d` una línea de depuración (tiempo por fotograma, fps, cuánto va por delante la simulación).
+(si el laboratorio tiene más de uno), `q` sal, `← →` avanza o retrocede 5 s, `↑ ↓` velocidad, `d` una línea de depuración (tiempo por fotograma, fps, cuánto va por delante la simulación), `?` todas las teclas.
 La pantalla necesita al menos 92x27 (si no, un mensaje de una línea), usa hasta 124 columnas
 y se ve mejor desde 110x44.
 

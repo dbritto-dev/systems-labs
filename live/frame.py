@@ -20,7 +20,7 @@ MAX_COLS = 124
 CHART_ROWS = 6
 WINDOW = 60.0  # seconds the chart shows; it scrolls once the run passes a minute
 EIGHTHS = " ▁▂▃▄▅▆▇█"
-KEYS = [("pause", "space"), ("restart", "0"), ("rerun", "r"), ("view", "v"), ("quit", "q")]  # ← → and ↑ ↓ work too
+KEYS = [("pause", "space"), ("restart", "0"), ("rerun", "r"), ("view", "v"), ("quit", "q"), ("help", "?")]  # ? lists all
 
 
 def layout(cols: int, rows: int) -> dict[str, int]:
@@ -197,6 +197,15 @@ def split_error(error: str) -> tuple[str, str]:
     return (message, where.rstrip(")")) if sep else (error, "")
 
 
+def help_card(width: int, height: int, style: Style) -> list[str]:
+    """Every key and what it does (key ?)."""
+    p = style.paint
+    sc = screen_text()
+    rows = [style.bold(p(sc.HELP_TITLE, INK)), ""]
+    rows += [p(f"{key:>6}  ", INK) + p(what, MUTED) for key, what in sc.HELP]
+    return _card(rows, width, height)
+
+
 def error_card(world, error: str, width: int, height: int, style: Style) -> list[str]:
     """Your code stopped before the first minute was ready: what happened and where to fix it."""
     p = style.paint
@@ -214,7 +223,7 @@ def error_card(world, error: str, width: int, height: int, style: Style) -> list
 def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style | None = None,
             mode: str = "play", speed: float = 1.0, status: tuple[str, RGB] | None = None,
             error: str | None = None, loading: tuple[str, float] | None = None,
-            views: int = 1) -> list[str]:
+            views: int = 1, help: bool = False) -> list[str]:
     style = style or Style("none")
     sc = screen_text()
     if cols < MIN_COLS or rows < MIN_ROWS:
@@ -255,6 +264,8 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
         else:
             step, elapsed = loading or ("starting", 0.0)
             out += loading_card(world, step, elapsed, W, area, style, variant)
+    elif help:  # key ?: the keys instead of the picture, the panel and the chart
+        out += help_card(W, body + L["chart"] + 3, style)
     else:
         cv = Canvas(L["picture"], body)
         render(world, cv, variant, t)  # the lab's picture (lanes), fed by its adapter

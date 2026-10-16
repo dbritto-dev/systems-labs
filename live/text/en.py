@@ -10,7 +10,12 @@ BEHAVIOR = "Behavior:"
 STAGE_AT = "Your stage shows at {clock}, once the first incident is judged · ↑ speeds up"
 EDIT_AND_SAVE = "Edit {file} and save: this window reruns it."
 ERROR = "error: {error}"
-MENU = {"pause": "pause/resume", "restart": "restart", "rerun": "rerun", "view": "view", "quit": "quit"}
+MENU = {"pause": "pause/resume", "restart": "restart", "rerun": "rerun", "view": "view", "quit": "quit", "help": "help"}
+# key ?: every key and what it does
+HELP_TITLE = "Keys"
+HELP = [("space", "pause / resume"), ("← →", "seek 5 s back / forward"), ("↑ ↓", "speed: 0.25x … 8x"),
+        ("0", "back to 0:00 (or restart the run)"), ("r", "rerun your code"), ("v", "the next picture of this lab"),
+        ("d", "a debug line: frame time, fps, how far ahead"), ("?", "this help (any key closes it)"), ("q", "quit")]
 VIEW = "view: {name}"  # shown when a lab has more than one picture
 HUD = "frame {ms:.1f} ms · {fps:.0f} fps · drew {drawn}/{ticks} · {ahead:.0f} s ahead"  # key d
 VIEWS = {"lanes": "lanes", "cluster": "cluster", "relay": "relay", "fanout": "fan-out", "peers": "peers", "fanin": "fan-in",

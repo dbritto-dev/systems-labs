@@ -107,3 +107,14 @@ def test_the_variant_file_is_watched_too(tmp_path):
     mine.write_text("x = 1\n")
     files = vw.mtimes("retry_storm", str(mine))
     assert str(mine.resolve()) in files and any(f.endswith("retry_storm/main.py") for f in files)
+
+
+def test_question_mark_shows_every_key_and_any_key_closes_it(v):
+    from live.canvas import plain
+
+    v.handle("?", 1.0)
+    text = "\n".join(plain(line) for line in v.frame(1.0, 110, 44))
+    for key, what in v.sc.HELP:
+        assert key in text and what in text
+    v.handle("x", 1.1)
+    assert v.help is False and v.state is vw.PLAYING  # x closed the card and did nothing else

@@ -107,6 +107,7 @@ class Viewer:
     last: float | None = None  # the previous tick's time
     _drawn: tuple | None = None  # what the last composed frame showed (the dirty flag's memory)
     hud: bool = False  # the debug overlay (key d)
+    help: bool = False  # the keys card (key ?; any key closes it)
     _ms: float = 0.0  # the last composed frame's cost
     _shown: deque = field(default_factory=lambda: deque(maxlen=120))  # when frames were composed
     _ticks: int = 0
@@ -181,14 +182,15 @@ class Viewer:
             step, waited = loading
             what = self.sc.LOADING_YOUR_CODE if step == "starting" else self.sc.SIMULATING_FIRST_MINUTE
             shown = (f"{spinner(waited)} {what}… {waited:.1f}s", EXTRA2)
-        drawn = (self.t, cols, rows, mode, self.speed_i, shown, feed.error, loading, self.world.view,
+        drawn = (self.t, cols, rows, mode, self.speed_i, shown, feed.error, loading, self.world.view, self.help,
                  feed.variant, None if run is None else (id(run), run.end, len(self.world.runs)))
         if drawn == self._drawn:
             return None
         self._drawn = drawn
         start = time.perf_counter()
         lines = compose(self.world, feed.variant, self.t, cols, rows, style=self.style, mode=mode,
-                        speed=SPEEDS[self.speed_i], status=shown, error=feed.error, loading=loading, views=self.views)
+                        speed=SPEEDS[self.speed_i], status=shown, error=feed.error, loading=loading, views=self.views,
+                        help=self.help)
         self._ms = (time.perf_counter() - start) * 1000
         self._shown.append(now)
         self._composed += 1
@@ -197,7 +199,10 @@ class Viewer:
     # -- input
 
     def handle(self, key: str, now: float) -> bool:
-        """Run the key's command; False means quit."""
+        """Run the key's command; False means quit. With the help card open, any key just closes it."""
+        if self.help and key not in ("q", "esc", "ctrl-c"):
+            self.help = False
+            return True
         command = COMMANDS.get(key)
         return True if command is None else command(self, key, now)
 
@@ -244,6 +249,11 @@ def toggle_hud(v: Viewer, key: str, now: float) -> bool:
     return True
 
 
+def show_help(v: Viewer, key: str, now: float) -> bool:
+    v.help = True
+    return True
+
+
 def speed(v: Viewer, key: str, now: float) -> bool:
     v.speed_i = min(len(SPEEDS) - 1, v.speed_i + 1) if key == "up" else max(0, v.speed_i - 1)
     return True
@@ -258,4 +268,5 @@ COMMANDS: dict[str, Command] = {
     "left": seek, "right": seek,
     "up": speed, "down": speed,
     "d": toggle_hud,
+    "?": show_help,
 }

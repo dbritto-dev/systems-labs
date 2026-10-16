@@ -10,7 +10,12 @@ BEHAVIOR = "Ahora:"
 STAGE_AT = "Tu etapa aparece a las {clock}, al evaluar el primer incidente · ↑ acelera"
 EDIT_AND_SAVE = "Edita {file} y guarda: esta ventana lo vuelve a ejecutar."
 ERROR = "error: {error}"
-MENU = {"pause": "pausa/sigue", "restart": "reinicia", "rerun": "repite", "view": "vista", "quit": "sal"}
+MENU = {"pause": "pausa/sigue", "restart": "reinicia", "rerun": "repite", "view": "vista", "quit": "sal", "help": "ayuda"}
+# tecla ?: cada tecla y lo que hace
+HELP_TITLE = "Teclas"
+HELP = [("space", "pausa / sigue"), ("← →", "retrocede / avanza 5 s"), ("↑ ↓", "velocidad: 0.25x … 8x"),
+        ("0", "vuelve a 0:00 (o reinicia la ejecución)"), ("r", "vuelve a ejecutar tu código"), ("v", "el siguiente dibujo del laboratorio"),
+        ("d", "una línea de depuración: tiempo por fotograma, fps, adelanto"), ("?", "esta ayuda (cualquier tecla la cierra)"), ("q", "sal")]
 VIEW = "vista: {name}"
 HUD = "fotograma {ms:.1f} ms · {fps:.0f} fps · dibujó {drawn}/{ticks} · {ahead:.0f} s por delante"  # tecla d
 VIEWS = {"lanes": "carriles", "cluster": "clúster", "relay": "relevo", "fanout": "abanico", "peers": "pares",
