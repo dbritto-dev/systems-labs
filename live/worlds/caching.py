@@ -5,9 +5,10 @@ from __future__ import annotations
 from core.i18n import strings
 from labs.caching import lab
 from labs.caching.scenario import DUP, FAILED, HIT, MISS, SHARED
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, RGB, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, IDLE_DOT, LIMIT, MUTED, RED, RGB, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, baseline_window, below, fmt_ms,
+    history, percentile,
 )
 
 FLUSH_KEY = (110, 44, 56)  # the legend swatch for the shaded seconds after a flush
@@ -30,15 +31,14 @@ def _read_time(r: tuple) -> float:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _hit_ratio(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = run.rows("reads", a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[READ_KIND] == HIT for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -51,7 +51,7 @@ def _dups(run: Run, inc: Incident, upto: float):
     a, b = _during(inc)
     rows = run.rows("db", a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[DB_DUP] for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -73,18 +73,15 @@ def _p99(run: Run, inc: Incident, upto: float):
     times = [_read_time(r) for r in run.rows("reads", a, min(b, upto)) if r[READ_END] <= upto]
     v = percentile(times, 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, _s("failed") if v == INF else fmt_ms(v)
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _hit_ratio,
-             lambda v: v is not None and v >= lab.HIT_MIN, key="hits"),
-    GoalSpec("", "during", "", _during, _dups,
-             lambda v: v is not None and v < lab.DUP_MAX, settle_extra=0.5, key="dups"),
-    GoalSpec("", "after", "", _after, _p99,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=2.0, key="p99"),
+    GoalSpec("", "before", "", _before, _hit_ratio, at_least(lab.HIT_MIN), key="hits"),
+    GoalSpec("", "during", "", _during, _dups, below(lab.DUP_MAX), settle_extra=0.5, key="dups"),
+    GoalSpec("", "after", "", _after, _p99, below(lab.P99_MAX), settle_extra=2.0, key="p99"),
 ]
 
 
@@ -116,9 +113,6 @@ class CacheWorld(World):
             name = "db_rejected" if not d[DB_OK] else "db_dup" if d[DB_DUP] else "db_first"
             run.add(name, d[DB_QUEUED])
             run.add("db", d[DB_QUEUED])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def warnings(self, run: Run, inc: Incident):
         base = run.count("db", *_before(inc)) / lab.BASELINE_WINDOW
@@ -219,21 +213,12 @@ class CacheWorld(World):
 
     def user_stats(self, variant: str, t: float):
         run = self.runs[variant]
-        s = int(t)
-        span = run.max_dur.get("pages", 0.0)
-        partial = [p for p in run.rows("pages", s - span - 1, t) if s <= p[PAGE_END] < t]
-        served = run.total("served", t) + sum(1 for p in partial if p[PAGE_OK])
-        failed = run.total("failed", t) + sum(1 for p in partial if not p[PAGE_OK])
-        waiting = len(run.active("pages", t, PAGE_END))
         rspan = run.max_dur.get("reads", 0.0)
         recent = [_read_time(r) for r in run.rows("reads", t - 5 - rspan, t) if t - 5 <= r[READ_END] < t]
         p50, p99 = percentile(recent, 50), percentile(recent, 99)
-        # Not request_stats(): the waits here are per read (a page reads 3 keys), and may be "failed".
+        # request_stats() for the pages, but the waits here are per read (a page reads 3 keys), and may be "failed".
         words = self.screen.STATS
-        return [
-            (words["served"], fmt_int(served), GREEN),
-            (words["failed"], fmt_int(failed), RED if failed else MUTED),
-            (words["waiting"], fmt_int(waiting), EXTRA2 if waiting > 20 else WHITE),
+        return self.request_stats(run, "pages", PAGE_START, PAGE_END, PAGE_OK, t)[:3] + [
             (words["p50"], self.s("failed") if p50 == INF else fmt_ms(p50), WHITE),
             (words["p99"], self.s("failed") if p99 == INF else fmt_ms(p99), WHITE),
         ]

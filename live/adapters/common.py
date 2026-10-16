@@ -17,6 +17,43 @@ def every(rows: list, most: int) -> list:
     return rows[:: max(1, len(rows) // most)][:most]
 
 
+def rare_rows_first(rows: list, rare, most: int, most_rare: int | None = None) -> list:
+    """At most `most` rows, evenly spread, those for which rare(row) is true first (at most `most_rare` of
+    them, default `most`): a few rare ones among hundreds still show."""
+    first = every([r for r in rows if rare(r)], most if most_rare is None else most_rare)
+    return first + every([r for r in rows if not rare(r)], most - len(first))
+
+
+# ---- the dots of a lanes picture: requests flying to the door, answers fading at it
+
+def just_sent(run, table: str, t: float) -> list:
+    """Rows of `table` sent in the last FLY seconds (by its sort time): their dots are on the way."""
+    return run.rows(table, t - FLY, t + 1e-9)
+
+
+def just_ended(run, table: str, end: int, t: float) -> list:
+    """Rows of `table` that ended (column `end`) in the last BACK seconds: their answers are at the door."""
+    span = run.max_dur.get(table, 0.0)
+    return [r for r in run.rows(table, t - BACK - span, t + 1e-9) if t - BACK <= r[end] <= t]
+
+
+def user_flights(rows: list, t: float, start: int, dot) -> list:
+    """The lanes' flights for `rows` (already chosen, e.g. every(just_sent(...), FLIGHTS)): (lane, 0..1 of the
+    way, colour, big) each, where dot(row) gives its (lane, colour, big) and `start` is its start column."""
+    out = []
+    for r in rows:
+        lane, colour, big = dot(r)
+        out.append((lane, (t - r[start]) / FLY, colour, big))
+    return out
+
+
+def user_outcomes(rows: list, t: float, end: int, colour, rare=None) -> list:
+    """The lanes' outcomes: (colour(row), 0..1 faded) for at most OUTCOMES of `rows` (from just_ended), evenly
+    spread; with rare(row), the rare ones first."""
+    shown = every(rows, OUTCOMES) if rare is None else rare_rows_first(rows, rare, OUTCOMES)
+    return [(colour(r), (t - r[end]) / BACK) for r in shown]
+
+
 # ---- the clients' view of a distributed lab (its lanes picture)
 
 SLOW = (0.25, 0.5, 0.8)  # seconds a client has waited before it turns light, mid, deep orange
@@ -44,16 +81,10 @@ def client_lanes(run, t: float, users: int, table: str, start: int, end: int, ba
         waited = t - o[start]
         shade = WHITE if waited < SLOW[0] else EXTRA1 if waited < SLOW[1] else EXTRA2 if waited < SLOW[2] else EXTRA3
         waiting[slot(op_id(o[start]), users)] = (shade, True)
-    flying = run.rows(table, t - FLY, t + 1e-9)
-    flights = [(slot(op_id(o[start]), users), (t - o[start]) / FLY, WHITE, False) for o in every(flying, FLIGHTS)]
-    span = run.max_dur.get(table, 0.0)
-    ended = [o for o in run.rows(table, t - BACK - span, t + 1e-9) if t - BACK <= o[end] <= t]
-    shown = every(ended, OUTCOMES)
-    if rare_first:
-        red = every([o for o in ended if colour(o) == RED], OUTCOMES)
-        room = OUTCOMES - len(red)
-        shown = red + (every([o for o in ended if colour(o) != RED], room) if room else [])
-    outcomes = [(colour(o), (t - o[end]) / BACK) for o in shown]
+    flights = user_flights(every(just_sent(run, table, t), FLIGHTS), t, start,
+                           lambda o: (slot(op_id(o[start]), users), WHITE, False))
+    outcomes = user_outcomes(just_ended(run, table, end, t), t, end, colour,
+                             rare=(lambda o: colour(o) == RED) if rare_first else None)
     return waiting, flights, outcomes
 
 

@@ -8,7 +8,9 @@ from __future__ import annotations
 from labs.transactional_outbox.scenario import (
     AGAIN, DROPPED, FAILED, GHOST, PHANTOM, POD, REBALANCED, RELAY, RELAY_ONLY, SHIPPED, SKIPPED,
 )
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import (
+    FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, rare_rows_first, user_flights, user_outcomes,
+)
 from live.canvas import BG, BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, RED, WHITE, mix
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -21,13 +23,6 @@ FADE = 0.6  # seconds a lost or phantom event stays on screen
 OPEN_MAX = 10.0  # open transactions that fill the order service's gauge (the pipeline picture)
 RELAY_MAX = 20.0  # rows the relay has fetched and not published yet that fill its gauge
 BROKER_MAX = 50.0  # events published and not consumed yet that fill the broker's gauge
-
-
-def _rare_first(rows: list, bad, most: int) -> list:
-    """At most `most` rows, the bad ones first, so a few among hundreds still show."""
-    red = every([r for r in rows if bad(r)], most)
-    room = most - len(red)
-    return red + (every([r for r in rows if not bad(r)], room) if room > 0 else [])
 
 
 @adapts("transactional_outbox", "cluster")
@@ -58,7 +53,7 @@ class OutboxCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights, drops = [], []
-        for o in every(run.rows("orders", t - FLY, t + 1e-9), FLIGHTS):  # orders arrive
+        for o in every(just_sent(run, "orders", t), FLIGHTS):  # orders arrive
             flights.append((-1, self.SERVICE, (t - o[O_START]) / FLY, WHITE))
         span = run.max_dur.get("orders", 0.0)
         commits = [o for o in run.rows("orders", t - HOP - span, t + 1e-9)
@@ -68,7 +63,7 @@ class OutboxCluster(ClusterAdapter):
             if p[POLL_N]:
                 flights.append((self.DB, self.RELAY, (t - p[POLL_T]) / HOP, BLUE))
         pubs = run.rows("publishes", t - HOP, t + 1e-9)
-        for p in _rare_first(pubs, lambda p: not p[P_OK] or p[P_REPEAT], FLIGHTS):
+        for p in rare_rows_first(pubs, lambda p: not p[P_OK] or p[P_REPEAT], FLIGHTS):
             src = self.RELAY if p[P_WHO] == RELAY else self.SERVICE
             if p[P_OK]:
                 flights.append((src, self.BROKER, (t - p[P_T]) / HOP, EXTRA1 if p[P_REPEAT] else WHITE))
@@ -76,7 +71,7 @@ class OutboxCluster(ClusterAdapter):
                 drops.append((src, self.BROKER, (t - p[P_T]) / HOP))
         colours = {SHIPPED: GREEN, AGAIN: EXTRA3, GHOST: RED, SKIPPED: MUTED}
         deliveries = run.rows("deliveries", t - HOP, t + 1e-9)
-        for d in _rare_first(deliveries, lambda d: d[D_KIND] in (AGAIN, GHOST), FLIGHTS):
+        for d in rare_rows_first(deliveries, lambda d: d[D_KIND] in (AGAIN, GHOST), FLIGHTS):
             flights.append((self.BROKER, self.SHIPPING, (t - d[D_T]) / HOP, colours[d[D_KIND]]))
         # Lost events (saved, nothing announced) and phantoms (announced, then rolled back) fade half way.
         bad = [o for o in run.rows("orders", t - FADE - span, t + 1e-9)
@@ -117,16 +112,14 @@ class OutboxLanes(LaneAdapter):
         if run is None:
             return LaneFrame()
         found = {slot(o[O_ID], users): (WHITE, True) for o in run.active("orders", t, O_END)}
-        flying = run.rows("orders", t - FLY, t + 1e-9)
-        flights = [(slot(o[O_ID], users), (t - o[O_START]) / FLY, WHITE, False) for o in every(flying, FLIGHTS)]
-        span = run.max_dur.get("orders", 0.0)
-        ended = [o for o in run.rows("orders", t - BACK - span, t + 1e-9) if t - BACK <= o[O_END] <= t]
+        flying = just_sent(run, "orders", t)
+        flights = user_flights(every(flying, FLIGHTS), t, O_START, lambda o: (slot(o[O_ID], users), WHITE, False))
+        ended = just_ended(run, "orders", O_END, t)
 
         def colour(o: tuple):
             return RED if o[O_OUTCOME] in (DROPPED, PHANTOM) else MUTED if o[O_OUTCOME] == FAILED else GREEN
 
-        shown = _rare_first(ended, lambda o: colour(o) == RED, OUTCOMES)
-        outcomes = [(colour(o), (t - o[O_END]) / BACK) for o in shown]
+        outcomes = user_outcomes(ended, t, O_END, colour, rare=lambda o: colour(o) == RED)
         down = w.down_at(run, t)
         inc = w.incident_at(variant, t)
         outbox = w.outbox_at(run, t)
@@ -175,8 +168,8 @@ class OutboxPipeline(PipelineAdapter):
         active = run.active("orders", t, O_END)
         found = {slot(o[O_ID], users): (WHITE, True) for o in active}
         flying = run.rows("orders", t - FLY - HOP, t + 1e-9)
-        flights = [(slot(o[O_ID], users), (t - o[O_START]) / FLY, WHITE, False)
-                   for o in every([o for o in flying if o[O_START] >= t - FLY], FLIGHTS)]
+        flights = user_flights(every([o for o in flying if o[O_START] >= t - FLY], FLIGHTS), t, O_START,
+                               lambda o: (slot(o[O_ID], users), WHITE, False))
         hops = [(0, (t - o[O_START] - FLY) / HOP, WHITE, False)  # on from the door when the flight gets there
                 for o in every([o for o in flying if o[O_START] < t - FLY], FLIGHTS)]
         span = run.max_dur.get("orders", 0.0)
@@ -186,7 +179,7 @@ class OutboxPipeline(PipelineAdapter):
         hops += [(2, (t - p[POLL_T]) / HOP, BLUE, False) for p in run.rows("polls", t - HOP, t + 1e-9) if p[POLL_N]]
         skips = []
         pubs = run.rows("publishes", t - HOP, t + 1e-9)
-        for p in _rare_first(pubs, lambda p: not p[P_OK] or p[P_REPEAT], FLIGHTS):
+        for p in rare_rows_first(pubs, lambda p: not p[P_OK] or p[P_REPEAT], FLIGHTS):
             colour = EXTRA1 if p[P_REPEAT] else WHITE
             if p[P_WHO] == RELAY:
                 hops.append((3, (t - p[P_T]) / HOP, colour, False) if p[P_OK] else
@@ -195,19 +188,18 @@ class OutboxPipeline(PipelineAdapter):
                 skips.append((0, 3, (t - p[P_T]) / HOP, colour))  # the dual write: over the database
         colours = {SHIPPED: GREEN, AGAIN: EXTRA3, GHOST: RED, SKIPPED: MUTED}
         deliveries = run.rows("deliveries", t - HOP, t + 1e-9)
-        for d in _rare_first(deliveries, lambda d: d[D_KIND] in (AGAIN, GHOST), FLIGHTS):
+        for d in rare_rows_first(deliveries, lambda d: d[D_KIND] in (AGAIN, GHOST), FLIGHTS):
             hops.append((4, (t - d[D_T]) / HOP, colours[d[D_KIND]], False))
         bad = [o for o in run.rows("orders", t - FADE - span, t + 1e-9)
                if t - FADE <= o[O_END] <= t and o[O_OUTCOME] in (DROPPED, PHANTOM)]
         skips += [(0, 3, 0.5, mix(RED, BG, (t - o[O_END]) / FADE)) for o in every(bad, OUTCOMES)]
 
-        ended = [o for o in run.rows("orders", t - BACK - span, t + 1e-9) if t - BACK <= o[O_END] <= t]
+        ended = just_ended(run, "orders", O_END, t)
 
         def colour(o: tuple):
             return RED if o[O_OUTCOME] in (DROPPED, PHANTOM) else MUTED if o[O_OUTCOME] == FAILED else GREEN
 
-        shown = _rare_first(ended, lambda o: colour(o) == RED, OUTCOMES)
-        outcomes = [(colour(o), (t - o[O_END]) / BACK) for o in shown]
+        outcomes = user_outcomes(ended, t, O_END, colour, rare=lambda o: colour(o) == RED)
 
         # What each one holds.
         opened = sum(1 for o in active if o[O_COMMIT] is None or o[O_COMMIT] > t)

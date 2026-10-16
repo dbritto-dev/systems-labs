@@ -8,7 +8,8 @@ from core.i18n import strings
 from labs.broadcast import lab
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    KEEP, PIECE, Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
+    KEEP, NO_VALUE, PIECE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, below, fmt_ms,
+    history, percentile,
 )
 
 OP_START, OP_KIND, OP_NODE, OP_VALUE, OP_END, OP_OK = range(6)
@@ -72,7 +73,7 @@ def _reached(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     lat = _spread(run, a, b, max(upto, b))
     if not lat:
-        return None, "–"
+        return NO_VALUE
     v = sum(x < INF for x in lat) / len(lat)
     return v, f"{v:.0%}"
 
@@ -82,7 +83,7 @@ def _survived(run: Run, inc: Incident, upto: float):
     sent, reach = _sent(run), _reach(run)
     vs = _values(run, inc.t0, min(inc.t1, upto))
     if not vs:
-        return None, "–"
+        return NO_VALUE
     ok = sum(1 for v in vs if (r := reach.get(v)) and r[1] and r[0] <= min(deadline, upto))
     v = ok / len(vs)
     return v, f"{v:.0%}"
@@ -103,7 +104,7 @@ def _latency(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     lat = _spread(run, a, b, max(upto, b + lab.BEFORE[1]))
     if not lat:
-        return None, "–"
+        return NO_VALUE
     p50, top = percentile(lat, 50), max(lat)
     if p50 == INF:
         text = _s("lost")
@@ -124,15 +125,15 @@ def _before(inc: Incident) -> tuple[float, float]:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _reached, lambda v: v is not None and v >= lab.REACH_MIN,
+    GoalSpec("", "before", "", _before, _reached, at_least(lab.REACH_MIN),
              settle_extra=lab.BEFORE[1], key="reach"),
     GoalSpec("", "after", "", lambda i: (i.t0, i.t1 + lab.AFTER), _survived,
-             lambda v: v is not None and v >= lab.REACH_MIN, settle_extra=1.0, key="survive"),
-    GoalSpec("", "before", "", _before, _msgs, lambda v: v is not None and v < lab.EFFICIENT_MSGS,
+             at_least(lab.REACH_MIN), settle_extra=1.0, key="survive"),
+    GoalSpec("", "before", "", _before, _msgs, below(lab.EFFICIENT_MSGS),
              settle_extra=lab.BEFORE[1], key="msgs30"),
     GoalSpec("", "before", "", _before, _latency, _fast((lab.EFFICIENT_P50, lab.EFFICIENT_MAX)),
              settle_extra=lab.BEFORE[1], key="fast"),
-    GoalSpec("", "before", "", _before, _msgs, lambda v: v is not None and v < lab.BATCHED_MSGS,
+    GoalSpec("", "before", "", _before, _msgs, below(lab.BATCHED_MSGS),
              settle_extra=lab.BEFORE[1], key="msgs20"),
     GoalSpec("", "before", "", _before, _latency, _fast((lab.BATCHED_P50, lab.BATCHED_MAX)),
              settle_extra=lab.BEFORE[1], key="batched"),
@@ -180,9 +181,6 @@ class BroadcastWorld(World):
             run.add("ops", o[OP_START])
             run.add("served" if o[OP_OK] else "failed", o[OP_END])
         run.data.setdefault("groups", {}).update(piece.get("groups", {}))
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         if not start:

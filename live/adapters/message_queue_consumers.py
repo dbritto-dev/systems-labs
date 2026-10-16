@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from labs.message_queue_consumers import lab as mq
 from labs.message_queue_consumers.scenario import FAILED, LOST, OK, PARKED
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, rare_rows_first, user_flights,
+)
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -36,8 +38,7 @@ def _ended(w, run, t: float) -> list[tuple]:
     """Tries that ended in the last BACK seconds."""
     from live.worlds.message_queue_consumers import TRY_END
 
-    span = run.max_dur.get("tries", 0.0)
-    return [r for r in run.rows("tries", t - BACK - span, t + 1e-9) if t - BACK <= r[TRY_END] <= t]
+    return just_ended(run, "tries", TRY_END, t)
 
 
 def _outcome(r: tuple, jobs: dict[int, tuple]):
@@ -95,9 +96,9 @@ class QueueCluster(ClusterAdapter):
         flights: list[tuple] = []
         drops: list[tuple] = []
         flights += [(-1, self.QUEUE, (t - j[JOB_SENT]) / FLY, WHITE)
-                    for j in every(run.rows("jobs", t - FLY, t + 1e-9), FLIGHTS)]
+                    for j in every(just_sent(run, "jobs", t), FLIGHTS)]
         flights += [(self.QUEUE, self.WORKERS[r[TRY_PROC]], (t - r[TRY_START]) / FLY, try_colour(r))
-                    for r in every(run.rows("tries", t - FLY, t + 1e-9), FLIGHTS)]
+                    for r in every(just_sent(run, "tries", t), FLIGHTS)]
         ended = _ended(w, run, t)
         jobs = _jobs_of(run, ended)
         for r in every(ended, OUTCOMES * 2):
@@ -163,15 +164,13 @@ class QueueLanes(LaneAdapter):
                 colour = WHITE if j[JOB_RECEIVES] <= 1 else EXTRA1
             found[slot(j[JOB_ID], users)] = (colour, True)
 
-        flying = run.rows("tries", t - FLY, t + 1e-9)
-        flights = [(slot(r[TRY_ID], users), (t - r[TRY_START]) / FLY, try_colour(r), r[TRY_N] > 1)
-                   for r in every(flying, FLIGHTS)]
+        flying = just_sent(run, "tries", t)
+        flights = user_flights(every(flying, FLIGHTS), t, TRY_START,
+                               lambda r: (slot(r[TRY_ID], users), try_colour(r), r[TRY_N] > 1))
         ended = _ended(w, run, t)
         jobs = _jobs_of(run, ended)
         coloured = [(_outcome(r, jobs), (t - r[TRY_END]) / BACK) for r in ended]
-        rare = every([o for o in coloured if o[0] in (RED, PURPLE)], OUTCOMES)  # a few lost among many acked
-        room = OUTCOMES - len(rare)
-        outcomes = rare + (every([o for o in coloured if o[0] not in (RED, PURPLE)], room) if room else [])
+        outcomes = rare_rows_first(coloured, lambda o: o[0] in (RED, PURPLE), OUTCOMES)  # a few lost among many acked
 
         down = w.down_at(run, t)
         busy = sum(w.busy_at(run, t).values())
@@ -221,11 +220,10 @@ class QueueRelay(RelayAdapter):
         if run is None:
             return RelayFrame()
         lane = QueueLanes(w).frame(variant, t, users)  # the messages, the outcomes and the workers, as in lanes
-        flights = [(slot(j[JOB_ID], users), (t - j[JOB_SENT]) / FLY, WHITE, False)
-                   for j in every(run.rows("jobs", t - FLY, t + 1e-9), FLIGHTS)]
-        flying = run.rows("tries", t - FLY, t + 1e-9)
-        rare = every([r for r in flying if r[TRY_POISON]], FLIGHTS // 2)  # a few poison among many good
-        shown = rare + every([r for r in flying if not r[TRY_POISON]], FLIGHTS - len(rare))
+        flights = user_flights(every(just_sent(run, "jobs", t), FLIGHTS), t, JOB_SENT,
+                               lambda j: (slot(j[JOB_ID], users), WHITE, False))
+        flying = just_sent(run, "tries", t)
+        shown = rare_rows_first(flying, lambda r: r[TRY_POISON], FLIGHTS, FLIGHTS // 2)  # a few poison among many good
         hops = [((t - r[TRY_START]) / FLY, try_colour(r), bool(r[TRY_POISON])) for r in shown]
         ended = _ended(w, run, t)
         gone = _jobs_of(run, ended)

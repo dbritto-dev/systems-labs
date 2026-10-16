@@ -8,6 +8,7 @@ from labs.autoscaling import lab
 from labs.autoscaling.scenario import MAX_INSTANCES, MIN_INSTANCES, SAMPLE
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PURPLE, RED, RGB, WHITE
 from live.worlds.base import (
+    NO_VALUE,
     Bar,
     GoalSpec,
     Incident,
@@ -17,6 +18,10 @@ from live.worlds.base import (
     Tile,
     Traffic,
     World,
+    at_least,
+    at_most,
+    baseline_window,
+    below,
     fmt_ms,
     history,
     percentile,
@@ -88,15 +93,14 @@ def _memo(measure):
     return cached
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = _ended(run, a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OK] for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -110,7 +114,7 @@ def _served(run: Run, inc: Incident, upto: float):
     """The share of the requests started during the incident that were answered (not timed out)."""
     rows = [r for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if r[REQ_END] <= upto]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OK] for r in rows) / len(rows)
     return v, f"{v:.1%}"
 
@@ -121,7 +125,7 @@ def _p99(run: Run, inc: Incident, upto: float):
     cut = min(inc.t1 + lab.SETTLE, upto)
     v = percentile([min(r[REQ_END], cut) - r[REQ_START] for r in run.rows("requests", inc.t0, min(inc.t1, upto))],
                    99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _end(inc: Incident) -> tuple[float, float]:
@@ -135,7 +139,7 @@ def _headroom(run: Run, inc: Incident, upto: float):
     rows = run.rows("samples", a, min(b, upto))
     asked = sum(r[S_DEMAND] for r in rows)
     if not asked:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[S_CAPACITY] for r in rows) / asked - 1
     return v, f"{v:+.0%}"
 
@@ -148,7 +152,7 @@ def _flaps(run: Run, inc: Incident, upto: float):
     """Instances added and removed again (or removed and added again) within FLAP_WINDOW, from the start of
     the incident to AFTER seconds after it."""
     if upto <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     v = flaps(run.rows("ticks", inc.t0 - lab.FLAP_WINDOW, min(inc.t1 + lab.AFTER, upto)), inc.t0)
     return float(v), str(v)
 
@@ -163,25 +167,19 @@ def _cost(run: Run, inc: Incident, upto: float):
     to AFTER seconds after it."""
     rows = run.rows("samples", inc.t0, min(inc.t1 + lab.AFTER, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[S_INSTANCES] for r in rows) / sum(ideal(r[S_DEMAND]) for r in rows) - 1
     return v, f"{v:+.0%}"
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "during", "", _during, _served,
-             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=lab.SETTLE, key="served"),
-    GoalSpec("", "during", "", _during, _p99,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=lab.SETTLE, key="p99"),
-    GoalSpec("", "during", "", _end, _headroom,
-             lambda v: v is not None and v >= lab.HEADROOM_MIN, key="headroom"),
-    GoalSpec("", "after", "", _after, _flaps,
-             lambda v: v is not None and v <= lab.FLAPS_MAX, doomed=_flaps_doomed, key="flaps"),
-    GoalSpec("", "after", "", _after, _cost,
-             lambda v: v is not None and v <= lab.COST_MAX, key="cost"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "during", "", _during, _served, at_least(lab.SERVED_MIN), settle_extra=lab.SETTLE, key="served"),
+    GoalSpec("", "during", "", _during, _p99, below(lab.P99_MAX), settle_extra=lab.SETTLE, key="p99"),
+    GoalSpec("", "during", "", _end, _headroom, at_least(lab.HEADROOM_MIN), key="headroom"),
+    GoalSpec("", "after", "", _after, _flaps, at_most(lab.FLAPS_MAX), doomed=_flaps_doomed, key="flaps"),
+    GoalSpec("", "after", "", _after, _cost, at_most(lab.COST_MAX), key="cost"),
 ]
 
 

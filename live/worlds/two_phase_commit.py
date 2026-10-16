@@ -8,7 +8,9 @@ from labs.two_phase_commit.scenario import (
     ABORTED, COMMITTED, IN_DOUBT, M_ABORT, M_COMMIT, M_NO, M_YES, PARTIAL,
 )
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, LIMIT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, baseline_window, history,
+)
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 INF = float("inf")
@@ -35,8 +37,7 @@ def drift_at(row: tuple, t: float) -> int:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -58,7 +59,7 @@ def _rows(run: Run, a: float, b: float, upto: float) -> list[tuple]:
 
 def _committed_share(rows: list[tuple]):
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in rows if r[TX_STATUS] == COMMITTED) / len(rows)
     return v, f"{v:.0%}"
 
@@ -78,7 +79,7 @@ def _rolled(run: Run, inc: Incident, upto: float):
 def _partial(run: Run, inc: Incident, upto: float):
     rows = _rows(run, *_during(inc), upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = sum(1 for r in rows if r[TX_STATUS] == PARTIAL)
     return n, str(n)
 
@@ -90,7 +91,7 @@ def _doomed_partial(run: Run, inc: Incident, upto: float) -> bool:
 def _money(run: Run, inc: Incident, upto: float):
     rows = [r for r in run.rows("txns", *_during(inc)) if r[TX_START] <= upto]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     at = min(upto, inc.t1 + lab.RESOLVE)
     v = sum(abs(drift_at(r, at)) for r in rows)
     return v, money(v)
@@ -100,7 +101,7 @@ def _doubt(run: Run, inc: Incident, upto: float):
     """How long after the incident ended its transfers stayed in doubt (prepared, no decision)."""
     rows = [r for r in _rows(run, *_during(inc), upto) if any(p >= 0 for p in r[TX_PREP])]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = max(INF if r[TX_RESOLVED] is None else max(0.0, r[TX_RESOLVED] - inc.t1) for r in rows)
     return v, "∞" if v == INF else f"{v:.1f}s"
 
@@ -111,8 +112,7 @@ def _completed(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, settle_extra=lab.SETTLE, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), settle_extra=lab.SETTLE, key="baseline"),
     GoalSpec("", "during", "", _during, _rolled, lambda v: v is None or v >= 1.0,
              settle_extra=lab.SETTLE, key="rolled"),
     GoalSpec("", "during", "", _during, _partial, lambda v: v == 0,
@@ -121,7 +121,7 @@ GOALS = [
     GoalSpec("", "after", "", _resolve, _doubt, lambda v: v is None or v <= lab.RESOLVE,
              settle_extra=lab.SETTLE, key="doubt"),
     GoalSpec("", "after", "", _after, _completed,
-             lambda v: v is not None and v >= lab.COMPLETED_MIN, settle_extra=lab.SETTLE, key="completed"),
+             at_least(lab.COMPLETED_MIN), settle_extra=lab.SETTLE, key="completed"),
 ]
 
 
@@ -164,9 +164,6 @@ class TwoPhaseCommitWorld(World):
             if kind in (M_YES, M_NO, M_COMMIT, M_ABORT):
                 run.add(f"m{kind}", m[MSG_SENT])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def shard_name(self, inc: Incident) -> str:
         return f"n{self.victims.get(inc.t0, 2)}"
 
@@ -204,12 +201,6 @@ class TwoPhaseCommitWorld(World):
             return None
         rows = run.rows("state", t - 1.0, t + 1e-9)
         return rows[-1] if rows else None
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def coord_down(self, variant: str, t: float) -> bool:
         st = self.state_at(variant, t)

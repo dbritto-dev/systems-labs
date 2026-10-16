@@ -8,8 +8,8 @@ from labs.geo_replication import lab, scenario
 from labs.geo_replication.api import CAPACITY, FAILOVER, REGIONS
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, LIMIT, MUTED, PURPLE, RED, WHITE
 from live.worlds.base import (
-    KEEP, PIECE, Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history,
-    percentile,
+    KEEP, NO_VALUE, PIECE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, fmt_int,
+    fmt_ms, history, percentile,
 )
 
 OP_START, OP_HOME, OP_KIND, OP_OWN, OP_FIRST, OP_SERVED, OP_END, OP_OK, OP_STALE, OP_TRIES = range(10)
@@ -70,7 +70,7 @@ def _p99(kind: int):
     def measure(run: Run, inc: Incident, upto: float):
         v, _ = worst_p99(_ops(run, inc, upto), kind, cut_of(run, inc))
         if v is None:
-            return None, "–"
+            return NO_VALUE
         return v, fmt_ms(v) if v < math.inf else "∞"
 
     return measure
@@ -79,7 +79,7 @@ def _p99(kind: int):
 def _stale(run: Run, inc: Incident, upto: float):
     rows = _ops(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = sum(1 for o in rows if o[OP_STALE])
     return n, fmt_int(n)
 
@@ -87,7 +87,7 @@ def _stale(run: Run, inc: Incident, upto: float):
 def _available(run: Run, inc: Incident, upto: float):
     rows = _ops(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in rows if o[OP_OK]) / len(rows)
     return v, f"{v:.1%}"
 
@@ -96,7 +96,7 @@ def _risk(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     rows = run.rows("regions", a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = max(r[REG_RISK] for r in rows)
     return n, fmt_int(n)
 
@@ -109,15 +109,15 @@ def _doomed_available(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key]; the order is lab.stage_of's.
 GOALS = [
-    GoalSpec("", "during", "", _window, _p99(READ), lambda v: v is not None and v <= lab.READ_P99_MAX,
+    GoalSpec("", "during", "", _window, _p99(READ), at_most(lab.READ_P99_MAX),
              settle_extra=1.5, key="read_p99"),
-    GoalSpec("", "during", "", _window, _p99(WRITE), lambda v: v is not None and v <= lab.WRITE_P99_MAX,
+    GoalSpec("", "during", "", _window, _p99(WRITE), at_most(lab.WRITE_P99_MAX),
              settle_extra=1.5, key="write_p99"),
-    GoalSpec("", "during", "", _window, _stale, lambda v: v is not None and v <= lab.RYW_MAX,
+    GoalSpec("", "during", "", _window, _stale, at_most(lab.RYW_MAX),
              doomed=lambda run, inc, upto: (_stale(run, inc, upto)[0] or 0) > lab.RYW_MAX, settle_extra=1.5, key="ryw"),
-    GoalSpec("", "during", "", _window, _available, lambda v: v is not None and v >= lab.AVAILABLE_MIN,
+    GoalSpec("", "during", "", _window, _available, at_least(lab.AVAILABLE_MIN),
              doomed=_doomed_available, settle_extra=1.5, key="available"),
-    GoalSpec("", "during", "", _window, _risk, lambda v: v is not None and v <= lab.AT_RISK_MAX,
+    GoalSpec("", "during", "", _window, _risk, at_most(lab.AT_RISK_MAX),
              doomed=lambda run, inc, upto: (_risk(run, inc, upto)[0] or 0) > lab.AT_RISK_MAX, settle_extra=0.5,
              key="at_risk"),
 ]
@@ -195,9 +195,6 @@ class GeoReplicationWorld(World):
             self._goal_key, self._goal_rows = key, super().goal_lines(variant, t)
         return self._goal_rows
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     # ---------------------------------------------------------------- incidents
 
     def names(self, inc: Incident, hit: int | None = None) -> dict:
@@ -237,12 +234,6 @@ class GeoReplicationWorld(World):
         if worst is not None and worst[REG_RISK]:
             out.append((worst[REG_T], self.s("warn_risk", n=fmt_int(worst[REG_RISK]))))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     # ---------------------------------------------------------------- what the pictures share
 

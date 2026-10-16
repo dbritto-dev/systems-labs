@@ -8,7 +8,7 @@ from __future__ import annotations
 from labs.async_backpressure import lab
 from labs.async_backpressure.api import BASE_MEMORY, MAX_BATCH, MEMORY_LIMIT, READ_MAX, SIZE
 from labs.async_backpressure.scenario import LOST, OOM, SHED, UPSTREAM, WRITTEN
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, user_flights, user_outcomes
 from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -49,12 +49,8 @@ def _outcomes(w, run, t: float) -> list:
     """Events' fates fading at the door: lost and shed first, so a few among many still show."""
     from live.worlds.async_backpressure import E_END, outcome_colour
 
-    ended = w.ended(run, t - BACK, t + 1e-9)
-    rare = [e for e in ended if outcome_colour(e) != GREEN]
-    shown = every(rare, OUTCOMES)
-    if len(shown) < OUTCOMES:
-        shown += every([e for e in ended if outcome_colour(e) == GREEN], OUTCOMES - len(shown))
-    return [(outcome_colour(e), (t - e[E_END]) / BACK) for e in shown]
+    return user_outcomes(w.ended(run, t - BACK, t + 1e-9), t, E_END, outcome_colour,
+                         rare=lambda e: outcome_colour(e) != GREEN)
 
 
 @adapts("async_backpressure", "lanes")
@@ -76,8 +72,8 @@ class AsyncBackpressureLanes(LaneAdapter):
         found = {slot(e[E_ID], users): (wait_colour(t - e[E_ARR]), True) for e in w.pending(run, t)}
         read = [e for e in run.rows("events", t - FLY - 60.0, t + 1e-9)
                 if e[E_READ] is not None and t - FLY <= e[E_READ] <= t]
-        flights = [(slot(e[E_ID], users), (t - e[E_READ]) / FLY, wait_colour(e[E_READ] - e[E_ARR]), False)
-                   for e in every(read, FLIGHTS)]
+        flights = user_flights(every(read, FLIGHTS), t, E_READ,
+                               lambda e: (slot(e[E_ID], users), wait_colour(e[E_READ] - e[E_ARR]), False))
         state, tick = _state(w, run, variant, t)
         mem = 0.0 if tick is None else tick[T_MEM] / MEMORY_LIMIT
         down = tick is not None and not tick[T_ALIVE]
@@ -200,8 +196,8 @@ class AsyncBackpressurePipeline(PipelineAdapter):
         found = {slot(e[E_ID], users): (wait_colour(t - e[E_ARR]), True) for e in upstream}
         recent = run.rows("events", t - 2 * FLY - 60.0, t + 1e-9)
         read = [e for e in recent if e[E_READ] is not None and t - FLY <= e[E_READ] <= t]
-        flights = [(slot(e[E_ID], users), (t - e[E_READ]) / FLY, wait_colour(e[E_READ] - e[E_ARR]), False)
-                   for e in every(read, FLIGHTS)]
+        flights = user_flights(every(read, FLIGHTS), t, E_READ,
+                               lambda e: (slot(e[E_ID], users), wait_colour(e[E_READ] - e[E_ARR]), False))
         moves = []  # (time, segment, colour, back): the door -> A when the flight reaches it, then on
         for e in recent:
             if e[E_READ] is not None and t - FLY <= e[E_READ] + FLY <= t:
@@ -218,9 +214,8 @@ class AsyncBackpressurePipeline(PipelineAdapter):
         hops = [(k, (t - at) / FLY, colour, back) for at, k, colour, back in every(sorted(moves), FLIGHTS)]
         ended = w.ended(run, t - BACK, t + 1e-9)
         gone = [e for e in ended if e[E_OUT] in (SHED, LOST)]
-        shown = every([e for e in gone if e[E_OUT] == LOST], OUTCOMES)
-        shown += every([e for e in gone if e[E_OUT] == SHED], OUTCOMES - len(shown))
-        outcomes = [(RED if e[E_OUT] == LOST else MUTED, (t - e[E_END]) / BACK) for e in shown]
+        outcomes = user_outcomes(gone, t, E_END, lambda e: RED if e[E_OUT] == LOST else MUTED,
+                                 rare=lambda e: e[E_OUT] == LOST)  # gone: lost or shed
         drops = []
         for e in every([e for e in ended if e[E_OUT] == LOST and e[E_WHERE] == OOM], OUTCOMES):
             k = 1 if e[E_PARSED] is None else 2 if e[E_ENR] is None else 3  # just after the stage it was in

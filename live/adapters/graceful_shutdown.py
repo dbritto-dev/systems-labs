@@ -6,7 +6,9 @@ the fleet)."""
 from __future__ import annotations
 
 from labs.graceful_shutdown.scenario import DRAINING, INSTANCES, LB_NODES, LEAVING, REFUSING, SERVING, STARTING
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, op_id
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, just_ended, just_sent, op_id, rare_rows_first, user_flights,
+)
 from live.canvas import BLUE, EXTRA2, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -46,9 +48,7 @@ def _failures(run, t: float) -> list[tuple]:
     """Requests that failed in the last BACK seconds."""
     from live.worlds.graceful_shutdown import REQ_END, REQ_OK
 
-    span = run.max_dur.get("requests", 0.0)
-    return [r for r in run.rows("requests", t - BACK - span, t + 1e-9)
-            if t - BACK <= r[REQ_END] <= t and not r[REQ_OK]]
+    return [r for r in just_ended(run, "requests", REQ_END, t) if not r[REQ_OK]]
 
 
 @adapts("graceful_shutdown", "lanes")
@@ -68,11 +68,10 @@ class GracefulShutdownLanes(LaneAdapter):
             return LaneFrame()
         waiting, _, outcomes = client_lanes(run, t, users, "requests", REQ_START, REQ_END,
                                             colour=lambda r: GREEN if r[REQ_OK] else RED, rare_first=True)
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        shown = every([r for r in flying if not r[REQ_OK]], FLIGHTS // 2)
-        shown += every([r for r in flying if r[REQ_OK]], FLIGHTS - len(shown))
-        flights = [(slot(op_id(r[REQ_START]), users), (t - r[REQ_START]) / FLY, _colour(r), not r[REQ_OK])
-                   for r in shown]
+        flying = just_sent(run, "requests", t)
+        shown = rare_rows_first(flying, lambda r: not r[REQ_OK], FLIGHTS, FLIGHTS // 2)
+        flights = user_flights(shown, t, REQ_START,
+                               lambda r: (slot(op_id(r[REQ_START]), users), _colour(r), not r[REQ_OK]))
         states, serving, _ = w.fleet(run, t)
         closing = any(s in (LEAVING, DRAINING, REFUSING) for s in states)
         failing = bool(_failures(run, t))
@@ -110,7 +109,7 @@ class GracefulShutdownCluster(ClusterAdapter):
         nodes += [STATE_COLOURS[s] for s in states]
 
         flights = []
-        for r in every(run.rows("requests", t - FLY, t + 1e-9), 2 * FLIGHTS):
+        for r in every(just_sent(run, "requests", t), 2 * FLIGHTS):
             if r[REQ_SLOT] < 0:
                 continue
             p = (t - r[REQ_START]) / FLY
@@ -144,9 +143,8 @@ class GracefulShutdownRelay(RelayAdapter):
         if run is None:
             return RelayFrame()
         lane = GracefulShutdownLanes(w).frame(variant, t, users)  # users, outcomes and the fleet
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        shown = every([r for r in flying if not r[REQ_OK]], FLIGHTS // 2)
-        shown += every([r for r in flying if r[REQ_OK]], FLIGHTS - len(shown))
+        flying = just_sent(run, "requests", t)
+        shown = rare_rows_first(flying, lambda r: not r[REQ_OK], FLIGHTS, FLIGHTS // 2)
         flights, hops = [], []  # the first half of the way: user → door; the second: balancer → instance
         for r in shown:
             p = (t - r[REQ_START]) / FLY

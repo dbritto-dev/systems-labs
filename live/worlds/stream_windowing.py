@@ -20,7 +20,8 @@ from live.canvas import (
     BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, MUTED, PURPLE, RED, RGB, WHITE,
 )
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, clock, fmt_int, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, clock,
+    fmt_int, history, percentile,
 )
 
 DOWN_KEY: RGB = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -104,8 +105,7 @@ def ending(run: Run, lo: float, hi: float) -> list[tuple[float, Win]]:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _span(inc: Incident) -> tuple[float, float]:
@@ -124,7 +124,7 @@ def _held(inc: Incident) -> tuple[float, float]:
 def _share(rows: list[tuple[float, Win]], upto: float):
     due = [(s, w) for s, w in rows if w.due(s, upto)]
     if not due:
-        return None, "–"
+        return NO_VALUE
     v = sum(w.exact(upto) for _, w in due) / len(due)
     return v, f"{v:.0%}"
 
@@ -134,7 +134,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = run.rows("events", a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for e in rows if e[E_OUTCOME] in (ON_TIME, UPDATED)) / len(rows)
     return v, "100%" if v >= 1 else f"{math.floor(v * 1000) / 10:.1f}%"
 
@@ -172,7 +172,7 @@ def _dropped_n(run: Run, inc: Incident, upto: float) -> int | None:
 
 def _dropped(run: Run, inc: Incident, upto: float):
     n = _dropped_n(run, inc, upto)
-    return (None, "–") if n is None else (n, fmt_int(n))
+    return NO_VALUE if n is None else (n, fmt_int(n))
 
 
 def _dropped_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -195,7 +195,7 @@ def _latencies(run: Run, inc: Incident, upto: float) -> list[float]:
 
 def _latency(run: Run, inc: Incident, upto: float):
     v = percentile(_latencies(run, inc, upto), 99)
-    return (None, "–") if v is None else (v, f"{v:.1f}s")
+    return NO_VALUE if v is None else (v, f"{v:.1f}s")
 
 
 def _latency_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -210,20 +210,20 @@ def _state_max(run: Run, inc: Incident, upto: float) -> int | None:
 
 def _state(run: Run, inc: Incident, upto: float):
     v = _state_max(run, inc, upto)
-    return (None, "–") if v is None else (v, str(v))
+    return NO_VALUE if v is None else (v, str(v))
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline, lambda v: v is not None and v >= lab.BASELINE_MIN,
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN),
              key="baseline"),
-    GoalSpec("", "after", "", _span, _exact, lambda v: v is not None and v >= lab.EXACT_MIN,
+    GoalSpec("", "after", "", _span, _exact, at_least(lab.EXACT_MIN),
              doomed=_exact_doomed, settle_extra=lab.SETTLE, key="exact"),
-    GoalSpec("", "after", "", _own, _dropped, lambda v: v is not None and v <= lab.DROPPED_MAX,
+    GoalSpec("", "after", "", _own, _dropped, at_most(lab.DROPPED_MAX),
              doomed=_dropped_doomed, settle_extra=lab.SETTLE, key="dropped"),
-    GoalSpec("", "during", "", _own, _latency, lambda v: v is not None and v <= lab.LATENCY_MAX,
+    GoalSpec("", "during", "", _own, _latency, at_most(lab.LATENCY_MAX),
              doomed=_latency_doomed, settle_extra=lab.LATENCY_MAX + 1.0, key="latency"),
-    GoalSpec("", "during", "", _held, _state, lambda v: v is not None and v <= lab.STATE_MAX,
+    GoalSpec("", "during", "", _held, _state, at_most(lab.STATE_MAX),
              doomed=lambda run, inc, upto: (_state_max(run, inc, upto) or 0) > lab.STATE_MAX,
              settle_extra=1.0, key="state"),
 ]
@@ -281,9 +281,6 @@ class StreamWindowingWorld(World):
         for s in [s for s in index if s < run.end - KEEP_WINDOWS]:
             del index[s]
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def warnings(self, run: Run, inc: Incident):
         rows = run.rows("events", inc.t0, inc.t1 + 1.0)
         out = []
@@ -306,12 +303,6 @@ class StreamWindowingWorld(World):
             return self.s(f"{inc.kind}_end")
         return self.s(f"{inc.kind}_start", seconds=inc.severity, minutes=inc.severity / 60,
                       partition=lagging_partition(inc.t0), cause=self.cause(inc))
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     # ---------------------------------------------------------------- the processor at t
 

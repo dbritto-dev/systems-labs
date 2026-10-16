@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from labs.retry_storm import lab as retry_lab
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -43,12 +43,11 @@ class RetryStormLanes(LaneAdapter):
                  for r in run.active("requests", t, REQ_END)}
 
         # Calls in flight to the door, and what happened there.
-        flying = run.rows("calls", t - FLY, t + 1e-9)
-        flights = [(slot(c[CALL_REQ], users), (t - c[CALL_START]) / FLY, EXTRA[min(3, c[CALL_ATTEMPT])],
-                    c[CALL_ATTEMPT] > 0) for c in every(flying, FLIGHTS)]
-        ended = [c for c in run.rows("calls", t - BACK - run.max_dur.get("calls", 0.0), t + 1e-9)
-                 if t - BACK <= c[CALL_END] <= t]
-        outcomes = [(GREEN if c[CALL_OK] else RED, (t - c[CALL_END]) / BACK) for c in every(ended, OUTCOMES)]
+        flying = just_sent(run, "calls", t)
+        flights = user_flights(every(flying, FLIGHTS), t, CALL_START, lambda c: (
+            slot(c[CALL_REQ], users), EXTRA[min(3, c[CALL_ATTEMPT])], c[CALL_ATTEMPT] > 0))
+        ended = just_ended(run, "calls", CALL_END, t)
+        outcomes = user_outcomes(ended, t, CALL_END, lambda c: GREEN if c[CALL_OK] else RED)
 
         load = w.load_at(run, t)
         ask = run.count("requests", t - 1, t) or w.rate
@@ -77,11 +76,10 @@ class RetryStormCluster(ClusterAdapter):
         inc = w.incident_at(variant, t)
         down = inc is not None and inc.kind == "outage"
         degraded = inc is not None and not down
-        flights = [(-1, 0, (t - r[REQ_START]) / FLY, WHITE) for r in every(run.rows("requests", t - FLY, t + 1e-9), 8)]
+        flights = [(-1, 0, (t - r[REQ_START]) / FLY, WHITE) for r in every(just_sent(run, "requests", t), 8)]
         flights += [(0, 1, (t - c[CALL_START]) / FLY, EXTRA[min(3, c[CALL_ATTEMPT])])
-                    for c in every(run.rows("calls", t - FLY, t + 1e-9), FLIGHTS)]
-        ended = [c for c in run.rows("calls", t - BACK - run.max_dur.get("calls", 0.0), t + 1e-9)
-                 if t - BACK <= c[CALL_END] <= t and not c[CALL_OK]]
+                    for c in every(just_sent(run, "calls", t), FLIGHTS)]
+        ended = [c for c in just_ended(run, "calls", CALL_END, t) if not c[CALL_OK]]
         drops = [(0, 1, (t - c[CALL_END]) / BACK) for c in every(ended, OUTCOMES)]
         load = w.load_at(run, t)
         ask = run.count("requests", t - 1, t) or w.rate

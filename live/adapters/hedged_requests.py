@@ -5,7 +5,9 @@ second replica), lanes (users waiting; the door is the hedge budget in front of 
 from __future__ import annotations
 
 from labs.hedged_requests.scenario import OK, REPLICAS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, every, just_ended, just_sent, rare_rows_first, user_flights, user_outcomes,
+)
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -61,7 +63,7 @@ class HedgedRequestsCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = [(-1, self.SERVICE, (t - r[REQ_START]) / FLY, WHITE)
-                   for r in every(run.rows("requests", t - FLY, t + 1e-9), FLIGHTS // 2)]
+                   for r in every(just_sent(run, "requests", t), FLIGHTS // 2)]
         # When each read still running or just answered was answered (to tell waiting calls from waste).
         span = run.max_dur.get("calls", 0.0)
         rspan = run.max_dur.get("requests", 0.0)
@@ -71,8 +73,7 @@ class HedgedRequestsCluster(ClusterAdapter):
         # Calls that just started, at the cosmetic pace of the reads: copies first, so a few among
         # many first calls still show.
         moving = [c for c in calls if t - FLY <= c[CALL_START] <= t and not (c[CALL_END] > t and t - c[CALL_START] > SLOW)]
-        shown = every([c for c in moving if c[CALL_COPY] > 0], FLIGHTS // 2)
-        shown += every([c for c in moving if c[CALL_COPY] == 0], FLIGHTS - len(shown))
+        shown = rare_rows_first(moving, lambda c: c[CALL_COPY] > 0, FLIGHTS, FLIGHTS // 2)
         for c in shown:
             flights.append((self.SERVICE, 1 + c[CALL_REPLICA], min(0.95, (t - c[CALL_START]) / FLY),
                             EXTRA2 if c[CALL_COPY] > 0 else WHITE))
@@ -121,18 +122,16 @@ class HedgedRequestsLanes(LaneAdapter):
                 colour = EXTRA1
             found[slot(r[REQ_ID], users)] = (colour, True)
 
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        flights = [(slot(r[REQ_ID], users), (t - r[REQ_START]) / FLY, WHITE, False)
-                   for r in every(flying, FLIGHTS)]
+        flying = just_sent(run, "requests", t)
+        flights = user_flights(every(flying, FLIGHTS), t, REQ_START, lambda r: (slot(r[REQ_ID], users), WHITE, False))
         # Copies: from the same user, orange and bigger, as they are sent.
         span = run.max_dur.get("requests", 0.0)
         recent = run.rows("requests", t - FLY - span, t + 1e-9)
         hedges = [r for r in recent if r[REQ_HEDGED] is not None and t - FLY <= r[REQ_HEDGED] <= t]
-        flights += [(slot(r[REQ_ID], users), (t - r[REQ_HEDGED]) / FLY, EXTRA2, True)
-                    for r in every(hedges, FLIGHTS // 2)]
-        ended = [r for r in run.rows("requests", t - BACK - span, t + 1e-9) if t - BACK <= r[REQ_END] <= t]
-        outcomes = [(GREEN if r[REQ_OUTCOME] == OK else RED, (t - r[REQ_END]) / BACK)
-                    for r in every(ended, OUTCOMES)]
+        flights += user_flights(every(hedges, FLIGHTS // 2), t, REQ_HEDGED,
+                                lambda r: (slot(r[REQ_ID], users), EXTRA2, True))
+        ended = just_ended(run, "requests", REQ_END, t)
+        outcomes = user_outcomes(ended, t, REQ_END, lambda r: GREEN if r[REQ_OUTCOME] == OK else RED)
 
         # The door: the budget. Shut while most slow reads get no copy, orange while some do not.
         refused = w.door_at(run, t)
@@ -174,8 +173,7 @@ class HedgedRequestsRelay(RelayAdapter):
         calls = run.rows("calls", t - span - 1e-9, t + 1e-9)
         slow = [c for c in calls if c[CALL_END] > t and t - c[CALL_START] > SLOW]
         moving = [c for c in calls if t - FLY <= c[CALL_START] <= t and c not in slow]
-        shown = every([c for c in moving if c[CALL_COPY] > 0], FLIGHTS // 2)
-        shown += every([c for c in moving if c[CALL_COPY] == 0], FLIGHTS - len(shown))
+        shown = rare_rows_first(moving, lambda c: c[CALL_COPY] > 0, FLIGHTS, FLIGHTS // 2)
         hops = [((t - c[CALL_START]) / FLY, EXTRA2 if c[CALL_COPY] > 0 else WHITE, c[CALL_COPY] > 0) for c in shown]
         for c in every(slow, FLIGHTS):  # slow calls crawl to the replicas, and wait there
             done = answered.get(c[1])

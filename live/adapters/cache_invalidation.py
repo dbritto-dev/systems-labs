@@ -7,7 +7,9 @@ from __future__ import annotations
 from labs.cache_invalidation import lab
 from labs.cache_invalidation.api import FILLED_STALE, REFUSED
 from labs.cache_invalidation.scenario import APPS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import (
+    FLIGHTS, FLY, every, just_ended, just_sent, rare_rows_first, user_flights, user_outcomes,
+)
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -58,18 +60,15 @@ class CacheInvalidationLanes(LaneAdapter):
             return LaneFrame()
         found = {slot(r[R_ID], users): (EXTRA1 if r[R_MISSED] else WHITE, True)
                  for r in run.active("reads", t, R_END)}
-        flying = run.rows("reads", t - FLY, t + 1e-9)
-        flights = [(slot(r[R_ID], users), (t - r[R_START]) / FLY, EXTRA1 if r[R_MISSED] else WHITE, r[R_MISSED])
-                   for r in every(flying, FLIGHTS - 3)]
-        writes = run.rows("writes", t - FLY, t + 1e-9)
-        flights += [(slot(int(x[W_START] * 1_000_003), users), (t - x[W_START]) / FLY, BLUE, False)
-                    for x in every(writes, 3)]
-        span = run.max_dur.get("reads", 0.0)
-        ended = [r for r in run.rows("reads", t - BACK - span, t + 1e-9) if t - BACK <= r[R_END] <= t]
+        flying = just_sent(run, "reads", t)
+        flights = user_flights(every(flying, FLIGHTS - 3), t, R_START,
+                               lambda r: (slot(r[R_ID], users), EXTRA1 if r[R_MISSED] else WHITE, r[R_MISSED]))
+        writes = just_sent(run, "writes", t)
+        flights += user_flights(every(writes, 3), t, W_START,
+                                lambda x: (slot(int(x[W_START] * 1_000_003), users), BLUE, False))
+        ended = just_ended(run, "reads", R_END, t)
         # A few red answers among hundreds of green ones still reach the door.
-        bad = every([r for r in ended if not r[R_FRESH]], OUTCOMES)
-        shown = bad + every([r for r in ended if r[R_FRESH]], OUTCOMES - len(bad))
-        outcomes = [(GREEN if r[R_FRESH] else RED, (t - r[R_END]) / BACK) for r in shown]
+        outcomes = user_outcomes(ended, t, R_END, lambda r: GREEN if r[R_FRESH] else RED, rare=lambda r: not r[R_FRESH])
 
         state, stale, down, reads = _state(w, run, variant, t)
         return LaneFrame(
@@ -106,19 +105,18 @@ class CacheInvalidationCluster(ClusterAdapter):
             return ClusterFrame()
         half = FLY / 2
         flights = []
-        for r in every(run.rows("reads", t - FLY, t + 1e-9), FLIGHTS - 4):
+        for r in every(just_sent(run, "reads", t), FLIGHTS - 4):
             p = (t - r[R_START]) / half
             colour = EXTRA1 if r[R_MISSED] else WHITE
             if p < 1:  # into the app server
                 flights.append((-1, r[R_APP], p, colour))
             else:  # on to the cache (a hit) or the database (a miss)
                 flights.append((r[R_APP], self.DB if r[R_MISSED] else self.CACHE, p - 1, colour))
-        for x in every(run.rows("writes", t - FLY, t + 1e-9), 2):
+        for x in every(just_sent(run, "writes", t), 2):
             p = (t - x[W_START]) / half
             flights.append((x[W_APP], self.DB, p, BLUE) if p < 1 else (x[W_APP], self.CACHE, p - 1, BLUE))
         fills = run.rows("fills", t - half, t + 1e-9)
-        rare = [f for f in fills if f[F_RESULT] != 0]
-        shown = every(rare, 4) + every([f for f in fills if f[F_RESULT] == 0], 4 - min(4, len(rare)))
+        shown = rare_rows_first(fills, lambda f: f[F_RESULT] != 0, 4)
         for f in shown:
             colour = RED if f[F_RESULT] == FILLED_STALE else EXTRA2 if f[F_RESULT] == REFUSED else WHITE
             flights.append((f[F_APP], self.CACHE, (t - f[F_T]) / half, colour))
@@ -158,8 +156,7 @@ class CacheInvalidationRelay(RelayAdapter):
             elif colour != WHITE:  # a miss (orange) or a write (blue) goes on to the database; a hit stops
                 hops.append((2 * k - 1, colour, big))
         fills = run.rows("fills", t - half, t + 1e-9)
-        rare = [f for f in fills if f[F_RESULT] != 0]
-        shown = every(rare, 4) + every([f for f in fills if f[F_RESULT] == 0], 4 - min(4, len(rare)))
+        shown = rare_rows_first(fills, lambda f: f[F_RESULT] != 0, 4)
         for f in shown:  # back from the database into the cache
             colour = RED if f[F_RESULT] == FILLED_STALE else EXTRA2 if f[F_RESULT] == REFUSED else WHITE
             hops.append((1 - (t - f[F_T]) / half, colour, f[F_RESULT] == FILLED_STALE))

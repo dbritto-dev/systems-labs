@@ -10,8 +10,8 @@ from live.canvas import (
     BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PURPLE, RED, WHITE,
 )
 from live.worlds.base import (
-    KEEP, PIECE, Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, fmt_ms, history,
-    percentile,
+    KEEP, NO_VALUE, PIECE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most,
+    baseline_window, below, fmt_int, fmt_ms, history, percentile,
 )
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -50,8 +50,7 @@ def gave_up_at(run: Run, eid: int) -> float:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _window(inc: Incident) -> tuple[float, float]:
@@ -68,7 +67,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     upto = min(upto, inc.t0 + 5.0)
     made = _made(run, inc, upto, _before)
     if not made:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for e in made if delivered_at(run, e[EV_ID]) <= upto) / len(made)
     return v, f"{v:.0%}"
 
@@ -87,7 +86,7 @@ def _lost_count(run: Run, inc: Incident, upto: float) -> int:
 
 def _lost(run: Run, inc: Incident, upto: float):
     if not _made(run, inc, upto):
-        return None, "–"
+        return NO_VALUE
     n = _lost_count(run, inc, upto)
     return n, fmt_int(n)
 
@@ -100,7 +99,7 @@ def _ooo_count(run: Run, inc: Incident, upto: float) -> int:
 
 def _order(run: Run, inc: Incident, upto: float):
     if not _made(run, inc, upto):
-        return None, "–"
+        return NO_VALUE
     n = _ooo_count(run, inc, upto)
     return n, fmt_int(n)
 
@@ -116,7 +115,7 @@ def _waits(run: Run, inc: Incident, upto: float) -> list[float]:
 def _p99(run: Run, inc: Incident, upto: float):
     v = percentile(_waits(run, inc, upto), 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, fmt_ms(v)
 
 
@@ -141,7 +140,7 @@ def _wasted(run: Run, inc: Incident, upto: float) -> float:
 def _waste(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     if upto <= a:
-        return None, "–"
+        return NO_VALUE
     v = _wasted(run, inc, upto) / (WORKERS * (b - a))
     return v, f"{v:.0%}"
 
@@ -153,15 +152,14 @@ def _doomed_waste(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, settle_extra=5.0, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), settle_extra=5.0, key="baseline"),
     GoalSpec("", "after", "", _window, _lost, lambda v: v == 0,
              doomed=lambda run, inc, upto: _lost_count(run, inc, upto) > 0, settle_extra=lab.SETTLE, key="lost"),
     GoalSpec("", "after", "", _window, _order, lambda v: v == 0,
              doomed=lambda run, inc, upto: _ooo_count(run, inc, upto) > 0, settle_extra=lab.SETTLE, key="order"),
-    GoalSpec("", "during", "", _window, _p99, lambda v: v is not None and v < lab.P99_MAX,
+    GoalSpec("", "during", "", _window, _p99, below(lab.P99_MAX),
              doomed=_doomed_p99, settle_extra=lab.P99_SETTLE, key="p99"),
-    GoalSpec("", "during", "", _window, _waste, lambda v: v is not None and v <= lab.WASTE_MAX,
+    GoalSpec("", "during", "", _window, _waste, at_most(lab.WASTE_MAX),
              doomed=_doomed_waste, settle_extra=1.0, key="waste"),
 ]
 
@@ -221,9 +219,6 @@ class WebhookWorld(World):
                 del made[i]
                 dt.pop(i, None)
                 gu.pop(i, None)
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "back" if sick(inc) >= 0 else "calm")

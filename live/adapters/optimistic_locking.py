@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from labs.optimistic_locking.api import CLOBBER, CONFLICT as W_CONFLICT
 from labs.optimistic_locking.scenario import APPS, CONFLICT, OK
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA, EXTRA2, GREEN, MUTED, RED
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -60,11 +60,10 @@ class OptimisticLockingLanes(LaneAdapter):
             tries[x[W_REQ]] = max(tries.get(x[W_REQ], 0), x[W_N])
         found = {slot(r[REQ_ID], users): (EXTRA[min(3, tries.get(r[REQ_ID], 0))], True)
                  for r in run.active("requests", t, REQ_END)}
-        flying = run.rows("writes", t - FLY, t + 1e-9)
-        flights = [(slot(x[W_REQ], users), (t - x[W_START]) / FLY, EXTRA[min(3, x[W_N])], x[W_N] > 0)
-                   for x in every(flying, FLIGHTS)]
-        rspan = run.max_dur.get("requests", 0.0)
-        ended = [r for r in run.rows("requests", t - BACK - rspan, t + 1e-9) if t - BACK <= r[REQ_END] <= t]
+        flying = just_sent(run, "writes", t)
+        flights = user_flights(every(flying, FLIGHTS), t, W_START,
+                               lambda x: (slot(x[W_REQ], users), EXTRA[min(3, x[W_N])], x[W_N] > 0))
+        ended = just_ended(run, "requests", REQ_END, t)
 
         def colour(r: tuple):
             if r[REQ_LOST]:
@@ -72,10 +71,7 @@ class OptimisticLockingLanes(LaneAdapter):
             return GREEN if r[REQ_OUTCOME] == OK else EXTRA2 if r[REQ_OUTCOME] == CONFLICT else MUTED
 
         # A few red or orange answers among hundreds of green ones still reach the door.
-        bad = [r for r in ended if colour(r) != GREEN]
-        shown = every(bad, OUTCOMES)
-        shown += every([r for r in ended if colour(r) == GREEN], OUTCOMES - len(shown)) if len(shown) < OUTCOMES else []
-        outcomes = [(colour(r), (t - r[REQ_END]) / BACK) for r in shown]
+        outcomes = user_outcomes(ended, t, REQ_END, colour, rare=lambda r: colour(r) != GREEN)
 
         state, lost, stale, writes = _state(w, run, variant, t)
         return LaneFrame(
@@ -119,9 +115,7 @@ class OptimisticLockingCluster(ClusterAdapter):
             flights.append((x[W_APP], self.DB, p, colour))
             if x[W_N] > 0:
                 retrying.add(x[W_APP])
-        rspan = run.max_dur.get("requests", 0.0)
-        refused = [r for r in run.rows("requests", t - BACK - rspan, t + 1e-9)
-                   if t - BACK <= r[REQ_END] <= t and r[REQ_OUTCOME] == CONFLICT]
+        refused = [r for r in just_ended(run, "requests", REQ_END, t) if r[REQ_OUTCOME] == CONFLICT]
         flights += [(r[REQ_APP], -1, (t - r[REQ_END]) / BACK, EXTRA2) for r in every(refused, OUTCOMES)]
 
         state, lost, stale, _ = _state(w, run, variant, t)

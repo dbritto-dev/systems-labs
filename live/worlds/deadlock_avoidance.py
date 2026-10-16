@@ -6,7 +6,9 @@ from core.i18n import strings
 from labs.deadlock_avoidance import lab
 from labs.deadlock_avoidance.scenario import BATCH, WORKERS
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history, percentile
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history, percentile,
+)
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 
@@ -48,7 +50,7 @@ def _frozen(run: Run, inc: Incident, upto: float) -> list[tuple]:
 
 def _deadlocks(run: Run, inc: Incident, upto: float):
     if upto <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     n = len(_frozen(run, inc, upto))
     return n, _s("count", n=n)
 
@@ -60,7 +62,7 @@ def _doomed_deadlocks(run: Run, inc: Incident, upto: float) -> bool:
 def _completed(run: Run, inc: Incident, upto: float):
     done = _ended(run, *_during(inc), upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in done if r[T_OK]) / len(done)
     return v, f"{v:.1%}"
 
@@ -68,14 +70,14 @@ def _completed(run: Run, inc: Incident, upto: float):
 def _p99(run: Run, inc: Incident, upto: float):
     v = percentile([r[T_END] - r[T_START] for r in _ended(run, *_during(inc), upto) if r[T_KIND] != BATCH], 99)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, f"{v * 1000:.0f}ms"
 
 
 def _retries(run: Run, inc: Incident, upto: float):
     done = _ended(run, *_during(inc), upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(max(0, r[T_TRIES] - 1) for r in done) / len(done)
     return v, f"{v:.2f}"
 
@@ -94,7 +96,7 @@ def _drift(run: Run, inc: Incident, upto: float):
 def _money(run: Run, inc: Incident, upto: float):
     v = _drift(run, inc, upto)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, _s("money", amount=f"{v / 100:,.2f}")
 
 
@@ -107,11 +109,9 @@ GOALS = [
     GoalSpec("", "during", "", _during, _deadlocks, lambda v: v == 0,
              doomed=_doomed_deadlocks, settle_extra=lab.SETTLE, key="deadlocks"),
     GoalSpec("", "during", "", _during, _completed,
-             lambda v: v is not None and v >= lab.COMPLETED_MIN, settle_extra=lab.SETTLE, key="completed"),
-    GoalSpec("", "during", "", _during, _p99,
-             lambda v: v is not None and v <= lab.P99_MAX, settle_extra=lab.SETTLE, key="p99"),
-    GoalSpec("", "during", "", _during, _retries,
-             lambda v: v is not None and v <= lab.RETRIES_MAX, settle_extra=lab.SETTLE, key="retries"),
+             at_least(lab.COMPLETED_MIN), settle_extra=lab.SETTLE, key="completed"),
+    GoalSpec("", "during", "", _during, _p99, at_most(lab.P99_MAX), settle_extra=lab.SETTLE, key="p99"),
+    GoalSpec("", "during", "", _during, _retries, at_most(lab.RETRIES_MAX), settle_extra=lab.SETTLE, key="retries"),
     GoalSpec("", "after", "", _checked, _money, lambda v: v == 0,
              doomed=_doomed_money, settle_extra=1.0, key="money"),
 ]
@@ -147,9 +147,6 @@ class DeadlockAvoidanceWorld(World):
                 run.add("failed", r[T_END])
             if r[T_TRIES] > 1:
                 run.add("retries", r[T_END], r[T_TRIES] - 1)
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")

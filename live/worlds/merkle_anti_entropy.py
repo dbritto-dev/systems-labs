@@ -9,7 +9,9 @@ from labs.merkle_anti_entropy import lab
 from labs.merkle_anti_entropy.api import HINTS
 from labs.merkle_anti_entropy.scenario import READ
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, MUTED, ORANGE, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_int, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_most, fmt_int, history,
+)
 
 OP_START, OP_KIND, OP_NODE, OP_END, OP_STALE = range(5)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED, MSG_REPAIR, MSG_ENTRIES = range(6)
@@ -46,7 +48,7 @@ def _repaired(run: Run, inc: Incident, upto: float):
             dt = r[ST_T] - inc.t1
             return dt, f"{dt:.1f} s"
     if not rows:
-        return None, "–"
+        return NO_VALUE
     return None, _s("left", n=sum(rows[-1][ST_DIVERGED]))
 
 
@@ -58,7 +60,7 @@ def _stale(run: Run, inc: Incident, upto: float):
     a, b = _stale_window(inc)
     reads = [o for o in run.rows("ops", a, min(b, upto)) if o[OP_KIND] == READ]
     if not reads:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in reads if o[OP_STALE]) / len(reads)
     return v, f"{v:.2%}"
 
@@ -74,14 +76,14 @@ def _sent(run: Run, inc: Incident, upto: float):
     fixed = sum(sum(r[ST_FIXED]) for r in run.rows("state", a, b))
     v = per_key(sent, fixed)
     if v is None:
-        return None, "–"
+        return NO_VALUE
     return v, _s("per_key", v=v) if v != math.inf else _s("none_fixed", n=sent)
 
 
 def _hashes(run: Run, inc: Incident, upto: float):
     a, b = inc.t0 - lab.BEFORE, min(inc.t0, upto)
     if b <= a:
-        return None, "–"
+        return NO_VALUE
     rows = run.rows("state", a, b)
     v = max(sum(r[ST_HASHED][i] for r in rows) for i in range(lab.REPLICAS)) / (b - a)
     return v, _s("rate", v=v)
@@ -90,13 +92,13 @@ def _hashes(run: Run, inc: Incident, upto: float):
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
     GoalSpec("", "after", "", lambda i: (i.t1, i.t1 + lab.REPAIR_S), _repaired,
-             lambda v: v is not None and v <= lab.REPAIR_S, settle_extra=0.5, key="fixed"),
-    GoalSpec("", "after", "", _stale_window, _stale, lambda v: v is not None and v <= lab.STALE_MAX,
+             at_most(lab.REPAIR_S), settle_extra=0.5, key="fixed"),
+    GoalSpec("", "after", "", _stale_window, _stale, at_most(lab.STALE_MAX),
              settle_extra=0.5, key="stale"),
     GoalSpec("", "after", "", _sent_window, _sent, lambda v: v is None or v <= lab.SENT_MAX,
              settle_extra=0.5, key="sent"),
     GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _hashes,
-             lambda v: v is not None and v <= lab.HASH_MAX, settle_extra=0.5, key="hashes"),
+             at_most(lab.HASH_MAX), settle_extra=0.5, key="hashes"),
 ]
 
 
@@ -145,18 +147,8 @@ class MerkleWorld(World):
             for i, h in enumerate(r[ST_HASHED]):
                 run.add(f"hash{i}", r[ST_T], h)
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def node_of(self, inc: Incident) -> int:
         return self.facts.get(inc.t0, {}).get("node", 2)
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        """A replica down or cut off right now (instant incidents last no time)."""
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def cut_at(self, variant: str, t: float) -> tuple[str, int] | None:
         """(kind, replica) while a replica is down or cut off by a blip."""

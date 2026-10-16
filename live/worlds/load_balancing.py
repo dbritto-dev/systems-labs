@@ -6,7 +6,8 @@ from labs.load_balancing import lab
 from labs.load_balancing.scenario import BALANCERS, REPORT, SAMPLE, SERVERS, WORKERS
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PURPLE, RED, RGB, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, below,
+    fmt_ms, history, percentile,
 )
 
 REQ_ID, REQ_START, REQ_END, REQ_OK, REQ_BALANCER, REQ_SERVER, REQ_SICK = range(7)
@@ -31,15 +32,14 @@ def _latency(r: tuple, upto: float) -> float:
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = _ended(run, a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OK] for r in rows) / len(rows)
     return v, f"{v:.0%}"
 
@@ -52,7 +52,7 @@ def _share(run: Run, inc: Incident, upto: float):
     """The share of the requests started during the incident that were sent to the slow server."""
     rows = run.rows("requests", inc.t0, min(inc.t1, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_SICK] for r in rows) / len(rows)
     return v, f"{v:.1%}"
 
@@ -61,14 +61,14 @@ def _p99(run: Run, inc: Incident, upto: float):
     """p99 latency of the requests started during the incident (still waiting: counted so far)."""
     cut = min(inc.t1 + lab.SETTLE, upto)
     v = percentile([_latency(r, cut) for r in run.rows("requests", inc.t0, min(inc.t1, upto))], 99)
-    return (None, "–") if v is None else (v, fmt_ms(v))
+    return NO_VALUE if v is None else (v, fmt_ms(v))
 
 
 def _served(run: Run, inc: Incident, upto: float):
     """The share of the requests started during the incident that were answered (not timed out)."""
     rows = [r for r in run.rows("requests", inc.t0, min(inc.t1, upto)) if r[REQ_END] <= upto]
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OK] for r in rows) / len(rows)
     return v, f"{v:.1%}"
 
@@ -82,7 +82,7 @@ def _recovered(run: Run, inc: Incident, upto: float):
     cut = min(b + lab.SETTLE, upto)
     rows = run.rows("requests", a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     good = sum(r[REQ_OK] and r[REQ_END] - r[REQ_START] < lab.P99_MAX and r[REQ_END] <= cut for r in rows)
     v = good / len(rows)
     return v, f"{v:.0%}"
@@ -90,16 +90,12 @@ def _recovered(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "during", "", _during, _share,
-             lambda v: v is not None and v <= lab.SHARE_MAX, key="share"),
-    GoalSpec("", "during", "", _during, _p99,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=lab.SETTLE, key="p99"),
-    GoalSpec("", "during", "", _during, _served,
-             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=lab.SETTLE, key="served"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "during", "", _during, _share, at_most(lab.SHARE_MAX), key="share"),
+    GoalSpec("", "during", "", _during, _p99, below(lab.P99_MAX), settle_extra=lab.SETTLE, key="p99"),
+    GoalSpec("", "during", "", _during, _served, at_least(lab.SERVED_MIN), settle_extra=lab.SETTLE, key="served"),
     GoalSpec("", "after", "", _after, _recovered,
-             lambda v: v is not None and v >= lab.RECOVERED_MIN, settle_extra=lab.SETTLE, key="recovered"),
+             at_least(lab.RECOVERED_MIN), settle_extra=lab.SETTLE, key="recovered"),
 ]
 
 
@@ -159,12 +155,6 @@ class LoadBalancingWorld(World):
             return self.s("is_cold", server=n, times=inc.severity, cause=self.cause(inc))
         return self.s("warm_again", server=n)
 
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
-
     def sick_at(self, run: Run, t: float) -> int:
         """The slow server at time t, or -1."""
         rows = run.rows("samples", t - 2 * SAMPLE, t + 1e-9)
@@ -194,9 +184,6 @@ class LoadBalancingWorld(World):
                 run.add("served", r[REQ_END])
             else:
                 run.add("failed", r[REQ_END])
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def warnings(self, run: Run, inc: Incident):
         for s in range(int(inc.t0), int(inc.t1) + 1):

@@ -7,7 +7,8 @@ from labs.chain_replication import lab
 from labs.chain_replication.scenario import CLIENT_TIMEOUT, GET, PUT
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, LIMIT, MUTED, ORANGE, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, fmt_ms, history,
+    percentile,
 )
 
 OP_START, OP_KIND, OP_KEY, OP_VALUE, OP_END, OP_OK, OP_STALE, OP_LOST, OP_NODE = range(9)
@@ -74,7 +75,7 @@ def _outage(run: Run, inc: Incident, upto: float):
 def _replicas(run: Run, inc: Incident, upto: float):
     rows = run.rows("state", inc.t1 + lab.AFTER - 1.0, min(inc.t1 + lab.AFTER, upto) + 1e-9)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = in_sync(rows[-1])
     return n, f"{n}/{lab.NODES}"
 
@@ -91,18 +92,18 @@ def in_sync(st: tuple) -> int:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "during", "", _stale_window, _stale, lambda v: v is not None and v <= lab.STALE_MAX,
+    GoalSpec("", "during", "", _stale_window, _stale, at_most(lab.STALE_MAX),
              doomed=lambda run, inc, upto: _stale(run, inc, upto)[0] > lab.STALE_MAX,
              settle_extra=lab.SETTLE, key="stale"),
-    GoalSpec("", "during", "", _after, _lost, lambda v: v is not None and v <= lab.LOST_MAX,
+    GoalSpec("", "during", "", _after, _lost, at_most(lab.LOST_MAX),
              doomed=lambda run, inc, upto: _lost(run, inc, upto)[0] > lab.LOST_MAX,
              settle_extra=lab.SETTLE, key="lost"),
-    GoalSpec("", "during", "", _after, _outage, lambda v: v is not None and v <= lab.OUTAGE_MAX,
+    GoalSpec("", "during", "", _after, _outage, at_most(lab.OUTAGE_MAX),
              doomed=lambda run, inc, upto: _outage(run, inc, upto)[0] > lab.OUTAGE_MAX,
              settle_extra=lab.SETTLE, key="outage"),
     GoalSpec("", "after", "", lambda i: (i.t1, i.t1 + lab.AFTER), _replicas,
-             lambda v: v is not None and v >= lab.NODES, settle_extra=0.5, key="replicas"),
-    GoalSpec("", "before", "", _before, _p99_goal, lambda v: v is not None and v <= lab.P99_MAX,
+             at_least(lab.NODES), settle_extra=0.5, key="replicas"),
+    GoalSpec("", "before", "", _before, _p99_goal, at_most(lab.P99_MAX),
              settle_extra=lab.SETTLE, key="p99"),
 ]
 
@@ -149,9 +150,6 @@ class ChainWorld(World):
         for r in tables["lost"]:
             run.add("lost", r[LOST_T])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def node_name(self, inc: Incident) -> str:
         return f"n{self.victims.get(inc.t0, 1)}"
 
@@ -190,12 +188,6 @@ class ChainWorld(World):
             return None
         rows = run.rows("state", t - 1.0, t + 1e-9)
         return rows[-1] if rows else None
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def situation(self, variant: str, t: float, short: bool = False) -> tuple[str, tuple[int, int, int]]:
         """What the chain is going through right now, in a phrase (a word or two with `short`), and its

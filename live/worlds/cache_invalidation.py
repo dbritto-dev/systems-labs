@@ -6,7 +6,9 @@ from core.i18n import strings
 from labs.cache_invalidation import lab
 from labs.cache_invalidation.scenario import PHANTOM, STALE
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, IDLE_DOT, MUTED, RED, WHITE
-from live.worlds.base import GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, baseline_window, history,
+)
 from live.worlds.base import Bar
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -23,8 +25,7 @@ _s = strings("cache_invalidation")  # one of the lab's STRINGS, for the goal mea
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -45,7 +46,7 @@ def _hits(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     done = _ended(run, a, b, upto)
     if not done:
-        return None, "–"
+        return NO_VALUE
     v = sum(not r[R_MISSED] for r in done) / len(done)
     return v, f"{v:.0%}"
 
@@ -54,7 +55,7 @@ def _counter(verdict: int):
     def measure(run: Run, inc: Incident, upto: float):
         done = _ended(run, *_during(inc), upto)
         if not done:
-            return None, "–"
+            return NO_VALUE
         n = sum(r[R_VERDICT] == verdict for r in done)
         return n, _s("count", n=n)
 
@@ -76,7 +77,7 @@ def _audits(run: Run, inc: Incident, upto: float) -> list[tuple]:
 def _entries(run: Run, inc: Incident, upto: float):
     rows = _audits(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = max(x[A_STALE] for x in rows)
     return n, _s("count", n=n)
 
@@ -88,7 +89,7 @@ def _doomed_entries(run: Run, inc: Incident, upto: float) -> bool:
 def _db(run: Run, inc: Incident, upto: float):
     rows = _audits(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     n = max(x[A_DB] for x in rows)
     return n, _s("per_s", n=n)
 
@@ -99,14 +100,14 @@ def _doomed_db(run: Run, inc: Incident, upto: float) -> bool:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _hits, lambda v: v is not None and v >= lab.HIT_MIN, key="hits"),
+    GoalSpec("", "before", "", _before, _hits, at_least(lab.HIT_MIN), key="hits"),
     GoalSpec("", "during", "", _during, _phantom, lambda v: v == 0,
              doomed=_doomed_phantom, settle_extra=lab.SETTLE, key="phantom"),
     GoalSpec("", "during", "", _during, _stale, lambda v: v == 0,
              doomed=_doomed_stale, settle_extra=lab.SETTLE, key="stale"),
     GoalSpec("", "after", "", _checked, _entries, lambda v: v == 0,
              doomed=_doomed_entries, settle_extra=1.0, key="entries"),
-    GoalSpec("", "during", "", _checked, _db, lambda v: v is not None and v <= lab.DB_LIMIT,
+    GoalSpec("", "during", "", _checked, _db, at_most(lab.DB_LIMIT),
              doomed=_doomed_db, settle_extra=1.0, key="db"),
 ]
 
@@ -144,9 +145,6 @@ class CacheInvalidationWorld(World):
             run.add("written" if w[W_OK] else "refused", w[W_END])
         for x in tables["audit"]:
             run.add("dbreads", x[A_T] - 0.5, x[A_DB])  # the second that ended at x[A_T]
-
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")

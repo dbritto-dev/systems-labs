@@ -6,7 +6,7 @@ from __future__ import annotations
 from labs.keyset_pagination import lab
 from labs.keyset_pagination.api import WORKERS
 from labs.keyset_pagination.scenario import APIS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, DIM, EXTRA, EXTRA2, GREEN, PURPLE, RED
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -40,12 +40,8 @@ def _outcomes(w, run, t: float) -> list:
     """Pages fading at the door: wrong ones first, so a few among many still show."""
     from live.worlds.keyset_pagination import P_END, page_colour
 
-    ended = w.ended(run, t - BACK, t + 1e-9)
-    bad = [p for p in ended if page_colour(p) != GREEN]
-    shown = every(bad, OUTCOMES)
-    if len(shown) < OUTCOMES:
-        shown += every([p for p in ended if page_colour(p) == GREEN], OUTCOMES - len(shown))
-    return [(page_colour(p), (t - p[P_END]) / BACK) for p in shown]
+    return user_outcomes(w.ended(run, t - BACK, t + 1e-9), t, P_END, page_colour,
+                         rare=lambda p: page_colour(p) != GREEN)
 
 
 @adapts("keyset_pagination", "lanes")
@@ -63,9 +59,9 @@ class KeysetPaginationLanes(LaneAdapter):
         if run is None:
             return LaneFrame()
         found = {slot(p[P_ID], users): (cost_colour(p[P_READ]), True) for p in run.active("pages", t, P_END)}
-        flying = run.rows("pages", t - FLY, t + 1e-9)
-        flights = [(slot(p[P_ID], users), (t - p[P_START]) / FLY, cost_colour(p[P_READ]),
-                    p[P_READ] > lab.BUCKETS[-1]) for p in every(flying, FLIGHTS)]
+        flying = just_sent(run, "pages", t)
+        flights = user_flights(every(flying, FLIGHTS), t, P_START,
+                               lambda p: (slot(p[P_ID], users), cost_colour(p[P_READ]), p[P_READ] > lab.BUCKETS[-1]))
         state, last, busy = _state(w, run, variant, t)
         wrong = state[1] in (RED, PURPLE)
         return LaneFrame(
@@ -106,7 +102,7 @@ class KeysetPaginationCluster(ClusterAdapter):
         worker_of = {q[Q_PAGE]: q[Q_WORKER] for q in run.rows("queries", t - FLY - span - 1, t + 1e-9)}
 
         flights = []
-        for p in every(run.rows("pages", t - FLY, t + 1e-9), FLIGHTS):
+        for p in every(just_sent(run, "pages", t), FLIGHTS):
             f = (t - p[P_START]) / FLY
             colour = cost_colour(p[P_READ])
             if f < 0.5:  # into its API server

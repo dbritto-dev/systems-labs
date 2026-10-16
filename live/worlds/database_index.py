@@ -7,7 +7,8 @@ from labs.database_index import lab
 from labs.database_index.scenario import INSERT, LOOKUP, RANGE
 from live.canvas import BLUE, EXTRA, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, fmt_int, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, below, fmt_int, fmt_ms,
+    history, percentile,
 )
 
 INCIDENT_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
@@ -52,7 +53,7 @@ def _lookups(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = _ran(run, LOOKUP, a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(q[Q_READ] for q in rows) / len(rows)
     return v, rows_text(v)
 
@@ -62,7 +63,7 @@ def _ranges(run: Run, inc: Incident, upto: float):
     a, b = _before(inc)
     rows = _ran(run, RANGE, a, min(b, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(q[Q_READ] for q in rows) / sum(max(1, q[Q_RET]) for q in rows)
     return v, ratio_text(v)
 
@@ -75,7 +76,7 @@ def _ended(run: Run, inc: Incident, upto: float) -> list[tuple]:
 def _p99(run: Run, inc: Incident, upto: float):
     rows = _ended(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = percentile([_latency(q) for q in rows], 99)
     return v, _s("timeouts") if v == float("inf") else fmt_ms(v)
 
@@ -83,21 +84,17 @@ def _p99(run: Run, inc: Incident, upto: float):
 def _answered(run: Run, inc: Incident, upto: float):
     rows = _ended(run, inc, upto)
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(q[Q_OK] for q in rows) / len(rows)
     return v, f"{v:.0%}" if v < 0.995 or v == 1 else f"{v:.1%}"
 
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _lookups,
-             lambda v: v is not None and v <= lab.LOOKUP_MAX, key="lookups"),
-    GoalSpec("", "before", "", _before, _ranges,
-             lambda v: v is not None and v <= lab.RANGE_MAX, key="ranges"),
-    GoalSpec("", "during", "", _during, _p99,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=lab.SETTLE, key="p99"),
-    GoalSpec("", "during", "", _during, _answered,
-             lambda v: v is not None and v >= lab.ANSWERED_MIN, settle_extra=lab.SETTLE, key="answered"),
+    GoalSpec("", "before", "", _before, _lookups, at_most(lab.LOOKUP_MAX), key="lookups"),
+    GoalSpec("", "before", "", _before, _ranges, at_most(lab.RANGE_MAX), key="ranges"),
+    GoalSpec("", "during", "", _during, _p99, below(lab.P99_MAX), settle_extra=lab.SETTLE, key="p99"),
+    GoalSpec("", "during", "", _during, _answered, at_least(lab.ANSWERED_MIN), settle_extra=lab.SETTLE, key="answered"),
 ]
 
 
@@ -143,9 +140,6 @@ class DbIndexWorld(World):
         for t, n in tables["size"]:
             run.add("size", t, n)
 
-    def judge_stage(self, run: Run, first) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def _p99_second(self, run: Run, s: int) -> float | None:
         span = run.max_dur.get("queries", 0.0)
         return percentile([_latency(q) for q in run.rows("queries", s - span - 1, s + 1) if s <= q[Q_END] < s + 1],
@@ -172,12 +166,6 @@ class DbIndexWorld(World):
         if not start:
             return self.s("end")
         return self.s(f"start_{inc.kind}", rows=inc.severity, x=inc.severity, cause=self.cause(inc))
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def size_at(self, run: Run, t: float) -> int:
         s = max(0, int(t) - 1)

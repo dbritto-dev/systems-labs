@@ -5,7 +5,9 @@ from __future__ import annotations
 
 from labs.caching import lab as cache_lab
 from labs.caching.scenario import HIT
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, rare_rows_first, user_flights, user_outcomes,
+)
 from live.canvas import BLUE, EXTRA2, EXTRA3, GREEN, RED
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -32,12 +34,11 @@ class CacheLanes(LaneAdapter):
         found = {slot(p[PAGE_ID], users): (KIND_COLOUR[p[PAGE_KIND]], True)
                  for p in run.active("pages", t, PAGE_END)}
 
-        flying = run.rows("reads", t - FLY, t + 1e-9)
-        flights = [(slot(r[READ_PAGE], users), (t - r[READ_START]) / FLY, KIND_COLOUR[r[READ_KIND]],
-                    r[READ_KIND] != HIT) for r in every(flying, FLIGHTS)]
-        ended = [r for r in run.rows("reads", t - BACK - run.max_dur.get("reads", 0.0), t + 1e-9)
-                 if t - BACK <= r[READ_END] <= t]
-        outcomes = [(GREEN if r[READ_OK] else RED, (t - r[READ_END]) / BACK) for r in every(ended, OUTCOMES)]
+        flying = just_sent(run, "reads", t)
+        flights = user_flights(every(flying, FLIGHTS), t, READ_START,
+                               lambda r: (slot(r[READ_PAGE], users), KIND_COLOUR[r[READ_KIND]], r[READ_KIND] != HIT))
+        ended = just_ended(run, "reads", READ_END, t)
+        outcomes = user_outcomes(ended, t, READ_END, lambda r: GREEN if r[READ_OK] else RED)
 
         inflight, queued = w.db_state(run, t)
         rejected = any(not d[5] for d in run.rows("db", t - 1, t))
@@ -70,15 +71,14 @@ class CacheCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = []
-        for r in every(run.rows("reads", t - FLY, t + 1e-9), FLIGHTS):
+        for r in every(just_sent(run, "reads", t), FLIGHTS):
             p = (t - r[READ_START]) / FLY
             colour = KIND_COLOUR[r[READ_KIND]]
             if p < 0.5:  # into the app
                 flights.append((-1, 0, p * 2, colour))
             else:  # then to the cache (a hit) or the database (a miss)
                 flights.append((0, 1 if r[READ_KIND] == HIT else 2, (p - 0.5) * 2, colour))
-        ended = [r for r in run.rows("reads", t - BACK - run.max_dur.get("reads", 0.0), t + 1e-9)
-                 if t - BACK <= r[READ_END] <= t and not r[READ_OK]]
+        ended = [r for r in just_ended(run, "reads", READ_END, t) if not r[READ_OK]]
         drops = [(0, 2, (t - r[READ_END]) / BACK) for r in every(ended, OUTCOMES)]
         inflight, queued = w.db_state(run, t)
         rejected = any(not d[5] for d in run.rows("db", t - 1, t))
@@ -121,10 +121,9 @@ class CacheRelay(RelayAdapter):
 
         # One database read in LOAD_SAMPLE is drawn (the same ones from frame to frame), so the line is as
         # busy as the database: a few dots in calm times, a swarm in a stampede.
-        loads = [d for d in run.rows("db", t - FLY, t + 1e-9)
+        loads = [d for d in just_sent(run, "db", t)
                  if slot(d[DB_PAGE] * 7919 + d[DB_KEY], LOAD_SAMPLE) == 0]
-        rare = every([d for d in loads if d[DB_DUP] or not d[DB_OK]], LOAD_DOTS // 2)
-        shown = rare + every([d for d in loads if d[DB_OK] and not d[DB_DUP]], LOAD_DOTS - len(rare))
+        shown = rare_rows_first(loads, lambda d: d[DB_DUP] or not d[DB_OK], LOAD_DOTS, LOAD_DOTS // 2)
         hops = []
         for d in shown:
             k = (t - d[DB_QUEUED]) / FLY

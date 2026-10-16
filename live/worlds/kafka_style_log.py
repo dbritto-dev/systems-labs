@@ -7,7 +7,7 @@ from labs.kafka_style_log import lab
 from labs.kafka_style_log.scenario import DUPLICATE, LOST_COMMIT, LOST_WRITE, SEND
 from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PURPLE, RED, WHITE
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, fmt_ms, history, percentile,
+    Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, below, fmt_ms, history, percentile,
 )
 
 OP_START, OP_KIND, OP_NODE, OP_KEY, OP_END, OP_OK, OP_BAD = range(7)
@@ -80,10 +80,8 @@ GOALS = [
     _anomalies(DUPLICATE, "unique", "before"),
     _anomalies(LOST_WRITE, "lost_writes", "during", 1.5),
     _anomalies(LOST_COMMIT, "commits", "after", 1.5),
-    GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs,
-             lambda v: v is not None and v < lab.MSGS_MAX, key="msgs"),
-    GoalSpec("", "during", "", lambda i: (i.t0, i.t1), _p99,
-             lambda v: v is not None and v < lab.P99_MAX, settle_extra=1.5, key="p99"),
+    GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs, below(lab.MSGS_MAX), key="msgs"),
+    GoalSpec("", "during", "", lambda i: (i.t0, i.t1), _p99, below(lab.P99_MAX), settle_extra=1.5, key="p99"),
 ]
 
 
@@ -117,9 +115,6 @@ class KafkaLogWorld(World):
             run.add("anomalies", x[AN_T])
         run.data.setdefault("hot", {}).update(piece.get("hot", {}))
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_title(self, inc: Incident) -> str:
         name = self.s("title_burst" if inc.kind == "burst" else "title_slowkv")
         return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
@@ -148,12 +143,6 @@ class KafkaLogWorld(World):
         slow = next((o[OP_START] for o in run.rows("ops", inc.t0, inc.t1)
                      if o[OP_KIND] == SEND and (not o[OP_OK] or o[OP_END] - o[OP_START] > 3 * lab.P99_MAX)), None)
         return [] if slow is None else [(slow + 0.3, self.s("warn_slow"))]
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     # ---------------------------------------------------------------- panel
 

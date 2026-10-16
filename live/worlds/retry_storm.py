@@ -5,7 +5,9 @@ from __future__ import annotations
 from core.i18n import strings
 from labs.retry_storm import lab
 from live.canvas import BLUE, EXTRA, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, baseline_window, below, history,
+)
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 
@@ -23,8 +25,7 @@ def _ratio(a: float, b: float) -> float | None:
 # ---------------------------------------------------------------- goals
 
 
-def _baseline_window(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_baseline_window = baseline_window(lab)
 
 
 def _baseline(run: Run, inc: Incident, upto: float):
@@ -33,7 +34,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
     ended = [r for r in run.rows("requests", a - run.max_dur.get("requests", 0), b)
              if a <= r[REQ_END] < b]
     if not ended:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OK] for r in ended) / len(ended)
     return v, f"{v:.0%}"
 
@@ -84,7 +85,7 @@ def _backoff(run: Run, inc: Incident, upto: float):
     if not growth:
         n = sum(len(w) for w in rounds.values())
         if n < lab.BACKOFF_SAMPLES:
-            return None, "–"
+            return NO_VALUE
         # Retries, but too few reach a second round to compare (a budget holding them back):
         # nothing piles up in waves, so it passes.
         return lab.BACKOFF_MIN, _s("few")
@@ -101,7 +102,7 @@ def _jitter(run: Run, inc: Incident, upto: float):
     rounds = _waits(run, inc, upto)
     n = sum(len(w) for w in rounds.values())
     if n < lab.JITTER_SAMPLES:
-        return None, "–"
+        return NO_VALUE
     spread = 0.0
     for waits in rounds.values():  # each round on its own, weighted by its size
         mean = sum(waits) / len(waits)
@@ -120,7 +121,7 @@ def _base_rate(run: Run, inc: Incident) -> float:
 def _retries(run: Run, inc: Incident, upto: float):
     rows = run.rows("calls", inc.t0, min(inc.t1, upto))
     if not rows:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in rows if r[CALL_ATTEMPT] > 0) / len(rows)
     return v, f"{v:.0%}"
 
@@ -128,7 +129,7 @@ def _retries(run: Run, inc: Incident, upto: float):
 def _load(run: Run, inc: Incident, upto: float):
     b = min(inc.t1, upto)
     if b <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     base = _base_rate(run, inc)
     v = _ratio(run.count("calls", inc.t0, b) / (b - inc.t0), base)
     return v, "–" if v is None else _s("avg", value=v)
@@ -149,7 +150,7 @@ def _served(run: Run, inc: Incident, upto: float):
     a, b = _after_window(inc)
     started = [r for r in run.rows("requests", a, min(b, upto)) if r[REQ_END] <= upto]
     if not started:
-        return None, "–"
+        return NO_VALUE
     v = sum(r[REQ_OK] for r in started) / len(started)
     return v, f"{v:.0%}"
 
@@ -160,18 +161,12 @@ def _during(inc: Incident) -> tuple[float, float]:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _baseline_window, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, key="baseline"),
-    GoalSpec("", "during", "", _during, _retries,
-             lambda v: v is not None and v >= lab.RETRIES_MIN, key="retries"),
-    GoalSpec("", "during", "", _during, _backoff,
-             lambda v: v is not None and v >= lab.BACKOFF_MIN, key="backoff"),
-    GoalSpec("", "during", "", _during, _jitter,
-             lambda v: v is not None and v >= lab.JITTER_MIN, key="jitter"),
-    GoalSpec("", "during", "", _during, _load,
-             lambda v: v is not None and v < lab.LOAD_MAX, doomed=_load_doomed, key="load"),
-    GoalSpec("", "after", "", _after_window, _served,
-             lambda v: v is not None and v >= lab.SERVED_MIN, settle_extra=6.0, key="served"),
+    GoalSpec("", "before", "", _baseline_window, _baseline, at_least(lab.BASELINE_MIN), key="baseline"),
+    GoalSpec("", "during", "", _during, _retries, at_least(lab.RETRIES_MIN), key="retries"),
+    GoalSpec("", "during", "", _during, _backoff, at_least(lab.BACKOFF_MIN), key="backoff"),
+    GoalSpec("", "during", "", _during, _jitter, at_least(lab.JITTER_MIN), key="jitter"),
+    GoalSpec("", "during", "", _during, _load, below(lab.LOAD_MAX), doomed=_load_doomed, key="load"),
+    GoalSpec("", "after", "", _after_window, _served, at_least(lab.SERVED_MIN), settle_extra=6.0, key="served"),
 ]
 
 
@@ -204,9 +199,6 @@ class RetryStormWorld(World):
             run.add("calls", c[CALL_START])
             run.add("ok" if c[CALL_OK] else "err", c[CALL_END])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def warnings(self, run: Run, inc: Incident):
         base = _base_rate(run, inc)
         for s in range(int(inc.t0), int(inc.t1)):
@@ -223,12 +215,6 @@ class RetryStormWorld(World):
         if inc.kind == "errors":
             return self.s("failing", share=inc.severity, cause=self.cause(inc)) if start else self.s("healthy_again")
         return self.s("down", cause=self.cause(inc)) if start else self.s("back_up")
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def down_at(self, variant: str, t: float) -> bool:
         """In an incident (a full or a partial outage)."""

@@ -5,7 +5,9 @@ between them as marching dots, a deadlock's cycle in red)."""
 from __future__ import annotations
 
 from labs.deadlock_avoidance.scenario import HOT, WORKERS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, SLOW, every
+from live.adapters.common import (
+    FLIGHTS, FLY, SLOW, every, just_ended, just_sent, rare_rows_first, user_flights, user_outcomes,
+)
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -53,16 +55,12 @@ class DeadlockAvoidanceLanes(LaneAdapter):
         if run is None:
             return LaneFrame()
         found = {slot(r[T_ID], users): (_wait_colour(t - r[T_START]), True) for r in run.active("transfers", t, T_END)}
-        flying = run.rows("transfers", t - FLY, t + 1e-9)
-        retried = [r for r in flying if r[T_TRIES] > 1]
-        shown = every(retried, FLIGHTS // 2) + every([r for r in flying if r[T_TRIES] <= 1], FLIGHTS - min(len(retried), FLIGHTS // 2))
-        flights = [(slot(r[T_ID], users), (t - r[T_START]) / FLY, tries_colour(r[T_TRIES]), r[T_TRIES] > 1)
-                   for r in shown]
-        span = run.max_dur.get("transfers", 0.0)
-        ended = [r for r in run.rows("transfers", t - BACK - span, t + 1e-9) if t - BACK <= r[T_END] <= t]
-        bad = every([r for r in ended if not r[T_OK]], OUTCOMES)
-        back = bad + every([r for r in ended if r[T_OK]], OUTCOMES - len(bad))
-        outcomes = [(GREEN if r[T_OK] else RED, (t - r[T_END]) / BACK) for r in back]
+        flying = just_sent(run, "transfers", t)
+        shown = rare_rows_first(flying, lambda r: r[T_TRIES] > 1, FLIGHTS, FLIGHTS // 2)
+        flights = user_flights(shown, t, T_START,
+                               lambda r: (slot(r[T_ID], users), tries_colour(r[T_TRIES]), r[T_TRIES] > 1))
+        ended = just_ended(run, "transfers", T_END, t)
+        outcomes = user_outcomes(ended, t, T_END, lambda r: GREEN if r[T_OK] else RED, rare=lambda r: not r[T_OK])
 
         state, sample = _state(w, run, variant, t)
         busy = sample[S_BUSY] if sample else 0

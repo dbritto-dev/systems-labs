@@ -6,7 +6,9 @@ slots are dim) and relay (users → the door → the load balancer → the fleet
 from __future__ import annotations
 
 from labs.autoscaling.scenario import BOOTING, EMPTY, MAX_INSTANCES, WARM_STATE, WARMING, WORKERS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, op_id
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, client_lanes, every, just_ended, just_sent, op_id, rare_rows_first,
+)
 from live.canvas import BLUE, EXTRA2, GREEN, RED, RGB, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -31,8 +33,7 @@ def _timeouts(run, t: float) -> list[tuple]:
     """Requests that failed in the last BACK seconds."""
     from live.worlds.autoscaling import REQ_END, REQ_OK
 
-    span = run.max_dur.get("requests", 0.0)
-    return [r for r in run.rows("requests", t - BACK - span, t + 1e-9) if t - BACK <= r[REQ_END] <= t and not r[REQ_OK]]
+    return [r for r in just_ended(run, "requests", REQ_END, t) if not r[REQ_OK]]
 
 
 def _state(w, failing: bool, overloaded: bool, booting: int) -> tuple[str, RGB]:
@@ -103,7 +104,7 @@ class AutoscalingCluster(ClusterAdapter):
         else:
             nodes = [SHORT_C if state != BOOTING and load >= OVERLOADED else colours[state]
                      for state, load in zip(sample[S_STATES], sample[S_LOADS])]
-        flying = [r for r in run.rows("requests", t - FLY, t + 1e-9) if r[REQ_SLOT] >= 0]
+        flying = [r for r in just_sent(run, "requests", t) if r[REQ_SLOT] >= 0]
         flights = [(-1, r[REQ_SLOT], (t - r[REQ_START]) / FLY, WHITE) for r in every(flying, 2 * FLIGHTS)]
         failed = _timeouts(run, t)
         drops = [(-1, max(0, r[REQ_SLOT]), (t - r[REQ_END]) / BACK) for r in every(failed, OUTCOMES)]
@@ -135,9 +136,8 @@ class AutoscalingRelay(RelayAdapter):
         lane = AutoscalingLanes(w).frame(variant, t, users)  # users, outcomes and the door
         n, booting, warming, need, overloaded, sample = _fleet(w, run, t)
         states = sample[S_STATES] if sample is not None else ()
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        shown = every([r for r in flying if not r[REQ_OK]], FLIGHTS // 2)
-        shown += every([r for r in flying if r[REQ_OK]], FLIGHTS - len(shown))
+        flying = just_sent(run, "requests", t)
+        shown = rare_rows_first(flying, lambda r: not r[REQ_OK], FLIGHTS, FLIGHTS // 2)
         flights, hops = [], []  # the first half of the way: user → door; the second: balancer → instance
         for r in shown:
             p = (t - r[REQ_START]) / FLY

@@ -9,7 +9,9 @@ from core.i18n import strings
 from labs.failure_detection import lab
 from labs.failure_detection.scenario import DEAD, FAILED, SUSPECT
 from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, ORANGE, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_most, below, history,
+)
 
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED, MSG_INDIRECT = range(5)
 VIEW_T, VIEW_MARKS, VIEW_CRASHED = range(3)
@@ -72,7 +74,7 @@ def _detect(run: Run, inc: Incident, upto: float):
         return v, f"{v:.1f}s"
     if upto >= inc.t1:
         return INF, _s("never")
-    return None, "–"
+    return NO_VALUE
 
 
 def _detect_doomed(run: Run, inc: Incident, upto: float) -> bool:
@@ -92,13 +94,13 @@ def _msgs(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "during", "", _detect_window, _detect, lambda v: v is not None and v <= lab.DETECT_MAX,
+    GoalSpec("", "during", "", _detect_window, _detect, at_most(lab.DETECT_MAX),
              doomed=_detect_doomed, settle_extra=0.5, key="detect"),
-    GoalSpec("", "during", "", _false_window, _false_deaths, lambda v: v is not None and v <= lab.FALSE_MAX,
+    GoalSpec("", "during", "", _false_window, _false_deaths, at_most(lab.FALSE_MAX),
              doomed=lambda run, inc, upto: _false_deaths(run, inc, upto)[0] > lab.FALSE_MAX,
              settle_extra=0.5, key="false"),
     GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs,
-             lambda v: v is not None and v < lab.MSGS_MAX, settle_extra=1.0, key="msgs"),
+             below(lab.MSGS_MAX), settle_extra=1.0, key="msgs"),
 ]
 
 
@@ -147,17 +149,8 @@ class FailureWorld(World):
             if d[DEATH_FALSE]:
                 run.add("false", d[DEATH_T])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def node_name(self, inc: Incident) -> str:
         return name(self.victims.get(inc.t0, 0))
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         words = {"crash": ("crash", "back"), "slow": ("slow", "fast"), "lossy": ("lossy", "clean"),

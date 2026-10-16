@@ -9,7 +9,7 @@ from labs.two_phase_commit.scenario import (
     ABORTED, COMMITTED, M_ABORT, M_ACK, M_ANSWER, M_ASK, M_COMMIT, M_NO, M_PREPARE, M_TRANSFER, M_WRITE,
     M_YES, PARTIAL,
 )
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import FLIGHTS, FLY, every, just_ended, just_sent, user_flights, user_outcomes
 from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -63,7 +63,7 @@ class TwoPhaseCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights, drops = [], []
-        for m in every([m for m in run.rows("msgs", t - FLY, t + 1e-9) if m[MSG_KIND] != M_ACK], MAX_FLIGHTS):
+        for m in every([m for m in just_sent(run, "msgs", t) if m[MSG_KIND] != M_ACK], MAX_FLIGHTS):
             p = (t - m[MSG_SENT]) / FLY
             if m[MSG_ARRIVED] is None:  # lost: it never arrives
                 if p < 0.5:
@@ -120,19 +120,14 @@ class TwoPhaseLanes(LaneAdapter):
 
         found = {slot(r[TX_ID], users): (EXTRA2 if in_doubt(r) else WHITE, True)
                  for r in run.active("txns", t, TX_CEND)}
-        flights = [(slot(r[TX_ID], users), (t - r[TX_START]) / FLY, WHITE, False)
-                   for r in every(run.rows("txns", t - FLY, t + 1e-9), FLIGHTS)]
-        span = run.max_dur.get("txns", 0.0)
-        ended = [r for r in run.rows("txns", t - BACK - span, t + 1e-9) if t - BACK <= r[TX_CEND] <= t]
-        bad = [r for r in ended if r[TX_STATUS] == PARTIAL]
-        shown = every(bad, OUTCOMES)
-        if len(shown) < OUTCOMES:
-            shown += every([r for r in ended if r[TX_STATUS] != PARTIAL], OUTCOMES - len(shown))
+        flights = user_flights(every(just_sent(run, "txns", t), FLIGHTS), t, TX_START,
+                               lambda r: (slot(r[TX_ID], users), WHITE, False))
+        ended = just_ended(run, "txns", TX_CEND, t)
 
         def colour(r):
             return {COMMITTED: GREEN, ABORTED: MUTED, PARTIAL: RED}.get(r[TX_STATUS], EXTRA2)
 
-        outcomes = [(colour(r), (t - r[TX_CEND]) / BACK) for r in shown]
+        outcomes = user_outcomes(ended, t, TX_CEND, colour, rare=lambda r: r[TX_STATUS] == PARTIAL)
         partial = bool(w.recent_partials(run, t, RECENT))
         st = w.state_at(variant, t)
         down = bool(st and st[ST_DOWN] & 1)
@@ -168,7 +163,7 @@ class TwoPhaseFanout(FanoutAdapter):
             return FanoutFrame()
         lane = TwoPhaseLanes(w).frame(variant, t, users)  # the users, the door and the outcomes, as in lanes
         hops = []
-        msgs = [m for m in run.rows("msgs", t - FLY, t + 1e-9)
+        msgs = [m for m in just_sent(run, "msgs", t)
                 if m[MSG_KIND] != M_ACK and 0 in (m[MSG_SRC], m[MSG_DEST]) and max(m[MSG_SRC], m[MSG_DEST]) > 0]
         for m in every(msgs, MAX_FLIGHTS):
             p = (t - m[MSG_SENT]) / FLY

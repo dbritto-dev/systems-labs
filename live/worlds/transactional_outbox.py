@@ -8,7 +8,10 @@ from labs.transactional_outbox.scenario import (
     AGAIN, DROPPED, GHOST, PHANTOM, POD, REBALANCED, RELAY_ONLY, SHIPPED, SKIPPED,
 )
 from live.canvas import BLUE, EXTRA1, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history, percentile
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, baseline_window, below, history,
+    percentile,
+)
 
 DOWN_KEY = (110, 44, 56)  # the legend swatch for the shaded incidents
 INF = float("inf")
@@ -27,8 +30,7 @@ _s = strings("transactional_outbox")  # one of the lab's STRINGS, for the goal m
 # ---------------------------------------------------------------- goals
 
 
-def _before(inc: Incident) -> tuple[float, float]:
-    return inc.t0 - lab.BASELINE_WINDOW, inc.t0
+_before = baseline_window(lab)
 
 
 def _during(inc: Incident) -> tuple[float, float]:
@@ -55,7 +57,7 @@ def _shipped(o: tuple, upto: float) -> bool:
 def _baseline(run: Run, inc: Incident, upto: float):
     saved = _saved(run, *_before(inc), upto)
     if not saved:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for o in saved if _shipped(o, upto)) / len(saved)
     return v, f"{v:.0%}"
 
@@ -63,7 +65,7 @@ def _baseline(run: Run, inc: Incident, upto: float):
 def _lost(run: Run, inc: Incident, upto: float):
     saved = _saved(run, *_during(inc), upto)
     if not saved:
-        return None, "–"
+        return NO_VALUE
     n = sum(1 for o in saved if not _shipped(o, upto))
     final = upto >= inc.t1 + lab.SETTLE
     return n, (_s("count", n=n) if final or not n else _s("on_the_way", n=n))
@@ -81,7 +83,7 @@ def _phantoms(run: Run, a: float, b: float, upto: float) -> int:
 
 def _phantom(run: Run, inc: Incident, upto: float):
     if upto <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     n = _phantoms(run, *_during(inc), upto)
     return n, _s("count", n=n)
 
@@ -96,7 +98,7 @@ def _dups(run: Run, a: float, b: float, upto: float) -> int:
 
 def _dup(run: Run, inc: Incident, upto: float):
     if upto <= inc.t0:
-        return None, "–"
+        return NO_VALUE
     n = _dups(run, *_dup_window(inc), upto)
     return n, _s("count", n=n)
 
@@ -108,7 +110,7 @@ def _doomed_dup(run: Run, inc: Incident, upto: float) -> bool:
 def _lag(run: Run, inc: Incident, upto: float):
     saved = _saved(run, *_after(inc), upto)
     if not saved:
-        return None, "–"
+        return NO_VALUE
     times = [(o[O_FIRST] if _shipped(o, upto) else upto) - o[O_COMMIT] for o in saved]
     v = percentile(times, 99)
     return v, "∞" if v == INF else f"{v:.1f}s"
@@ -116,16 +118,14 @@ def _lag(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _baseline,
-             lambda v: v is not None and v >= lab.BASELINE_MIN, settle_extra=lab.SETTLE, key="baseline"),
+    GoalSpec("", "before", "", _before, _baseline, at_least(lab.BASELINE_MIN), settle_extra=lab.SETTLE, key="baseline"),
     GoalSpec("", "during", "", _during, _lost, lambda v: v == 0,
              doomed=_doomed_lost, settle_extra=lab.SETTLE, key="lost"),
     GoalSpec("", "during", "", _during, _phantom, lambda v: v == 0,
              doomed=_doomed_phantom, settle_extra=lab.SETTLE, key="phantom"),
     GoalSpec("", "during", "", _dup_window, _dup, lambda v: v == 0,
              doomed=_doomed_dup, settle_extra=lab.SETTLE, key="dup"),
-    GoalSpec("", "after", "", _after, _lag,
-             lambda v: v is not None and v < lab.LAG_MAX, settle_extra=lab.SETTLE, key="lag"),
+    GoalSpec("", "after", "", _after, _lag, below(lab.LAG_MAX), settle_extra=lab.SETTLE, key="lag"),
 ]
 
 
@@ -168,9 +168,6 @@ class OutboxWorld(World):
         for d in tables["deliveries"]:
             run.add(names[d[D_KIND]], d[D_T])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_verb(self, inc: Incident, start: bool) -> str:
         return self.word(inc.kind if start else "calm")
 
@@ -189,12 +186,6 @@ class OutboxWorld(World):
         if twice:
             out.append((inc.t1, self.s("warn_twice", n=twice)))
         return out
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     # ---------------------------------------------------------------- what the pictures share
 

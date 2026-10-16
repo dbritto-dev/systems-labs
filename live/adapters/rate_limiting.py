@@ -4,7 +4,9 @@ cluster (clients -> limiter -> backend) and relay (users -> the door -> the gate
 from __future__ import annotations
 
 from labs.rate_limiting.scenario import FAILED, LIMITED, QUEUE, SERVED, WORKERS
-from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every
+from live.adapters.common import (
+    BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, rare_rows_first, user_flights, user_outcomes,
+)
 from live.canvas import BLUE, EXTRA2, EXTRA3, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
@@ -26,13 +28,12 @@ class RateLimitLanes(LaneAdapter):
         found = {slot(r[REQ_ID], users): (EXTRA2 if r[REQ_FLOOD] else WHITE, True)
                  for r in run.active("requests", t, REQ_END) if r[REQ_OUTCOME] != LIMITED}
 
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        flights = [(slot(r[REQ_ID], users), (t - r[REQ_START]) / FLY, EXTRA2 if r[REQ_FLOOD] else WHITE,
-                    bool(r[REQ_FLOOD])) for r in every(flying, FLIGHTS)]
-        ended = [r for r in run.rows("requests", t - BACK - run.max_dur.get("requests", 0.0), t + 1e-9)
-                 if t - BACK <= r[REQ_END] <= t]
+        flying = just_sent(run, "requests", t)
+        flights = user_flights(every(flying, FLIGHTS), t, REQ_START, lambda r: (
+            slot(r[REQ_ID], users), EXTRA2 if r[REQ_FLOOD] else WHITE, bool(r[REQ_FLOOD])))
+        ended = just_ended(run, "requests", REQ_END, t)
         colour = {SERVED: GREEN, LIMITED: EXTRA3, FAILED: RED}
-        outcomes = [(colour[r[REQ_OUTCOME]], (t - r[REQ_END]) / BACK) for r in every(ended, OUTCOMES)]
+        outcomes = user_outcomes(ended, t, REQ_END, lambda r: colour[r[REQ_OUTCOME]])
 
         last = run.rows("requests", t - 1, t)
         limited = sum(1 for r in last if r[REQ_OUTCOME] == LIMITED)
@@ -67,9 +68,8 @@ class RateLimitCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         flights = []
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        shown = every([r for r in flying if r[REQ_OUTCOME] == FAILED], FLIGHTS // 3)  # the 503s first
-        shown += every([r for r in flying if r[REQ_OUTCOME] != FAILED], FLIGHTS - len(shown))
+        flying = just_sent(run, "requests", t)
+        shown = rare_rows_first(flying, lambda r: r[REQ_OUTCOME] == FAILED, FLIGHTS, FLIGHTS // 3)  # the 503s first
         for r in shown:
             p = (t - r[REQ_START]) / FLY
             colour = EXTRA2 if r[REQ_FLOOD] else WHITE
@@ -77,8 +77,7 @@ class RateLimitCluster(ClusterAdapter):
                 flights.append((-1, 0, p * 2, colour))
             elif r[REQ_OUTCOME] != LIMITED:  # let through
                 flights.append((0, 1, (p - 0.5) * 2, colour))
-        ended = [r for r in run.rows("requests", t - BACK - run.max_dur.get("requests", 0.0), t + 1e-9)
-                 if t - BACK <= r[REQ_END] <= t and r[REQ_OUTCOME] in (LIMITED, FAILED)]
+        ended = [r for r in just_ended(run, "requests", REQ_END, t) if r[REQ_OUTCOME] in (LIMITED, FAILED)]
         drops = [((-1, 0) if r[REQ_OUTCOME] == LIMITED else (0, 1)) + ((t - r[REQ_END]) / BACK,)
                  for r in every(ended, OUTCOMES)]
         last = run.rows("requests", t - 1, t)
@@ -118,9 +117,8 @@ class RateLimitRelay(RelayAdapter):
             return RelayFrame()
         lane = RateLimitLanes(w).frame(variant, t, users)  # users, outcomes and the backend
         flights, hops = [], []  # the first half of the way: user → door; the second: gateway → API server
-        flying = run.rows("requests", t - FLY, t + 1e-9)
-        shown = every([r for r in flying if r[REQ_OUTCOME] == FAILED], FLIGHTS // 3)  # the 503s first
-        shown += every([r for r in flying if r[REQ_OUTCOME] != FAILED], FLIGHTS - len(shown))
+        flying = just_sent(run, "requests", t)
+        shown = rare_rows_first(flying, lambda r: r[REQ_OUTCOME] == FAILED, FLIGHTS, FLIGHTS // 3)  # the 503s first
         for r in shown:
             p = (t - r[REQ_START]) / FLY
             colour = EXTRA2 if r[REQ_FLOOD] else WHITE

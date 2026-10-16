@@ -6,7 +6,9 @@ from core.i18n import strings
 from labs.grow_only_counter import lab
 from labs.grow_only_counter.scenario import ADD, CLIENT_TIMEOUT, KV_REQ, READ
 from live.canvas import BLUE, EXTRA2, EXTRA3, GREEN, MUTED, PURPLE, RED, WHITE
-from live.worlds.base import Bar, GoalSpec, Incident, Run, Settled, Table, Tile, Traffic, World, history
+from live.worlds.base import (
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, above, at_least, below, history,
+)
 
 _s = strings("grow_only_counter")  # one of the lab's STRINGS, for the goal measures below
 
@@ -29,7 +31,7 @@ def _reads(run: Run, a: float, b: float, upto: float) -> list[tuple]:
 
 def _share_right(reads: list[tuple]):
     if not reads:
-        return None, "–"
+        return NO_VALUE
     v = sum(right(r) for r in reads) / len(reads)
     return v, f"{v:.0%}"
 
@@ -59,7 +61,7 @@ def _right_before(run: Run, inc: Incident, upto: float):
 def _conflicts(run: Run, inc: Incident, upto: float):
     rows = run.rows("cas", inc.t0, min(inc.t1, upto))
     if not rows:
-        return (0.0, "0%") if upto > inc.t0 else (None, "–")
+        return (0.0, "0%") if upto > inc.t0 else NO_VALUE
     v = sum(1 for c in rows if not c[CAS_OK]) / len(rows)
     return v, f"{v:.0%}"
 
@@ -67,7 +69,7 @@ def _conflicts(run: Run, inc: Incident, upto: float):
 def _answered(run: Run, inc: Incident, upto: float):
     adds = [r for r in run.rows("ops", inc.t0, min(inc.t1, upto)) if r[OP_KIND] == ADD and r[OP_END] <= upto]
     if not adds:
-        return None, "–"
+        return NO_VALUE
     v = sum(1 for r in adds if r[OP_OK]) / len(adds)
     return v, f"{v:.0%}"
 
@@ -83,15 +85,15 @@ def _during(inc: Incident) -> tuple[float, float]:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    GoalSpec("", "before", "", _before, _stored, lambda v: v is not None and v > 0,
+    GoalSpec("", "before", "", _before, _stored, above(0),
              settle_extra=lab.BEFORE[1], key="stored"),
-    GoalSpec("", "before", "", _before, _right_before, lambda v: v is not None and v >= lab.RIGHT_MIN,
+    GoalSpec("", "before", "", _before, _right_before, at_least(lab.RIGHT_MIN),
              settle_extra=lab.BEFORE[1], key="right"),
-    GoalSpec("", "during", "", _during, _conflicts, lambda v: v is not None and v < lab.CONFLICTS_MAX,
+    GoalSpec("", "during", "", _during, _conflicts, below(lab.CONFLICTS_MAX),
              key="conflicts"),
-    GoalSpec("", "during", "", _during, _answered, lambda v: v is not None and v >= lab.ANSWERED_MIN,
+    GoalSpec("", "during", "", _during, _answered, at_least(lab.ANSWERED_MIN),
              settle_extra=CLIENT_TIMEOUT + 0.5, key="answered"),
-    GoalSpec("", "after", "", _after, _right_after, lambda v: v is not None and v >= lab.RIGHT_MIN,
+    GoalSpec("", "after", "", _after, _right_after, at_least(lab.RIGHT_MIN),
              settle_extra=1.5, key="after"),
 ]
 
@@ -129,9 +131,6 @@ class GCounterWorld(World):
             if not c[CAS_OK]:
                 run.add("conflicts", c[CAS_T])
 
-    def judge_stage(self, run: Run, first: list[Settled]) -> int:
-        return lab.stage_of(*(r.ok for r in first))
-
     def incident_title(self, inc: Incident) -> str:
         name = self.s("title_burst" if inc.kind == "burst" else "title_slow")
         return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
@@ -153,12 +152,6 @@ class GCounterWorld(World):
             if cas >= 5 and bad / cas >= 0.5:
                 return [(s + 1.0, self.s("warn_conflicts", share=bad / cas))]
         return []
-
-    def incident_at(self, variant: str, t: float) -> Incident | None:
-        run = self.runs.get(variant)
-        if run is None:
-            return None
-        return next((i for i in reversed(run.incidents) if i.t0 <= t < i.t1), None)
 
     def node_off(self, run: Run, t: float) -> list[int]:
         """Per node: reads in the last 2 s that were off (lost adds, or counted twice)."""
