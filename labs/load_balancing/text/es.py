@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Balanceo de carga"
-SUMMARY = "Uno de 8 servidores se vuelve lento pero sigue recibiendo su parte. Reparte según la carga, luego con dos opciones al azar."
+SUMMARY = "Un servidor de 8 va lento pero recibe su parte. Reparte por carga, luego con dos al azar."
 PARAMS = {"rate": "peticiones de usuarios por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -44,7 +44,7 @@ LEGEND = {"idle": "en reposo", "request": "petición", "waits": "espera / cola",
           "fair": "reparto justo", "incident": "incidente"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     # los dibujos
     "topology": "4 balanceadores → 8 servidores",
     "lanes_balancers": "4 balanceadores",

@@ -29,7 +29,7 @@ después de que termine, y menos de 10 mensajes entre nodos por operación de cl
 Una lectura es *vieja* cuando devuelve un valor más antiguo que uno cuya escritura se confirmó
 antes de que empezara la lectura. Una clave está *al día* cuando sus 3 réplicas guardan el
 mismo valor; el comprobador mira el `self.store` de cada nodo cada 250 ms, fuera de la red, y
-se salta las claves escritas en el último segundo. El read repair solo no basta para la etapa
+se salta las claves escritas en el último segundo. El read repair por sí solo no basta para la etapa
 2: solo arregla las claves que alguien lee.
 
 Cómo habla tu nodo está en `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,

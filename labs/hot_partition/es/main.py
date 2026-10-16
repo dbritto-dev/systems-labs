@@ -114,12 +114,12 @@ class Counters:
         Guarda los momentos en un deque, `self.recent.setdefault((key, op), deque())`: añade now(),
         quita por la izquierda los de hace más de WINDOW, y devuelve len / WINDOW.
         """
-        raise NotImplementedError("TODO etapa 1: heat(key, op)")
+        raise NotImplementedError("PENDIENTE etapa 1: heat(key, op)")
 
     def pick(self, key: str) -> str:
         """Etapa 1. La clave a la que va una escritura: la propia key si no está repartida; si no, una
         de sus `self.writing[key]` subclaves al azar (`salted(key, self.rng.randrange(n))`)."""
-        raise NotImplementedError("TODO etapa 1: pick(key)")
+        raise NotImplementedError("PENDIENTE etapa 1: pick(key)")
 
     def salt(self, key: str, rate: float) -> None:
         """Etapa 1. La clave está caliente: repártela. Pon `self.width[key]` y `self.writing[key]` a SALTS.
@@ -127,20 +127,20 @@ class Counters:
         Etapa 2: usa `self.salts_for(rate)`, pero nunca más estrecha de lo que ya es (una lectura
         tiene que seguir sumando cada subclave escrita hasta ahora), y olvida `self.calm_since[key]`.
         """
-        raise NotImplementedError("TODO etapa 1: salt(key, rate)")
+        raise NotImplementedError("PENDIENTE etapa 1: salt(key, rate)")
 
     def salts_for(self, rate: float) -> int:
         """Etapa 2. Cuántas subclaves necesita una clave con `rate` escrituras/s: rate / PER_SALT,
         redondeado hacia arriba, al menos 2 y como mucho PARTITIONS (más pondría dos subclaves en una
         misma partición)."""
-        raise NotImplementedError("TODO etapa 2: salts_for(rate)")
+        raise NotImplementedError("PENDIENTE etapa 2: salts_for(rate)")
 
     def cool(self, key: str, rate: float) -> None:
         """Etapa 2. Una clave repartida que no está caliente. Mientras `rate >= COOL`, olvida
         `self.calm_since[key]`. Bajo COOL, recuerda desde cuándo; cuando lleve COOL_FOR segundos en
         calma, manda las escrituras nuevas a la propia clave (`self.writing[key] = 1`) y lanza
         `self.fold(key)` como tarea (`asyncio.ensure_future`): esta llamada no debe esperarla."""
-        raise NotImplementedError("TODO etapa 2: cool(key, rate)")
+        raise NotImplementedError("PENDIENTE etapa 2: cool(key, rate)")
 
     async def fold(self, key: str) -> None:
         """Etapa 2. Vuelve a llevar las cuentas de las subclaves a la clave, sin perder ninguna.
@@ -152,4 +152,4 @@ class Counters:
         tomado solo está en tus manos). Al final, si sigue fría, olvida `self.width[key]` y
         `self.writing[key]`: las lecturas dejan de sumar subclaves.
         """
-        raise NotImplementedError("TODO etapa 2: fold(key)")
+        raise NotImplementedError("PENDIENTE etapa 2: fold(key)")

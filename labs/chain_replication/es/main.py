@@ -39,7 +39,7 @@ Cómo habla tu nodo (mira core/net.py):
   self.reply(msg, {...})            responde a una petición
   self.every(segundos, función_corrutina), self.spawn(corrutina), self.now()
 
-Guarda los datos en `self.store`, como {clave: valor}: el verificador mira ahí.
+Guarda los datos en `self.store`, como {clave: valor}: el comprobador mira ahí.
 
 Compruébalo:  uv run pytest labs/chain_replication
 Mira una solución (¡después de intentarlo!):  labs/chain_replication/es/reference.py
@@ -75,7 +75,7 @@ class ChainNode(Node):
     def __init__(self, node_id: str, node_ids: list[str]) -> None:
         super().__init__(node_id, node_ids)
         self.chain: list[str] = []  # lo dice el maestro: la cabeza primero, la cola al final
-        self.store: dict[str, int] = {}  # clave -> valor (el verificador mira aquí)
+        self.store: dict[str, int] = {}  # clave -> valor (el comprobador mira aquí)
         self.seq = 0  # la última escritura aplicada aquí
         self.pending: dict[int, dict] = {}  # escrituras que llegaron antes de un hueco: seq -> escritura
         self.sent: dict[int, dict] = {}  # pasadas hacia abajo, aún sin confirmar por la cola: seq -> escritura
@@ -161,7 +161,7 @@ class ChainNode(Node):
         guárdala en self.pending[seq] y luego aplica (self.apply) mientras self.seq + 1 esté en
         self.pending. Ignora una escritura con seq <= self.seq: ya la tienes (la etapa 2 reenvía algunas).
         """
-        raise NotImplementedError("TODO etapa 1: ChainNode.on_write")
+        raise NotImplementedError("PENDIENTE etapa 1: ChainNode.on_write")
 
     def apply(self, write: dict) -> None:
         """Etapa 1. Aplica una escritura (es la siguiente en orden) y pásala.
@@ -172,12 +172,12 @@ class ChainNode(Node):
             a tu predecesor, si tienes.
         Etapa 2: en la cola, mientras self.copying, guárdala también en self.sent[seq].
         """
-        raise NotImplementedError("TODO etapa 1: ChainNode.apply")
+        raise NotImplementedError("PENDIENTE etapa 1: ChainNode.apply")
 
     async def on_ack(self, msg: Message) -> None:
         """Etapa 1. Todas las escrituras hasta msg.body["seq"] están en la cola: quítalas de self.sent
         y pasa el ack a tu predecesor, si tienes."""
-        raise NotImplementedError("TODO etapa 1: ChainNode.on_ack")
+        raise NotImplementedError("PENDIENTE etapa 1: ChainNode.on_ack")
 
     # ---- reparación
 

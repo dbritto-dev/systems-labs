@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Limitación de tráfico"
-SUMMARY = "Unos pocos clientes inundan la API al azar. Limita a cada uno para que el resto siga funcionando."
+SUMMARY = "Algunos clientes inundan la API al azar. Limita a cada uno y el resto sigue funcionando."
 PARAMS = {"rate": "peticiones por segundo de todos los clientes juntos, en condiciones normales"}
 
 INCIDENT = IncidentText("Avalancha", "la avalancha", "la próxima avalancha")
@@ -41,7 +41,7 @@ GOALS = {
     "baseline": GoalText("Base correcta", "deja pasar el tráfico normal"),
     "limited": GoalText("Limitada ≥ 50%", "limita cada cliente por seg."),
     "peak": GoalText("Pico ≤ 1.6x", "usa un token bucket"),
-    "others": GoalText("Resto servido ≥ 99%", "da a cada uno su parte justa"),
+    "others": GoalText("Resto serv. ≥ 99%", "da a cada uno su parte justa"),
     "served": GoalText("Servidas ≥ 97%", "deja de limitar en calma"),
 }
 

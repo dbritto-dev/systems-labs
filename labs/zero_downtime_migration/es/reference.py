@@ -17,7 +17,7 @@ async def read_name(db, m, uid: int):
 
 async def write_name(db, m, uid: int, name) -> None:
     values = {m.new: name}
-    if m.write_old:  # las instancias viejas aún la leen (y una reversión puede traerlas de vuelta)
+    if m.write_old:  # las instancias viejas aún la leen (y una vuelta atrás puede traerlas de vuelta)
         values[m.old] = name
     await db.update(uid, values)
 
@@ -41,7 +41,7 @@ async def verify(db, m) -> int:
     for first in range(0, db.rows, BATCH):
         while busy(db):
             await asyncio.sleep(PAUSE)
-        if await db.diff(m.old, m.new, first, first + BATCH):  # una instancia vieja grabó tras la copia
+        if await db.diff(m.old, m.new, first, first + BATCH):  # una instancia vieja escribió tras la copia
             fixed += await db.copy(m.old, m.new, first, first + BATCH)
             await asyncio.sleep(PAUSE)
     return fixed
@@ -49,10 +49,10 @@ async def verify(db, m) -> int:
 
 async def migrate(db, m, fleet) -> None:
     await db.add_column(m.new)  # expandir: al instante, cada fila NULL
-    await fleet.all_new()  # desde aquí cada instancia graba ambas columnas ...
+    await fleet.all_new()  # desde aquí cada instancia escribe ambas columnas ...
     await backfill(db, m)  # ... así que la copia solo tiene que ponerse al día con las filas de antes
-    await fleet.released()  # ninguna reversión puede traer instancias viejas ya
-    await verify(db, m)  # vuelve a copiar lo que grabaron las instancias viejas durante una reversión
+    await fleet.released()  # ninguna vuelta atrás puede traer instancias viejas ya
+    await verify(db, m)  # vuelve a copiar lo que escribieron las instancias viejas durante una vuelta atrás
     m.read_new = True
     m.write_old = False
     await asyncio.sleep(GRACE)  # terminan las peticiones que empezaron antes del cambio

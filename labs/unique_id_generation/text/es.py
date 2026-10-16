@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "IDs únicos (Gossip Glomers #1-2)"
-SUMMARY = "Gossip Glomers #1-2: echo, y luego IDs únicos en 5 nodos, con particiones y saltos de reloj."
+SUMMARY = "Gossip Glomers #1-2: echo, luego IDs únicos en 5 nodos, con particiones y saltos de reloj."
 PARAMS = {"rate": "peticiones de clientes por segundo (20% echo, 80% generate)"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -64,7 +64,7 @@ STRINGS = {
     "back": "{n} atrás",
     # el panel
     "tile_dups": "Duplic.",
-    "tile_answers": "Resp.",
+    "tile_answers": "Disp.",
     "tile_ordered": "Orden",
     "bar_clients": "Clientes",
     "bar_ids": "IDs",

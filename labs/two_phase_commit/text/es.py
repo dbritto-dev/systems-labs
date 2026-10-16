@@ -19,7 +19,7 @@ CAUSES = {
     "kernel_panic": "un pánico del kernel justo después de votar sí",
     "host_reboot": "su máquina se reinicia por un parche del kernel, a mitad de la transacción",
     "coord_oom": "el sistema mata al coordinador por falta de memoria mientras envía una consolidación",
-    "deploy": "un despliegue mata al coordinador sin vaciarlo antes",
+    "deploy": "un despliegue mata al coordinador sin drenarlo antes",
     "node_evicted": "desalojan el nodo del coordinador por mantenimiento",
     "switch_port": "falla un puerto del switch entre el coordinador y el fragmento",
     "firewall_rule": "un cambio en el firewall bloquea el puerto del fragmento",
@@ -29,7 +29,7 @@ CAUSES = {
 STAGES = [
     StageText("Un fragmento a la vez",
               "Reto: un fragmento dice que no a mitad y los demás conservan sus escrituras. Usa 2PC.",
-              "Etapa 1: prepara en todos, consolida solo si todos votan sí"),
+              "Etapa 1: prepara en todos; consolida si todos votan sí"),
     StageText("Consolidación en dos fases",
               "Reto: las caídas dejan transferencias en duda, con filas bloqueadas. Registra y recupera.",
               "Etapa 2: registra la consolidación antes de enviarla; los fragmentos preguntan"),
@@ -40,11 +40,11 @@ STAGES = [
 
 GOALS = {
     "baseline": GoalText("Base correcta", "deben consolidarse"),
-    "rolled": GoalText("Abortos limpios 100%", "prepara; consolida o aborta"),
+    "rolled": GoalText("Abortos 100%", "prepara; consolida o aborta"),
     "partial": GoalText("Parciales = 0", "consolida solo si todos sí"),
-    "money": GoalText("Dinero conservado", "registra antes; reenvía"),
-    "doubt": GoalText("En duda ≤ 3s tras", "pregunta; reenvía al volver"),
-    "completed": GoalText("Completas ≥ 90% tras", "libera bloqueos: resuelve"),
+    "money": GoalText("Dinero intacto", "registra antes; reenvía"),
+    "doubt": GoalText("Dudas ≤ 3s tras", "pregunta; reenvía al volver"),
+    "completed": GoalText("Hechas ≥90% tras", "libera bloqueos: resuelve"),
 }
 
 LEGEND = {"prepare": "preparar", "yes": "vota sí", "commit": "consolidar", "abort": "no / abortar",
@@ -71,7 +71,7 @@ STRINGS = {
     "warn_partial": "{n} transferencias consolidadas solo en algunos fragmentos",
     "warn_stuck": "{n} transferencias siguen en duda: sus filas siguen bloqueadas",
     # valores de los objetivos
-    "none": "ninguno",
+    "none": "nada",
     # el panel
     "tile_partial": "Parciales",
     "tile_money": "Dinero",
@@ -92,7 +92,7 @@ STRINGS = {
     "state_shard_down": "FRAGMENTO CAÍDO",
     "state_no": "VOTAN NO",
     "pic_state": "n0 → n1 · n2 · n3: {state}",
-    "note": "Los puntos son una muestra de mensajes, más lentos (estético).",
+    "note": "Los puntos son una muestra de mensajes, más lentos (decorativo).",
     "subtitle": "por segundo, último 1 s",
     "title": "Protocolo",
 }
@@ -113,16 +113,16 @@ LESSON = Lesson(
         "no) ni abortar (el coordinador quizá decidió consolidar). Tiene que mantener sus bloqueos y "
         "esperar. Es el precio de 2PC: mientras el coordinador está caído, las filas preparadas siguen "
         "bloqueadas y frenan cada transacción que las necesite.",
-        "Por eso la decisión tiene que sobrevivir al coordinador: escribe 'commit' en su registro antes "
+        "Por eso la decisión tiene que sobrevivir al coordinador: escribe 'commit' en su log antes "
         "de enviarlo (esa escritura es el punto de consolidación), lo reenvía hasta que cada fragmento lo "
-        "confirma, y tras reiniciar vuelve a enviar lo que tenga el registro. Un fragmento en duda "
-        "pregunta hasta saber el resultado. Con aborto presunto, una transacción que el registro no "
+        "confirma, y tras reiniciar vuelve a enviar lo que tenga el log. Un fragmento en duda "
+        "pregunta hasta saber el resultado. Con aborto presunto, una transacción que el log no "
         "conoce nunca se consolidó: se aborta.",
     ),
     watch_for=(
         "Un fragmento a la vez: cuando n2 dice que no, n1 ya tiene la escritura: una consolidación "
         "parcial (rojo) y dinero creado o destruido.",
-        "Consolidación en dos fases: los votos no abortan limpiamente, pero la caída del coordinador "
+        "Consolidación en dos fases: los votos que dicen no abortan limpiamente, pero la caída del coordinador "
         "deja fragmentos en duda (naranja) para siempre, con bloqueos, y las transferencias siguientes "
         "dan timeout en esas filas.",
         "2PC con recuperación: los fragmentos siguen en duda mientras el coordinador está caído (el "
@@ -142,7 +142,7 @@ LESSON = Lesson(
          "votes = await gather(*(prepare(s) for s in shards))\n"
          "if all(votes): await log.write(txn, 'commit')   # el punto de consolidación\n"
          "for s in shards: retry_until_ack(s, decision)\n"
-         "# al reiniciar: reenvía cada commit del registro; txn desconocida -> abort"),
+         "# al reiniciar: reenvía cada commit del log; txn desconocida -> abort"),
     ),
     checklist=(
         "Un fragmento vota sí solo cuando su registro de preparación (y los bloqueos) están en disco.",
@@ -173,7 +173,7 @@ LESSON = Lesson(
             "Diapositivas: el protocolo paso a paso, y qué hacer ante timeouts y fallos (en inglés)."),
     ),
     try_next=(
-        "Haz la etapa 1 en labs/two_phase_commit/es/main.py y mira cómo los votos no abortan en cada fragmento.",
+        "Haz la etapa 1 en labs/two_phase_commit/es/main.py y mira cómo un voto que dice no aborta la transferencia en todos los fragmentos.",
         "Luego mira la caída del coordinador: ¿qué fragmentos se quedan en naranja, y por qué no pueden decidir?",
         "Haz la etapa 2 y mira cómo los fragmentos en duda se resuelven un momento después de que vuelva el coordinador.",
     ),

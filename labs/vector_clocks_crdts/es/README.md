@@ -23,9 +23,9 @@ LABS_LANG=es uv run pytest labs/vector_clocks_crdts            # x = todavía no
 |---|---|---|
 | 0 Gana la última escritura (dada) | cada carrito es un valor con la hora del reloj; gana la marca más nueva | cuando la red se une, las altas de un lado desaparecen; un salto de reloj pierde altas sin ninguna partición |
 | 1 Relojes vectoriales | `compare`, `keep_newest`: las versiones concurrentes son hermanas, fusionadas (una unión) al leer | no se pierde ningún alta, pero vuelven productos quitados desde una hermana que aún los tenía |
-| 2 CRDT | `ORSet`: una etiqueta única por alta, una baja pone lápida a las etiquetas que ha visto, fusionar es unir | las réplicas divergen durante el corte y coinciden un segundo después de unirse; nada perdido, nada revivido |
+| 2 CRDT | `ORSet`: una etiqueta única por alta, una baja pone lápida a las etiquetas que ha visto, fusionar es unir | las réplicas divergen durante el corte y coinciden antes de un segundo tras unirse; nada perdido, nada revivido |
 
-Objetivos, juzgados por incidente: altas perdidas = 0 y bajas revividas = 0 (desde que empieza
+Objetivos, evaluados por incidente: altas perdidas = 0 y bajas revividas = 0 (desde que empieza
 el incidente hasta 10 s después de que acaba), ≥ 99% de los carritos iguales en todas las
 réplicas 5 s después de que acaba, y como mucho 150 mensajes por segundo entre réplicas (en los
 15 s anteriores).

@@ -23,7 +23,7 @@ CAUSES = {
 
 STAGES = [
     StageText("Una copia",
-              "Reto: cada nodo guarda su propia copia y las lecturas no ven la última escritura.",
+              "Reto: cada nodo guarda su copia y las lecturas no ven la última escritura. Usa quórums.",
               "Etapa 1: escribe en W=2 de 3 réplicas, lee de R=2"),
     StageText("Quórums",
               "Reto: un nodo que estuvo caído vuelve con datos viejos. Ponlo al día.",
@@ -101,7 +101,7 @@ LESSON = Lesson(
     watch_for=(
         "Una copia: las lecturas caen en un nodo que nunca vio la escritura; la tarjeta Viejas se pone roja.",
         "Quórums: ninguna lectura vieja, ni con un nodo caído; pero cuando vuelve, Al día se queda bajo el 99%.",
-        "Solo read repair arregla las claves que alguien lee: la mayoría siguen atrasadas mucho tiempo.",
+        "El read repair por sí solo arregla solo las claves que se leen: la mayoría siguen atrasadas mucho tiempo.",
         "Quórums + reparación: las pistas llegan al nodo en cuanto vuelve, y Al día regresa al 100%.",
     ),
     build=(

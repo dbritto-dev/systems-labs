@@ -7,33 +7,33 @@ import random
 
 from core.net import Message, Node, RPCError
 
-NOOP = 0  # el valor que llena un hueco vacío del log: no cambia nada al aplicarlo
+NOOP = 0  # el valor que llena una posición vacía del log: no cambia nada al aplicarlo
 TICK = 0.02  # cada cuánto se ejecuta tick()
 HEARTBEAT = 0.15  # el líder envía algo a cada nodo al menos así de seguido
 ELECTION_TIMEOUT = (0.3, 0.6)  # segundos sin oír a un líder antes de presentarse a la elección
 RPC_TIMEOUT = 0.15  # segundos de espera de una respuesta antes de enviar otra vez
 BACKOFF = 0.05  # etapa 1: un proponente superado espera hasta esto, el doble tras cada intento
 GIVE_UP = 2.0  # etapa 1: un proponente deja de intentarlo con un comando tras esto (el cliente se fue)
-SYNC_BATCH = 200  # huecos decididos por respuesta de sync, como mucho
+SYNC_BATCH = 200  # posiciones decididas por respuesta de sync, como mucho
 
 
 class PaxosNode(Node):
     def __init__(self, node_id: str, node_ids: list[str]) -> None:
         super().__init__(node_id, node_ids)
         # En disco: sobrevive a una caída (el escenario lo copia en el nodo reiniciado).
-        self.promised = 0  # la boleta más alta que este aceptador prometió (para todos los huecos)
-        self.accepted: dict[int, tuple[int, int]] = {}  # hueco -> (boleta, valor) que aceptó
-        self.decided: dict[int, int] = {}  # hueco -> el valor decidido allí
+        self.promised = 0  # la boleta más alta que este aceptador prometió (para todas las posiciones)
+        self.accepted: dict[int, tuple[int, int]] = {}  # posición -> (boleta, valor) que aceptó
+        self.decided: dict[int, int] = {}  # posición -> el valor decidido allí
         # En memoria: una caída lo pierde.
-        self.applied = 0  # los huecos 0 .. applied-1 están decididos y aplicados, en orden
+        self.applied = 0  # las posiciones 0 .. applied-1 están decididas y aplicadas, en orden
         self.waiting: dict[int, Message] = {}  # valor -> la petición del cliente a responder al aplicarlo
-        self.busy: set[int] = set()  # huecos para los que este nodo está proponiendo ahora
+        self.busy: set[int] = set()  # posiciones para las que este nodo está proponiendo ahora
         self.proposing = asyncio.Lock()  # etapa 1: un nodo hace una ronda de Paxos a la vez
         self.highest = 0  # la boleta más alta que este nodo ha visto en cualquier parte
         self.role = "follower"  # "follower" (seguidor), "candidate" (candidato) o "leader" (líder)
         self.leader_id: str | None = None
         self.ballot = 0  # la boleta con la que este nodo se presenta o lidera
-        self.next_slot = 0  # el siguiente hueco libre del líder
+        self.next_slot = 0  # la siguiente posición libre del líder
         self.index = node_ids.index(node_id)
         self.majority = len(node_ids) // 2 + 1
         self.peers = [n for n in node_ids if n != node_id]
@@ -58,13 +58,13 @@ class PaxosNode(Node):
             self.applied += 1
 
     def first_undecided(self) -> int:
-        """El hueco más bajo cuyo valor este nodo no conoce."""
+        """La posición más baja cuyo valor este nodo no conoce."""
         while self.applied in self.decided:
             self.applied += 1
         return self.applied
 
     def free_slot(self) -> int:
-        """El hueco sin decidir más bajo para el que este nodo no está proponiendo ya."""
+        """La posición sin decidir más baja para la que este nodo no está proponiendo ya."""
         slot = self.first_undecided()
         while slot in self.decided or slot in self.busy:
             slot += 1
@@ -82,7 +82,7 @@ class PaxosNode(Node):
         return self.rng.uniform(*ELECTION_TIMEOUT)
 
     def accepted_from(self, slot: int) -> dict[int, list[int]]:
-        """Lo que este aceptador aceptó en cada hueco desde `slot`: {hueco: [boleta, valor]}."""
+        """Lo que este aceptador aceptó en cada posición desde `slot`: {posición: [boleta, valor]}."""
         return {s: [b, v] for s, (b, v) in self.accepted.items() if s >= slot}
 
     async def broadcast(self, body: dict, timeout: float = RPC_TIMEOUT) -> list[dict]:
@@ -132,7 +132,7 @@ class PaxosNode(Node):
         self.learn(msg.body["slot"], msg.body["value"])
 
     async def on_sync(self, msg: Message) -> None:
-        """Un nodo que va atrasado pide los valores decididos desde un hueco."""
+        """Un nodo que va atrasado pide los valores decididos desde una posición."""
         start = msg.body["from"]
         top = self.first_undecided()
         decided = {s: self.decided[s] for s in range(start, min(top, start + SYNC_BATCH))}
@@ -192,7 +192,7 @@ class PaxosNode(Node):
     async def on_propose(self, msg: Message) -> None:
         slot = msg.body["slot"]
         if slot not in self.decided:
-            self.learn(slot, msg.body["value"])  # gana el primer valor que un nodo oye para un hueco
+            self.learn(slot, msg.body["value"])  # gana el primer valor que un nodo oye para una posición
         self.busy.discard(slot)
 
     # ---- el aceptador (etapa 1)
@@ -219,10 +219,10 @@ class PaxosNode(Node):
         else:
             self.reply(msg, {"type": "accepted", "ok": False, "promised": self.promised})
 
-    # ---- el proponente (etapa 1): una ronda completa de Paxos por hueco
+    # ---- el proponente (etapa 1): una ronda completa de Paxos por posición
 
     async def submit(self, value: int) -> None:
-        """Propone `value` hueco tras hueco hasta que se elija en uno."""
+        """Propone `value` posición tras posición hasta que se elija en una."""
         start, tries = self.now(), 0
         async with self.proposing:  # una ronda a la vez por nodo
             while value in self.waiting and self.now() - start < GIVE_UP:
@@ -239,7 +239,7 @@ class PaxosNode(Node):
                     await self.sleep(self.rng.uniform(0, BACKOFF * 2 ** min(tries, 4)))
 
     async def paxos(self, slot: int, value: int) -> int | None:
-        """Paxos de un solo valor para un hueco. El valor elegido ahí, o None si ganó una boleta más alta."""
+        """Paxos de un solo valor para una posición. El valor elegido ahí, o None si ganó una boleta más alta."""
         ballot = self.next_ballot(max(self.promised, self.highest))
         self.see(ballot)
         replies = await self.broadcast({"type": "prepare", "ballot": ballot, "slot": slot})
@@ -256,7 +256,7 @@ class PaxosNode(Node):
         self.decide(slot, value)
         return value
 
-    # ---- Multi-Paxos (etapa 2): un líder, la fase 1 una vez para todos los huecos
+    # ---- Multi-Paxos (etapa 2): un líder, la fase 1 una vez para todas las posiciones
 
     async def tick(self) -> None:
         if self.role == "leader":
@@ -269,7 +269,7 @@ class PaxosNode(Node):
             self.spawn(self.campaign())
 
     async def campaign(self) -> None:
-        """La fase 1 una sola vez, para todos los huecos desde el primero sin decidir."""
+        """La fase 1 una sola vez, para todas las posiciones desde la primera sin decidir."""
         ballot = self.next_ballot(max(self.promised, self.highest))
         self.see(ballot)
         self.role, self.ballot, self.leader_id = "candidate", ballot, None
@@ -292,11 +292,11 @@ class PaxosNode(Node):
         top = max(best, default=start - 1)
         self.next_slot = top + 1
         for slot in range(start, top + 1):
-            if slot not in self.decided:  # un hueco en el que nadie aceptó nada: llénalo con un no-op
+            if slot not in self.decided:  # una posición en la que nadie aceptó nada: llénala con un no-op
                 self.spawn(self.phase2(slot, best[slot][1] if slot in best else NOOP))
 
     async def phase2(self, slot: int, value: int) -> None:
-        """Aceptar y luego decidir, sin preparar: la boleta del líder vale para todos los huecos."""
+        """Aceptar y luego decidir, sin preparar: la boleta del líder vale para todas las posiciones."""
         ballot = self.ballot
         body = {"type": "accept", "ballot": ballot, "slot": slot, "value": value}
         got: set[str] = set()

@@ -14,14 +14,14 @@ Haz las etapas en orden, en este archivo:
            o no). Fase 2: solo si todos votaron sí, envíales "commit"; si no, envía "abort". Un
            fragmento que votó sí mantiene su fila bloqueada hasta que oye la decisión: ya no puede
            decir que no.
-  Etapa 2  Un registro de decisiones, y recuperación. El coordinador puede caerse después de reunir
+  Etapa 2  Un log de decisiones, y recuperación. El coordinador puede caerse después de reunir
            los votos, antes o después de enviar la decisión, y se pierden mensajes.
            - Escribe la decisión "commit" en `self.log` ANTES de enviarla: es el punto de consolidación.
            - Envía una consolidación hasta que cada fragmento la confirme; en `recover()` (un
-             coordinador que reinicia) vuelve a enviar cada "commit" que aún tenga el registro.
+             coordinador que reinicia) vuelve a enviar cada "commit" que aún tenga el log.
            - Un fragmento en duda (preparado, sin decisión aún) pregunta al coordinador ("status")
              hasta saber el resultado. Nunca decide solo: sus bloqueos esperan la respuesta.
-           - Responde a "status" desde el registro; una transferencia que el registro no conoce, y que
+           - Responde a "status" desde el log; una transferencia que el log no conoce, y que
              no estás decidiendo ahora, nunca se consolidó: responde "abort" (aborto presunto).
 
 El protocolo (los fragmentos responden a cada petición):
@@ -64,7 +64,7 @@ class Coordinator(Node):
     Contrato:
       - ante `transfer`, aplica cada escritura en su fragmento, o ninguna; responde
         {"type": "transfer_ok", "committed": True/False};
-      - `recover()` se ejecuta cuando el coordinador arranca, y tras una caída (el mismo registro, nada más).
+      - `recover()` se ejecuta cuando el coordinador arranca, y tras una caída (el mismo log, nada más).
     """
 
     def __init__(self, node_id: str, node_ids: list[str], log) -> None:
@@ -104,31 +104,31 @@ class Coordinator(Node):
         segundo plano (`self.spawn(self.finish(...))`): puedes responder al cliente en cuanto está
         registrada.
         """
-        raise NotImplementedError("TODO etapa 1: Coordinator.two_phase")
+        raise NotImplementedError("PENDIENTE etapa 1: Coordinator.two_phase")
 
     async def finish(self, txn: str, decision: str, shards: list[str]) -> None:
         """Etapa 1. Envía la decisión a cada fragmento: `self.deliver(shard, txn, decision)` para cada
         uno (júntalos con gather). Etapa 2: cuando una consolidación ha llegado a todos los fragmentos,
         `self.log.forget(txn)`."""
-        raise NotImplementedError("TODO etapa 1: Coordinator.finish")
+        raise NotImplementedError("PENDIENTE etapa 1: Coordinator.finish")
 
     async def vote(self, shard: str, txn: str, account: str, delta: int) -> bool:
         """Etapa 1. Pide a un fragmento que prepare: `await self.rpc(shard, {"type": "prepare", "txn": txn,
         "account": account, "delta": delta}, timeout=RPC_TIMEOUT)` y devuelve reply["vote"].
         Sin respuesta (TimeoutError) es un no."""
-        raise NotImplementedError("TODO etapa 1: Coordinator.vote")
+        raise NotImplementedError("PENDIENTE etapa 1: Coordinator.vote")
 
     async def deliver(self, shard: str, txn: str, decision: str) -> None:
         """Etapa 1. Envíalo una vez: `self.send(shard, {"type": decision, "txn": txn})`.
         Etapa 2. Una consolidación tiene que llegar: `await self.rpc(...)` y ante TimeoutError `await
         self.sleep(RETRY)` y vuelve a intentarlo, hasta que se confirme. Un aborto puede seguir yendo una vez."""
-        raise NotImplementedError("TODO etapa 1: Coordinator.deliver")
+        raise NotImplementedError("PENDIENTE etapa 1: Coordinator.deliver")
 
     async def on_status(self, msg: Message) -> None:
         """Etapa 2. Un fragmento pregunta cómo terminó una transferencia. Responde
         {"type": "status_ok", "decision": d} donde d es self.log.read(txn); si es None y txn no está en
         self.active, d = "abort"."""
-        raise NotImplementedError("TODO etapa 2: Coordinator.on_status")
+        raise NotImplementedError("PENDIENTE etapa 2: Coordinator.on_status")
 
 
 class Shard(Node):
@@ -150,24 +150,24 @@ class Shard(Node):
     async def on_prepare(self, msg: Message) -> None:
         """Etapa 1. `vote = await self.db.prepare(txn, account, delta)`, y luego responde
         {"type": "prepare_ok", "vote": vote}."""
-        raise NotImplementedError("TODO etapa 1: Shard.on_prepare")
+        raise NotImplementedError("PENDIENTE etapa 1: Shard.on_prepare")
 
     async def on_commit(self, msg: Message) -> None:
         """Etapa 1. `self.db.commit(txn)`, y luego responde {"type": "commit_ok"}."""
-        raise NotImplementedError("TODO etapa 1: Shard.on_commit")
+        raise NotImplementedError("PENDIENTE etapa 1: Shard.on_commit")
 
     async def on_abort(self, msg: Message) -> None:
         """Etapa 1. `self.db.abort(txn)`, y luego responde {"type": "abort_ok"}."""
-        raise NotImplementedError("TODO etapa 1: Shard.on_abort")
+        raise NotImplementedError("PENDIENTE etapa 1: Shard.on_abort")
 
     async def ask(self) -> None:
         """Etapa 2. Para cada txn de self.db.in_doubt() preparada hace al menos ASK_AFTER, averigua su
         resultado (`self.learn(txn)`, todas a la vez con asyncio.gather)."""
-        raise NotImplementedError("TODO etapa 2: Shard.ask")
+        raise NotImplementedError("PENDIENTE etapa 2: Shard.ask")
 
     async def learn(self, txn: str) -> None:
         """Etapa 2. `reply = await self.rpc(COORDINATOR, {"type": "status", "txn": txn}, timeout=RPC_TIMEOUT)`;
         consolida o aborta según diga la respuesta. Sin respuesta, o None: no hagas nada, mantén los
         bloqueos y vuelve a preguntar la próxima vez. Nunca abortes por tu cuenta: los demás pueden
         haber consolidado."""
-        raise NotImplementedError("TODO etapa 2: Shard.learn")
+        raise NotImplementedError("PENDIENTE etapa 2: Shard.learn")

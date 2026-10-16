@@ -32,16 +32,16 @@ STAGES = [
               "Reto: al cerrarse la partición, el líder viejo sobrescribe entradas consolidadas.",
               "Etapa 3: renuncia ante un término mayor, rechaza a los líderes viejos"),
     StageText("Seguro",
-              "Resuelto: un líder, cada comando consolidado en una mayoría, nada perdido con particiones.",
+              "Resuelto: un líder, cada comando confirmado en una mayoría, nada perdido con particiones.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
     "leader": GoalText("Hay líder", "elige uno: RequestVote"),
     "election": GoalText("Elige < 2s", "preséntate tras el timeout"),
-    "committed": GoalText("Consolidados 99%", "confirma tras la mayoría"),
+    "committed": GoalText("Consol. 99%", "confirma tras la mayoría"),
     "safe": GoalText("Nada perdido", "rechaza términos viejos"),
-    "available": GoalText("Disponible 95%", "redirige al líder"),
+    "available": GoalText("Dispon. 95%", "redirige al líder"),
 }
 
 LEGEND = {"leader": "líder", "follower": "seguidor", "candidate": "candidato", "down": "caído",

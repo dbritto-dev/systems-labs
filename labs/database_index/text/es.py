@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Índices de base de datos"
-SUMMARY = "La tabla no deja de crecer y cada consulta la lee entera. Añade los índices que lo arreglan."
+SUMMARY = "La tabla crece sin parar y cada consulta la lee entera. Añade los índices que lo arreglan."
 PARAMS = {"rate": "logins por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -35,9 +35,9 @@ STAGES = [
 
 GOALS = {
     "lookups": GoalText("Filas/login ≤ 5", "indexa email -> posición"),
-    "ranges": GoalText("Filas/rango ≤ 2x", "indexa (país, tiempo)"),
+    "ranges": GoalText("Filas/rango ≤2x", "indexa (país, tiempo)"),
     "p99": GoalText("p99 < 100ms", "lee menos filas"),
-    "answered": GoalText("Respondidas ≥ 99%", "mantén bien los índices"),
+    "answered": GoalText("Atendidas ≥ 99%", "mantén bien los índices"),
 }
 
 LEGEND = {"idle": "en reposo", "cheap": "pocas filas", "costly": "más filas leídas",
@@ -56,7 +56,7 @@ STRINGS = {
     "warn_timeouts": "los usuarios se cansan de esperar a la base de datos",
     # valores de los objetivos
     "ratio": "{value:.1f}x",
-    "timeouts": "timeouts",
+    "timeouts": "timeout",
     # el panel
     "tile_lookup": "Login",
     "tile_range": "Rango",
@@ -127,7 +127,7 @@ LESSON = Lesson(
             "Tipos de índice, índices de varias columnas y cuándo se usan (en inglés)."),
         Ref("PostgreSQL: Using EXPLAIN",
             "https://www.postgresql.org/docs/current/using-explain.html",
-            "Leer un plan de consulta: Seq Scan frente a Index Scan, filas y coste (en inglés)."),
+            "Leer un plan de consulta: Seq Scan frente a Index Scan, filas y costo (en inglés)."),
         Ref("SQLite: Query Planning",
             "https://www.sqlite.org/queryplanner.html",
             "Cómo usa un planificador un índice para encontrar filas, con dibujos (en inglés)."),

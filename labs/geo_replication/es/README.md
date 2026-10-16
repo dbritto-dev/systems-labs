@@ -29,7 +29,7 @@ LABS_LANG=es uv run pytest labs/geo_replication          # x = aún no, X = hech
 
 Dos dibujos (`v` cambia): **clúster** (abre con este) muestra las regiones una al lado de otra,
 us, eu y ap, como columnas de tres nodos (sus zonas), coloreadas según cuántas escrituras
-confirmadas le faltan a la región: azul al día, naranjas atrasada, rojo caída; una región aislada
+confirmadas le faltan a la región: azul al día, naranja atrasada, rojo caída; una región aislada
 queda cercada por una línea roja discontinua. Las peticiones de los usuarios entran desde la
 izquierda: blancas a su propia región, naranjas a otra. Entre regiones, a su velocidad real: naranja
 la petición de un usuario reenviada al otro lado de un océano, azul la replicación; un mensaje que
@@ -63,7 +63,7 @@ Por qué estas decisiones:
 
 - **Por qué una escritura por usuario y gana el último.** Un perfil solo lo escribe su dueño, una
   petición a la vez, así que dos regiones nunca aceptan escrituras de la misma clave a la vez salvo
-  alrededor de una conmutación, y entonces la versión más nueva es la escritura posterior. Por eso
+  alrededor de un failover, y entonces la versión más nueva es la escritura posterior. Por eso
   bastan versiones simples (aquí la hora de la escritura; en un sistema real, un reloj lógico
   híbrido). Los datos que escriben muchos a la vez (un documento compartido, un contador) necesitan
   resolver conflictos por clave o CRDT (mira `vector_clocks_crdts`).
@@ -75,7 +75,7 @@ Por qué estas decisiones:
   usuarios. Si confirmara sus escrituras, vivirían solo ahí (en riesgo), y las otras regiones
   aceptarían escrituras en conflicto. Las guarda, responde un error, y la aplicación escribe de nuevo
   en una región que llega a otra.
-- **Por qué tokens de sesión.** La aplicación mueve a un usuario entre regiones (conmutación,
+- **Por qué tokens de sesión.** La aplicación mueve a un usuario entre regiones (failover,
   reintentos, evitar la región que le falló), y una región que estuvo caída o aislada vuelve
   atrasada. El token es la versión más nueva que el usuario escribió o vio; una región con una copia
   más vieja busca la nueva o se niega, nunca responde con el pasado.

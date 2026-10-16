@@ -26,7 +26,7 @@ CAUSES = {
     "carrier_ratelimit": "la transportista limita las peticiones de nuestra cuenta",
     "deploy": "un despliegue reinicia el orquestador",
     "oom_kill": "el sistema mata al orquestador por falta de memoria",
-    "node_evicted": "vacían el nodo del orquestador por mantenimiento",
+    "node_evicted": "drenan el nodo del orquestador por mantenimiento",
 }
 
 STAGES = [
@@ -47,7 +47,7 @@ GOALS = {
     "consistent": GoalText("A medias = 0", "claves, reintentos, recover"),
     "once": GoalText("Cobros dobles = 0", "cobra con key=saga_id"),
     "completed": GoalText("Completos ≥ 95%", "reintenta con la misma clave"),
-    "fast": GoalText("p99 fin < 1s después", "recupera sin bloquear"),
+    "fast": GoalText("p99 fin < 1s tras", "recupera sin bloquear"),
 }
 
 LEGEND = {"idle": "en reposo", "step": "paso", "retry": "tras un timeout", "undo": "compensación",
@@ -59,8 +59,8 @@ STRINGS = {
     "fan_stock": "inventario",
     "fan_shipping": "envíos",
     "fan_payments_short": "pago",
-    "fan_stock_short": "inv",
-    "fan_shipping_short": "env",
+    "fan_stock_short": "inv.",
+    "fan_shipping_short": "env.",
     "fan_payments_tiny": "pag",
     "fan_stock_tiny": "inv",
     "fan_shipping_tiny": "env",
@@ -79,7 +79,7 @@ STRINGS = {
     "warn_orphans": "{n} pedidos quedaron a medias",
     "warn_doubles": "{n} pedidos cobrados dos veces",
     # valores de los objetivos
-    "none": "ninguno",
+    "none": "nada",
     # el panel
     "tile_orphans": "A medias",
     "tile_doubles": "Dobles",
@@ -98,7 +98,7 @@ STRINGS = {
     "state_timeouts": "TIMEOUTS",
     "state_failing": "FALLAN PASOS",
     "pic_state": "pedidos → pagos · inventario · envíos: {state}",
-    "note": "Los puntos son una muestra de llamadas, más lentos (estético).",
+    "note": "Los puntos son una muestra de llamadas, más lentos (decorativo).",
     "subtitle": "por segundo, último 1 s",
     "title": "Sagas",
     # errores en tu código
@@ -160,7 +160,7 @@ LESSON = Lesson(
         "Marca la saga 'compensating' antes de deshacer nada, para que un reinicio nunca vuelva a ir hacia delante.",
     ),
     refs=(
-        Ref("Garcia-Molina and Salem: Sagas (1987)",
+        Ref("Garcia-Molina y Salem: Sagas (1987)",
             "https://www.cs.cornell.edu/andru/cs711/2002fa/reading/sagas.pdf",
             "El artículo original: transacciones largas como pasos con compensaciones (en inglés)."),
         Ref("microservices.io: Pattern: Saga",

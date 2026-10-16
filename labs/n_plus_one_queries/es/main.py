@@ -1,7 +1,7 @@
 """Laboratorio n_plus_one_queries: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
 Los usuarios abren ~30 páginas/s. Cada página lista los pedidos de una tienda (de 10 a 30,
-muchos más en unas rebajas) y muestra el cliente de cada pedido. `load_page` construye una
+muchos más en una oferta) y muestra el cliente de cada pedido. `load_page` construye una
 página desde la base de datos. Ahora mismo pide los pedidos y luego cada cliente uno a uno:
 una consulta para la lista más una por pedido. Ese es el problema de las consultas N+1.
 

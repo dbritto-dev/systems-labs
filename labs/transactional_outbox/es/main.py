@@ -11,9 +11,9 @@ publican para pedidos que nunca se guardaron (un envío fantasma).
 Haz las etapas en orden, en este archivo:
 
   Etapa 1  Bandeja de salida transaccional: escribe el evento en la tabla "outbox" EN LA MISMA
-           transacción que el pedido, y nunca publiques desde place_order. Un relé
+           transacción que el pedido, y nunca publiques desde place_order. Un publicador
            (`Relay.relay_once`) lee las filas sin enviar, las publica y las marca como enviadas.
-           Publica primero, marca después: si el relé muere entre medias, las filas se publican
+           Publica primero, marca después: si el publicador muere entre medias, las filas se publican
            otra vez (al menos una vez), así que aparecen duplicados.
   Etapa 2  Consumidor idempotente: envíos recuerda los ids de los eventos que ya ha tratado, en la
            MISMA transacción que el envío, y salta un evento que ya ha visto. Cada pedido se envía
@@ -39,7 +39,7 @@ from __future__ import annotations
 
 from labs.transactional_outbox.api import BrokerUnavailable, DuplicateKey, new_id  # noqa: F401
 
-BATCH = 100  # filas de la bandeja que el relé publica por vuelta
+BATCH = 100  # filas de la bandeja que el publicador publica por vuelta
 
 
 class OrderService:
@@ -96,14 +96,14 @@ class Relay:
         #          `await self.db.mark_sent(ids)`. Nunca marques antes de publicar: una muerte entre
         #          medias perdería el evento. Usa try/finally para que un fallo del intermediario
         #          marque igualmente las que llegaron.
-        raise NotImplementedError("TODO stage 1: Relay.relay_once")
+        raise NotImplementedError("PENDIENTE etapa 1: Relay.relay_once")
 
 
 class ShippingConsumer:
-    """Envíos: un envío por pedido. Lee el tema en orden y llama a `handle` por cada evento.
+    """Envíos: un envío por pedido. Lee el topic en orden y llama a `handle` por cada evento.
 
-    El intermediario entrega al menos una vez: tras reiniciarse el relé o repartirse el grupo de
-    consumidores, el mismo evento puede llegar otra vez, y un reparto puede pasar el tema a un
+    El intermediario entrega al menos una vez: tras reiniciarse el publicador o repartirse el grupo de
+    consumidores, el mismo evento puede llegar otra vez, y un reparto puede pasar el topic a un
     ShippingConsumer nuevo.
 
       handle(event)  crea el envío del pedido (una vez por pedido, llegue el evento las veces que llegue)

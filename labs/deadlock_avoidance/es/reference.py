@@ -14,7 +14,7 @@ CAP = 0.2  # segundos; ninguna espera dura más que esto
 
 
 def backoff(attempt: int, rng: random.Random) -> float:
-    # Full jitter: dos transferencias que vencieron una contra otra vuelven en momentos distintos.
+    # Full jitter: dos transferencias que chocaron vuelven en momentos distintos.
     return rng.uniform(0, min(CAP, BASE * 2 ** min(attempt, 30)))
 
 

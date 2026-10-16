@@ -13,7 +13,7 @@ CAUSES = {
     "deploy": "un despliegue mata workers sin dejarlos terminar",
     "oom": "una fuga de memoria hace que el sistema mate workers por OOM",
     "spot": "se recuperan las instancias spot donde corren los workers",
-    "node_drain": "Kubernetes vacía los nodos donde corren los workers",
+    "node_drain": "Kubernetes drena los nodos donde corren los workers",
     "migration": "una migración bloquea la tabla de facturas",
     "throttling": "el proveedor de correo nos limita las peticiones",
     "big_exports": "los clientes piden exportaciones enormes",
@@ -34,7 +34,7 @@ STAGES = [
               "Etapa 1: borra tras el éxito de handle(); latido mientras corre"),
     StageText("Confirma al terminar",
               "Reto: los mensajes veneno fallan siempre y nunca salen de la cola. Apártalos en una DLQ.",
-              "Etapa 2: al fallar, espera más; tras MAX_RECEIVES, a la DLQ"),
+              "Etapa 2: al fallar, backoff; tras MAX_RECEIVES, a la DLQ"),
     StageText("Reintentos + DLQ",
               "Resuelto: ningún trabajo perdido, ninguno doble a la vez, y el veneno espera en la DLQ.",
               "Todas las etapas hechas"),
@@ -44,8 +44,8 @@ GOALS = {
     "baseline": GoalText("Base correcta", "process() debe confirmar"),
     "lost": GoalText("Perdidos = 0", "confirma al terminar"),
     "dups": GoalText("Duplicados ≤ 1%", "latido mientras trabajas"),
-    "age": GoalText("Edad en cola p99 < 1s", "aparta el veneno en la DLQ"),
-    "dlq": GoalText("DLQ: solo veneno", "espera más, luego aparta"),
+    "age": GoalText("Edad cola p99 < 1s", "aparta el veneno en la DLQ"),
+    "dlq": GoalText("DLQ: solo veneno", "backoff, luego aparta"),
 }
 
 LEGEND = {"idle": "en reposo", "first": "1.ª entrega", "redelivered": "reentregado", "duplicate": "hecho dos veces",
@@ -54,7 +54,7 @@ LEGEND = {"idle": "en reposo", "first": "1.ª entrega", "redelivered": "reentreg
 
 STRINGS = {
     # incidentes
-    "crash_start": "los procesos workers caen a mitad de trabajo: {cause}",
+    "crash_start": "los procesos de los workers caen a mitad de trabajo: {cause}",
     "crash_end": "los workers vuelven a aguantar",
     "slow_start": "hace que el 10% de los trabajos tarde {seconds:.1f} s, más que el timeout de 2 s: {cause}",
     "slow_end": "el servicio de abajo vuelve a ir rápido",
@@ -65,7 +65,7 @@ STRINGS = {
     "warn_lost": "{n} trabajos perdidos",
     "warn_stuck": "{n} mensajes siguen en la cola",
     # valores de los objetivos
-    "none": "ninguno",
+    "none": "nada",
     "parked": "{n}/{of}",
     "good_parked": "{n} buenos",
     # el panel
@@ -99,7 +99,7 @@ STRINGS = {
     "state_old": "MENSAJES VIEJOS",
     "pic_state": "cola → workers → DLQ: {state}",
     "relay_queue": "cola · DLQ {n}",
-    "note": "Los puntos son una muestra de trabajos, más lentos (estético).",
+    "note": "Los puntos son una muestra de trabajos, más lentos (decorativo).",
     # errores en tu código
     "stuck": "una llamada a process() lleva más de {seconds:.0f} s: arranca el latido como tarea, "
              "¿y llega a terminar?",
@@ -173,7 +173,7 @@ LESSON = Lesson(
             "Por qué los reintentos necesitan backoff, jitter y un límite."),
         Ref("Google Cloud Pub/Sub: Handling message failures",
             "https://cloud.google.com/pubsub/docs/handling-failures",
-            "Las mismas ideas en otro broker: políticas de reintento y temas de mensajes muertos."),
+            "Las mismas ideas en otro intermediario: políticas de reintento y topics de mensajes muertos."),
         Ref("RabbitMQ: Consumer acknowledgements",
             "https://www.rabbitmq.com/docs/confirms",
             "Confirmación automática o manual, y qué pasa con los mensajes sin confirmar."),

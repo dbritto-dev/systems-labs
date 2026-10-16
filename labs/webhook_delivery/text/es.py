@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Entrega de webhooks"
-SUMMARY = "Envía cada evento a 20 destinos de clientes, en orden, aunque algunos estén caídos o lentos."
+SUMMARY = "Envía cada evento a 20 endpoints de clientes, en orden, aunque algunos estén caídos o lentos."
 PARAMS = {"rate": "eventos creados por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -35,13 +35,13 @@ CAUSES = {
 
 STAGES = [
     StageText("Un solo envío",
-              "Reto: un destino caído pierde sus eventos; uno colgado acapara los workers. Reintenta.",
+              "Reto: un endpoint caído pierde sus eventos; uno colgado acapara los workers. Reintenta.",
               "Etapa 1: timeout en cada POST; reintenta con backoff + jitter"),
     StageText("Reintentos",
-              "Reto: un destino muerto aún se come los workers, y los eventos llegan desordenados.",
-              "Etapa 2: una cola por destino, en orden por clave; pausa al fallar"),
-    StageText("Cola por destino",
-              "Resuelto: nada perdido, cada pedido en orden, y un destino muerto no frena a los demás.",
+              "Reto: un endpoint muerto aún se come los workers, y los eventos llegan desordenados.",
+              "Etapa 2: una cola por endpoint, en orden por clave; pausa al fallar"),
+    StageText("Cola por endpoint",
+              "Resuelto: nada perdido, cada pedido en orden, y un endpoint muerto no frena a los demás.",
               "Todas las etapas hechas"),
 ]
 
@@ -49,8 +49,8 @@ GOALS = {
     "baseline": GoalText("Base correcta", "entrega en next()"),
     "lost": GoalText("Perdidos = 0", "reintenta con backoff"),
     "order": GoalText("Desordenados = 0", "de cada pedido, uno a la vez"),
-    "p99": GoalText("p99 sanos < 1s", "una cola + tope por destino"),
-    "waste": GoalText("Desperdicio ≤ 10%", "pausa el destino que falla"),
+    "p99": GoalText("p99 sanos < 1s", "una cola + tope por endpoint"),
+    "waste": GoalText("Desperdicio ≤ 10%", "pausa el endpoint que falla"),
 }
 
 LEGEND = {"idle": "en reposo", "first": "1.er intento", "retry": "reintento", "delivered": "entregado",
@@ -59,18 +59,18 @@ LEGEND = {"idle": "en reposo", "first": "1.er intento", "retry": "reintento", "d
 
 STRINGS = {
     # incidentes
-    "down_start": "el destino #{n} está caído: {cause}",
-    "down_end": "el destino #{n} vuelve a responder",
-    "hang_start": "el destino #{n} no responde nunca: {cause}",
-    "hang_end": "el destino #{n} vuelve a responder",
-    "slow_start": "el destino #{n} tarda 2,5-8 s en responder: {cause}",
-    "slow_end": "el destino #{n} vuelve a ir rápido",
-    "poison_start": "el destino #{n} falla siempre con 1 de cada 20 eventos nuevos: {cause}",
+    "down_start": "el endpoint #{n} está caído: {cause}",
+    "down_end": "el endpoint #{n} vuelve a responder",
+    "hang_start": "el endpoint #{n} no responde nunca: {cause}",
+    "hang_end": "el endpoint #{n} vuelve a responder",
+    "slow_start": "el endpoint #{n} tarda 2,5-8 s en responder: {cause}",
+    "slow_end": "el endpoint #{n} vuelve a ir rápido",
+    "poison_start": "el endpoint #{n} falla siempre con 1 de cada 20 eventos nuevos: {cause}",
     "poison_end": "los eventos nuevos vuelven a estar bien; los malos siguen fallando",
     "burst_start": "{times:.1f}x los eventos: {cause}",
     "burst_end": "se acabó el pico",
-    "warn_lost": "{n} eventos abandonados",
-    "warn_stuck": "{n} de {of} workers atascados en un destino",
+    "warn_lost": "eventos abandonados: {n}",
+    "warn_stuck": "{n} de {of} workers atascados en un endpoint",
     # el panel
     "tile_lost": "Perdidos",
     "tile_order": "Orden",
@@ -79,13 +79,13 @@ STRINGS = {
     "bar_sent": "Enviados",
     "bar_ended": "Acabados",
     "limit": "creados",
-    "head_lost": "{n} eventos abandonados en 10 s",
+    "head_lost": "eventos abandonados en 10 s: {n}",
     "head_stuck": "{n} de {of} workers atascados en #{endpoint}",
-    "head_order": "{n} eventos entregados desordenados en 10 s",
-    "head_down": "El destino #{n} está caído",
-    "head_hang": "El destino #{n} no responde nunca",
-    "head_slow": "El destino #{n} va lento",
-    "head_poison": "El destino #{n} rechaza eventos mal formados",
+    "head_order": "entregas desordenadas en 10 s: {n}",
+    "head_down": "El endpoint #{n} está caído",
+    "head_hang": "El endpoint #{n} no responde nunca",
+    "head_slow": "El endpoint #{n} va lento",
+    "head_poison": "El endpoint #{n} rechaza eventos mal formados",
     "head_burst": "Un pico de eventos",
     "head_ok": "Cada evento entregado, en orden",
     "stat_delivered": "entregados",
@@ -108,41 +108,41 @@ STRINGS = {
     "fan_hang": "#{n} cuelga",
     "fan_slow": "#{n} lento",
     "fan_poison": "#{n} veneno",
-    "note": "Destinos: rojo muerto, naranja lento. Los puntos son una muestra (estético).",
+    "note": "Endpoints: rojo muerto, naranja lento. Los puntos son una muestra (decorativa).",
 }
 
 LESSON = Lesson(
     title="Entrega de webhooks",
-    one_liner="Entrega cada evento a cada cliente, en orden, sin que un destino roto tumbe a los demás.",
+    one_liner="Entrega cada evento a cada cliente, en orden, sin que un endpoint roto tumbe a los demás.",
     learn=(
         "Un webhook es un POST de HTTP que mandas al servidor de un cliente cuando pasa algo (order.created, "
         "order.paid). Ese servidor no es tuyo: lo despliegan, su certificado caduca, su DNS cambia, su base "
         "de datos sufre. Así que la entrega es «al menos una vez»: guarda el evento, envíalo y consérvalo "
-        "hasta recibir un 2xx. Enviar y olvidar pierde cada evento enviado mientras el destino está caído.",
+        "hasta recibir un 2xx. Enviar y olvidar pierde cada evento enviado mientras el endpoint está caído.",
         "Reintenta con backoff exponencial y jitter, y pon un timeout a cada intento. Sin timeout, un "
-        "destino cuyas conexiones se cuelgan retiene cada worker lo que espere el cliente HTTP por defecto "
+        "endpoint cuyas conexiones se cuelgan retiene cada worker lo que espere el cliente HTTP por defecto "
         "(30 s aquí, minutos en algunos clientes), y un grupo compartido de workers acaba entero atascado en "
         "un solo cliente.",
-        "Los reintentos solos no bastan. Con una cola compartida, un destino muerto o lento se come los "
+        "Los reintentos solos no bastan. Con una cola compartida, un endpoint muerto o lento se come los "
         "workers con sus timeouts y reintentos, y todos los demás clientes esperan (no hay aislamiento). Y "
         "los reintentos desordenan: order.paid sale bien mientras order.created espera su próximo "
-        "reintento. Dale a cada destino su propia cola y un tope de workers (un mamparo), envía un evento "
-        "por clave a la vez, el más viejo primero, y tras N fallos seguidos pausa el destino: pruébalo de "
+        "reintento. Dale a cada endpoint su propia cola y un tope de workers (un bulkhead), envía un evento "
+        "por clave a la vez, el más viejo primero, y tras N fallos seguidos pausa el endpoint: pruébalo de "
         "vez en cuando y reenvía lo atrasado, en orden, cuando vuelva a responder. Un evento que falla solo "
-        "mientras el destino funciona (uno mal formado) se abandona tras unos intentos, para que no bloquee "
+        "mientras el endpoint funciona (uno mal formado) se abandona tras unos intentos, para que no bloquee "
         "su clave para siempre.",
-        "Firma cada webhook: un HMAC-SHA256 de la marca de tiempo y el cuerpo con un secreto por destino, en "
+        "Firma cada webhook: un HMAC-SHA256 de la marca de tiempo y el cuerpo con un secreto por endpoint, en "
         "una cabecera, para que el cliente compruebe que viene de ti y que no es una repetición (rechaza "
         "marcas de tiempo viejas). Y manda un id de evento: «al menos una vez» quiere decir que un POST que "
         "agotó su timeout puede haberse procesado, y el cliente debe ignorar el duplicado.",
     ),
     watch_for=(
-        "Un solo envío: cuando el destino #1 se cuelga, cada worker acaba esperándolo (puntos naranjas "
-        "junto al nodo rojo), los demás destinos se quedan sin servicio y sus eventos se pierden (morado).",
+        "Un solo envío: cuando el endpoint #1 se cuelga, cada worker acaba esperándolo (puntos naranjas "
+        "junto al nodo rojo), los demás endpoints se quedan sin servicio y sus eventos se pierden (morado).",
         "Reintentos: no se pierde nada, pero los timeouts y reintentos de #1 siguen llenando los workers, y "
         "cuando vuelve, los eventos de un mismo pedido llegan desordenados (naranja oscuro).",
-        "Cola por destino: como mucho 4 workers esperan a #1, luego se pausa con una prueba cada 5 s; los "
-        "demás destinos ni se enteran, y lo atrasado se reenvía en orden.",
+        "Cola por endpoint: como mucho 4 workers esperan a #1, luego se pausa con una prueba cada 5 s; los "
+        "demás endpoints ni se enteran, y lo atrasado se reenvía en orden.",
     ),
     build=(
         ("Firma cada webhook (el esquema de Standard Webhooks)",
@@ -162,24 +162,24 @@ LESSON = Lesson(
         "Guarda el evento antes de enviarlo; bórralo solo tras un 2xx.",
         "Pon un timeout a cada intento, de conexión y de lectura: unos pocos segundos como mucho.",
         "Reintenta con backoff exponencial y jitter completo, con tope, durante horas o días.",
-        "Una cola por destino, con un tope de cuántos workers puede retener a la vez.",
+        "Una cola por endpoint, con un tope de cuántos workers puede retener a la vez.",
         "Entrega en orden por clave de recurso: uno en vuelo por clave, el más viejo primero; o manda un "
         "número de secuencia y deja que el cliente pida el estado más reciente.",
-        "Tras N fallos seguidos, desactiva (pausa) el destino, avisa al cliente, pruébalo y reenvía lo "
+        "Tras N fallos seguidos, desactiva (pausa) el endpoint, avisa al cliente, pruébalo y reenvía lo "
         "atrasado cuando esté sano.",
         "Firma cada webhook con un HMAC de la marca de tiempo y el cuerpo, y manda un id único de evento "
         "para descartar duplicados.",
         "Espera que los clientes respondan 2xx rápido y hagan el trabajo después; pon una alarma en la edad "
-        "de lo atrasado de cada destino.",
+        "de lo atrasado de cada endpoint.",
     ),
     refs=(
         Ref("Standard Webhooks: the specification",
             "https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md",
             "Ids de evento, marcas de tiempo, firmas HMAC, reintentos: un esquema común para quien envía "
             "webhooks (en inglés)."),
-        Ref("Stripe: Recibir eventos en tu webhook",
+        Ref("Stripe: Recibir eventos en tu endpoint de webhook",
             "https://docs.stripe.com/webhooks?locale=es-419",
-            "Reintentos durante días, destinos desactivados, firmas, y por qué el orden no está garantizado."),
+            "Reintentos durante días, endpoints desactivados, firmas, y por qué el orden no está garantizado."),
         Ref("GitHub: Validating webhook deliveries",
             "https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries",
             "Cómo comprobar una firma HMAC-SHA256 en tiempo constante (en inglés)."),

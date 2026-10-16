@@ -2,7 +2,7 @@
 
 Una petición pasa por una cadena de cuatro servicios: gateway → api → orders → db
 (pasarela, api, pedidos y base de datos). Todos ejecutan el mismo `handle` de abajo:
-hacen su propio trabajo mientras ocupan uno de sus trabajadores, y luego llaman al
+hacen su propio trabajo mientras ocupan uno de sus workers, y luego llaman al
 siguiente servicio y esperan la respuesta. Los usuarios se rinden a los 2 s. Ahora
 mismo cada salto espera su propio HOP_TIMEOUT (2 s), contado desde que ÉL llamó, así
 que los timeouts no suman lo mismo que el del usuario: un salto que recibió la

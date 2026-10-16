@@ -26,7 +26,7 @@ class Service:
         return await self.offload(call)
 
     async def offload(self, call):
-        """Cada tipo de trabajo a su grupo acotado; una cola llena responde 503 ya, no un timeout luego."""
+        """Cada tipo de trabajo a su pool acotado; una cola llena responde 503 ya, no un timeout luego."""
         pool, limit = (self.cpu, CPU_QUEUE) if call.cpu else (self.io, IO_QUEUE)
         if pool.waiting >= limit:
             raise Overloaded(f"{call.name}: {pool.waiting} llamadas ya en cola")

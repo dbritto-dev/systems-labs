@@ -37,9 +37,9 @@ STAGES = [
 GOALS = {
     "baseline": GoalText("Base correcta", "charge() debe dar recibos"),
     "replay": GoalText("Repetidas ≥ 95%", "devuelve el recibo guardado"),
-    "once": GoalText("Cobros dobles = 0", "reclama con store.add"),
+    "once": GoalText("Cobro doble = 0", "reclama con store.add"),
     "same": GoalText("Mismo recibo", "los duplicados esperan"),
-    "fast": GoalText("p99 < 500ms después", "responde rápido al duplicado"),
+    "fast": GoalText("p99 < 0.5s tras", "responde rápido al duplicado"),
 }
 
 LEGEND = {"idle": "en reposo", "first_try": "primer intento", "retries": "reintento 1,2,3",
@@ -56,7 +56,7 @@ STRINGS = {
     "storm_end": "los clientes vuelven a enviar cada pago una vez",
     "warn_double": "{n} pagos cobrados dos veces",
     # valores de los objetivos
-    "none": "ninguno",
+    "none": "nada",
     "doubles": "{n}",
     # el panel
     "tile_doubles": "Dobles",
@@ -72,7 +72,7 @@ STRINGS = {
     "state_double": "COBRO DOBLE",
     # el dibujo de clúster: la topología bajo la cuadrícula
     "pic_state": "servicio → claves · libro mayor: {state}",
-    "note": "Los puntos son una muestra de intentos, más lentos (estético).",
+    "note": "Los puntos son una muestra de intentos, más lentos (decorativo).",
     "subtitle": "por segundo, último 1 s",
     "title": "Pagos",
     # el dibujo relay: bajo la API de pagos (~14 letras como máximo)
@@ -92,7 +92,7 @@ LESSON = Lesson(
         "Una clave de idempotencia es un id único que el cliente envía con la petición y reutiliza en "
         "cada reintento. El servidor guarda el resultado bajo esa clave y, cuando la clave vuelve, "
         "devuelve el resultado guardado en lugar de hacer el trabajo otra vez.",
-        "Comprobar y luego actuar es una carrera: si un reintento llega mientras el primer intento "
+        "Comprobar y luego actuar es una condición de carrera: si un reintento llega mientras el primer intento "
         "sigue en marcha, los dos ven 'aún sin resultado' y los dos cobran. Reclama la clave primero, "
         "en un solo paso atómico (INSERT ... ON CONFLICT DO NOTHING, Redis SET NX), y haz que los "
         "duplicados esperen el resultado o respondan 409.",

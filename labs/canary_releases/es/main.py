@@ -118,7 +118,7 @@ def fixed_canary(m: Metrics) -> float:
     revierte una versión buena. Baja el límite y el ruido revierte versiones buenas; súbelo y una
     regresión sutil pasa por debajo.
     """
-    raise NotImplementedError("TODO etapa 1: fixed_canary(m)")
+    raise NotImplementedError("PENDIENTE etapa 1: fixed_canary(m)")
 
 
 def z_score(bad_a: int, n_a: int, bad_b: int, n_b: int) -> float:
@@ -132,7 +132,7 @@ def z_score(bad_a: int, n_a: int, bad_b: int, n_b: int) -> float:
 
     Pista: z_score(30, 1000, 30, 1000) == 0.0; z_score(30, 1000, 3, 1000) es más o menos 4.7.
     """
-    raise NotImplementedError("TODO etapa 2: z_score(bad_a, n_a, bad_b, n_b)")
+    raise NotImplementedError("PENDIENTE etapa 2: z_score(bad_a, n_a, bad_b, n_b)")
 
 
 def worse(canary: Counts, baseline: Counts) -> bool:
@@ -147,7 +147,7 @@ def worse(canary: Counts, baseline: Counts) -> bool:
 
     Pista: for (c, b) in ((canary.errors, baseline.errors), (canary.slow, baseline.slow)): ...
     """
-    raise NotImplementedError("TODO etapa 2: worse(canary, baseline)")
+    raise NotImplementedError("PENDIENTE etapa 2: worse(canary, baseline)")
 
 
 def ramp(m: Metrics) -> float:
@@ -164,4 +164,4 @@ def ramp(m: Metrics) -> float:
 
     Pista: min(s for s in STEPS if s > m.weight) es la siguiente etapa.
     """
-    raise NotImplementedError("TODO etapa 2: ramp(m)")
+    raise NotImplementedError("PENDIENTE etapa 2: ramp(m)")

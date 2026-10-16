@@ -30,21 +30,21 @@ CAUSES = {
 
 STAGES = [
     StageText("Gana la primera propuesta",
-              "Reto: dos nodos proponen a la vez en un hueco; los nodos deciden comandos distintos.",
+              "Reto: dos nodos proponen a la vez para una posición; los nodos deciden comandos distintos.",
               "Etapa 1: boletas, preparar/prometer y luego aceptar"),
-    StageText("Paxos por hueco",
+    StageText("Paxos por posición",
               "Reto: es seguro, pero los proponentes se pisan y cada comando cuesta dos idas y vueltas.",
-              "Etapa 2: un líder, fase 1 una vez, no-ops en huecos vacíos"),
+              "Etapa 2: un líder, fase 1 una vez, no-ops en posiciones vacías"),
     StageText("Multi-Paxos",
               "Resuelto: un mismo log en todos, nada perdido, una ida y vuelta por comando.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
-    "agree": GoalText("Un log para todos", "preparar y aceptar: boletas"),
-    "kept": GoalText("Nada perdido", "adopta valores aceptados"),
+    "agree": GoalText("Desacuerdos = 0", "preparar y aceptar: boletas"),
+    "kept": GoalText("Perdidos = 0", "adopta valores aceptados"),
     "live": GoalText("Decidido < 2s 95%", "lidera; espera al azar"),
-    "cheap": GoalText("Msjs/cmd ≤ 16", "sin fase 1 mientras lideras"),
+    "cheap": GoalText("Msgs/cmd ≤ 16", "sin fase 1 mientras lideras"),
 }
 
 LEGEND = {"leader": "líder", "node": "nodo", "candidate": "candidato", "split": "decidió distinto",
@@ -62,19 +62,19 @@ STRINGS = {
     "woke": "{node} despierta, seguro aún de que lidera",
     "lossy": "la red pierde el {pct}% de los mensajes: {cause}",
     "clean": "la red deja de perder mensajes",
-    "warn_split": "{n} huecos decididos de dos formas",
+    "warn_split": "{n} posiciones decididas de dos formas",
     "warn_lost": "{n} comandos confirmados al cliente y perdidos",
-    # valores de los objetivos
-    "split_n": "{n} huecos",
-    "lost_n": "{n} perdidos",
+    # valores de los objetivos (la regla ya dice qué se cuenta)
+    "split_n": "{n}",
+    "lost_n": "{n}",
     # el panel
     "tile_split": "Disputas",
     "tile_lost": "Perdidos",
-    "tile_cost": "Msjs/cmd",
+    "tile_cost": "Msgs/cmd",
     "bar_clients": "Clientes",
     "bar_nodes": "Nodos",
     "messages": "Mensajes",
-    "head_split": "Hueco {slot} decidido de dos formas",
+    "head_split": "Posición {slot} decidida de dos formas",
     "head_hit": "{node} afectado; lidera {leader}, boleta {ballot}",
     "head_leader": "{leader} lidera con la boleta {ballot}",
     "head_duel": "Sin líder: se pisan ({ballot})",
@@ -100,13 +100,13 @@ STRINGS = {
 
 LESSON = Lesson(
     title="Paxos",
-    one_liner="Acordar un valor por hueco del log entre 5 nodos, aunque varios propongan a la vez: boletas, promesas y una mayoría.",
+    one_liner="Acordar un valor por posición del log entre 5 nodos, aunque varios propongan a la vez: boletas, promesas y una mayoría.",
     learn=(
-        "Por qué es difícil: dos proponentes envían valores distintos para el mismo hueco a la vez. Si "
+        "Por qué es difícil: dos proponentes envían valores distintos para la misma posición a la vez. Si "
         "cada nodo se queda con el primero que oye, unos nodos deciden un comando y otros el otro, y el "
         "log replicado se parte.",
         "Paxos de un solo valor: un proponente elige una boleta mayor que cualquiera que haya visto y "
-        "envía preparar. Un aceptador promete ignorar boletas menores y cuenta el valor que ya aceptó. "
+        "envía preparar. Un aceptador promete ignorar boletas menores e informa del valor que ya aceptó. "
         "Con una mayoría de promesas, el proponente debe proponer el valor aceptado con la boleta más "
         "alta (puede que ya esté elegido), y si no hay, el suyo. Una mayoría de aceptaciones lo decide. "
         "Dos mayorías siempre comparten un nodo, así que una boleta posterior encuentra el valor elegido.",
@@ -115,15 +115,15 @@ LESSON = Lesson(
         "proponente a la vez; FLP dice que ningún protocolo determinista puede prometer ambas cosas en "
         "un sistema asíncrono.",
         "Multi-Paxos: elige un líder con boletas (una espera aleatoria rompe los empates). Ejecuta la "
-        "fase 1 una sola vez para todos los huecos desde el primero sin decidir, vuelve a proponer lo que "
-        "aprende y llena los huecos vacíos con no-ops; después cada comando es una ronda de aceptar. Lo "
+        "fase 1 una sola vez para todas las posiciones desde la primera sin decidir, vuelve a proponer lo que "
+        "aprende y llena las posiciones vacías con no-ops; después cada comando es una ronda de aceptar. Lo "
         "usan Chubby y Spanner; Raft es la misma idea.",
     ),
     watch_for=(
         "Gana la primera propuesta: puntos morados de proponer compiten; un nodo se pone rojo cuando decidió otro comando.",
-        "Paxos por hueco: puntos naranjas de preparar/prometer en cada comando, y Msjs/cmd muy por encima de 16.",
+        "Paxos por posición: puntos naranjas de preparar/prometer en cada comando, y Msgs/cmd muy por encima de 16.",
         "Multi-Paxos: un líder verde; solo aceptar en azul y decidir en verde, y naranja solo tras un incidente.",
-        "La primera caída: el líder nuevo vuelve a proponer los dos huecos que el viejo hizo aceptar, y llena el hueco vacío anterior.",
+        "La primera caída: el líder nuevo vuelve a proponer las dos posiciones que el viejo hizo aceptar, y llena la posición vacía anterior.",
     ),
     build=(
         ("El aceptador: toda la seguridad de Paxos",
@@ -141,7 +141,7 @@ LESSON = Lesson(
     checklist=(
         "Guarda promised y accepted en disco antes de responder a preparar o aceptar.",
         "Haz las boletas únicas: (ronda, id del nodo), y elige siempre una mayor que cualquiera vista.",
-        "Ejecuta la fase 1 una vez por liderazgo para todos los huecos, y llena los vacíos con no-ops.",
+        "Ejecuta la fase 1 una vez por liderazgo para todas las posiciones, y llena las vacías con no-ops.",
         "Usa timeouts de elección y backoff aleatorios para que los proponentes no se pisen sin fin.",
         "Aplica el log en orden, y haz los comandos idempotentes (los clientes reintentan).",
     ),
@@ -154,7 +154,7 @@ LESSON = Lesson(
             "Lo que costó poner Multi-Paxos en producción en Chubby, de Google (en inglés)."),
         Ref("Van Renesse, Altinbuken: Paxos Made Moderately Complex (2015)",
             "https://www.cs.cornell.edu/home/rvr/Paxos/paxos.pdf",
-            "Multi-Paxos con líderes, huecos y pseudocódigo para cada papel (en inglés)."),
+            "Multi-Paxos con líderes, posiciones y pseudocódigo para cada papel (en inglés)."),
         Ref("Howard: Distributed consensus revised (tesis doctoral, 2019)",
             "https://www.cl.cam.ac.uk/techreports/UCAM-CL-TR-935.pdf",
             "Por qué dos quórums deben cruzarse, y cuándo no hace falta (en inglés)."),

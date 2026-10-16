@@ -32,7 +32,7 @@ STAGES = [
 
 GOALS = {
     "hits": GoalText("Aciertos ≥ 80%", "añade cache-aside con TTL"),
-    "dups": GoalText("Cargas dobles < 5%", "single-flight en get()"),
+    "dups": GoalText("Dobles < 5%", "single-flight en get()"),
     "p99": GoalText("p99 < 200ms", "carga cada clave una vez"),
 }
 
@@ -63,7 +63,7 @@ STRINGS = {
     "head_refilling": "Vaciado: la caché se está llenando",
     "head_no_cache": "Sin caché: cada lectura va a la base de datos",
     "head_cache": "Caché: {share:.0%} de las lecturas desde memoria",
-    "note_dots": "Los puntos son una muestra de lecturas, más lentas (estético).",
+    "note_dots": "Los puntos son una muestra de lecturas, más lentas (decorativo).",
     "note_chart": "Gráfica: lecturas de la base de datos por segundo.",
     # errores en tu código
     "stuck": "una lectura lleva más de {seconds:.0f} s: ¿get() espera algo que nunca termina?",
@@ -75,7 +75,7 @@ LESSON = Lesson(
     learn=(
         "Cache-aside: lee la caché; si falla, lee la base de datos, guarda el valor con un TTL y "
         "devuélvelo. Con tráfico sesgado (unas pocas claves calientes) casi todas las lecturas salen de memoria.",
-        "Un vaciado (un despliegue, un reinicio, una conmutación) deja la caché vacía. Ahora cada lectura "
+        "Un vaciado (un despliegue, un reinicio, un failover) deja la caché vacía. Ahora cada lectura "
         "falla. Una clave caliente se lee muchas veces mientras su primera carga sigue en curso, y cada uno "
         "de esos fallos lanza su propia carga: una estampida (thundering herd).",
         "Las cargas duplicadas hacen cola en la base de datos, así que cada carga tarda más, y todavía más "
@@ -114,7 +114,7 @@ LESSON = Lesson(
     ),
     checklist=(
         "Conoce tu tasa de aciertos y qué hace la base de datos al 0% (tras un vaciado o un arranque en frío).",
-        "Single-flight (o leases) por clave en la ruta de lectura, al menos por proceso.",
+        "Single-flight (o concesiones, leases) por clave en la ruta de lectura, al menos por proceso.",
         "TTL con jitter, y refresca pronto las claves calientes (caducidad anticipada probabilística) en vez de dejarlas caducar.",
         "Calienta la caché antes de que un despliegue reciba tráfico, o despliega poco a poco.",
         "Protege igualmente la base de datos: una cola acotada, timeouts y descarte de carga.",
@@ -125,7 +125,7 @@ LESSON = Lesson(
             "Cache-aside (carga perezosa), TTL y el thundering herd (en inglés)."),
         Ref("Scaling Memcache at Facebook (NSDI 2013)",
             "https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala",
-            "Leases: un cliente recarga una clave, los demás esperan o usan un valor viejo (en inglés)."),
+            "Concesiones (leases): un cliente recarga una clave, los demás esperan o usan un valor viejo (en inglés)."),
         Ref("Go: singleflight",
             "https://pkg.go.dev/golang.org/x/sync/singleflight",
             "Supresión de llamadas duplicadas en pocas líneas (en inglés)."),

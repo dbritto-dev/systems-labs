@@ -8,7 +8,7 @@ SUMMARY = "Los despliegues mandan SIGTERM a 6 instancias tras un balanceador. Dr
 PARAMS = {"rate": "peticiones de usuarios por segundo"}
 
 INCIDENT = IncidentText("Apagado", "el apagado", "el próximo apagado")
-VERBS = {"deploy": "RELEVO", "drain": "DRENA", "scale_in": "REDUCE", "done": "LISTO"}
+VERBS = {"deploy": "NUEVA", "drain": "DRENA", "scale_in": "REDUCE", "done": "LISTO"}
 CAUSES = {
     "release": "sale una nueva versión",
     "config_change": "un cambio de configuración reinicia todas las instancias",
@@ -36,9 +36,9 @@ STAGES = [
 GOALS = {
     "baseline": GoalText("Base correcta", "on_sigterm() no debe fallar"),
     "errors": GoalText("Errores ≤ 0.1%", "primero deja de estar lista"),
-    "cut": GoalText("Cortadas en curso = 0", "drena antes de salir"),
+    "cut": GoalText("Cortadas = 0", "drena antes de salir"),
     "capacity": GoalText("Sirven ≥ 5 de 6", "sirve hasta que te saquen"),
-    "exited": GoalText("Sale antes de SIGKILL", "drena con un plazo"),
+    "exited": GoalText("Sale sin SIGKILL", "drena con un plazo"),
 }
 
 LEGEND = {"idle": "en reposo", "request": "petición", "waits": "espera", "served": "servida",
@@ -46,7 +46,7 @@ LEGEND = {"idle": "en reposo", "request": "petición", "waits": "espera", "serve
           "terminated": "terminada", "limit": "una instancia", "incident": "apagado"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     # los dibujos
     "topology": "3 nodos del balanceador → 6 instancias",
     "state_ok": "SIRVEN {n}/{of}",

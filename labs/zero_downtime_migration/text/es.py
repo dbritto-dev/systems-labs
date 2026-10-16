@@ -28,11 +28,11 @@ CAUSES = {
 }
 
 STAGES = [
-    StageText("Renombrar en el sitio",
+    StageText("Renombrar de golpe",
               "Reto: la columna se renombra de golpe y cada instancia vieja falla hasta que la cambian.",
-              "Etapa 1: expandir/contraer (graba ambas, borra al final)"),
+              "Etapa 1: expandir/contraer (escribe ambas, borra al final)"),
     StageText("Expandir/contraer",
-              "Reto: sin errores, pero una copia enorme bloquea escrituras y pierde las de la reversión.",
+              "Reto: sin errores, pero una gran copia bloquea escrituras y pierde las de la vuelta atrás.",
               "Etapa 2: backfill() por lotes, verify()"),
     StageText("Relleno frenado y verificado",
               "Resuelto: el cambio de nombre se despliega sin errores, rápido y sin nombres viejos.",
@@ -40,7 +40,7 @@ STAGES = [
 ]
 
 GOALS = {
-    "errors": GoalText("Errores = 0", "no borres hasta la final"),
+    "errors": GoalText("Errores = 0", "deja la vieja hasta el final"),
     "p99": GoalText("p99 escr. <40ms", "lotes y pausa si hay carga"),
     "wrong": GoalText("Erróneos = 0", "doble escritura; verify()"),
     "done": GoalText("Hecha en ≤60s", "borra la columna vieja"),
@@ -50,7 +50,7 @@ LEGEND = {"idle": "en reposo", "waiting": "esperando", "slow": "escritura > 40 m
           "failed": "fallida", "wrong": "nombre erróneo", "backfill": "copiando", "trouble": "atraso o carga"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     "note_chart": "La gráfica: la carga de la base de datos, %: la app (blanco), otro trabajo (naranja), tus copias (morado).",
     # la ventana
     "open": "la próxima versión renombra users.{old} → {new}",
@@ -68,8 +68,8 @@ STRINGS = {
     "step_copied": "cada fila en {new}",
     "step_read_new": "lee de {new}",
     "step_read_old": "lee de {old}",
-    "step_write_new": "deja de grabar {old}",
-    "step_write_both": "vuelve a grabar {old}",
+    "step_write_new": "deja de escribir {old}",
+    "step_write_both": "vuelve a escribir {old}",
     "step_lag_start": "la réplica se atrasa: {cause}",
     "step_lag_end": "la réplica se puso al día",
     "step_peak_start": "la base de datos se carga: {cause}",
@@ -126,33 +126,33 @@ LESSON = Lesson(
         "Un despliegue gradual reemplaza las instancias de la app de una en una, así que durante un rato la "
         "versión vieja y la nueva atienden tráfico a la vez, sobre la misma base de datos. Si la migración "
         "renombra users.fullname a display_name de golpe, cada instancia vieja que sigue en marcha falla "
-        "con una columna que ya no existe; una reversión trae de vuelta instancias que fallan. Cada cambio "
+        "con una columna que ya no existe; una vuelta atrás reinstala instancias que fallan. Cada cambio "
         "de esquema debe funcionar con las dos versiones.",
         "Expandir/contraer (cambio en paralelo): añade la columna nueva (al instante: NULL, sin valor por "
-        "defecto que escribir), haz que la versión nueva grabe ambas columnas en una sola sentencia y siga "
+        "defecto que escribir), haz que la versión nueva escriba ambas columnas en una sola sentencia y siga "
         "leyendo la vieja, rellena la nueva para las filas escritas antes (el relleno), pasa las lecturas a "
-        "ella, deja de grabar la vieja y bórrala al final, cuando ya no pueda volver ninguna versión que la "
+        "ella, deja de escribir la vieja y bórrala al final, cuando ya no pueda volver ninguna versión que la "
         "necesite.",
         "El relleno es la parte peligrosa. Un solo UPDATE de todas las filas las bloquea todas hasta que "
         "se consolida, así que las escrituras esperan segundos, carga la base de datos e inunda la réplica. "
         "Copia en lotes pequeños, haz una pausa entre ellos y detente mientras la base de datos esté cargada "
         "o la réplica atrasada: herramientas como gh-ost y pt-online-schema-change se frenan justo así.",
         "Una copia solo es correcta para las filas que nadie cambia después a través de la columna vieja "
-        "sola. Hasta que la versión es definitiva, una reversión trae de vuelta instancias viejas que solo "
-        "graban la columna vieja, así que verifica antes de cambiar: compara las dos columnas lote a lote, "
+        "sola. Hasta que la versión es definitiva, una vuelta atrás reinstala instancias viejas que solo "
+        "escriben la columna vieja, así que verifica antes de cambiar: compara las dos columnas lote a lote, "
         "vuelve a copiar lo que difiere, y solo entonces lee la nueva y borra la vieja.",
     ),
     watch_for=(
-        "Renombrar en el sitio: la puerta se cierra en rojo y los errores suben mientras hay instancias viejas, y otra vez al revertir.",
+        "Renombrar de golpe: la puerta se cierra en rojo y los errores suben mientras hay instancias viejas, y otra vez al revertir.",
         "Expandir/contraer: sin errores, pero la copia tiñe de morado la gráfica, el p99 llega a segundos y quedan nombres erróneos.",
         "Relleno frenado y verificado: la carga morada no pasa la línea discontinua; verify arregla las filas viejas.",
     ),
     build=(
         ("Rails (strong_migrations): renombrar una columna por pasos",
          "add_column :users, :display_name, :string      # 1 expandir\n"
-         "# 2 despliegue: graba ambas, lee fullname\n"
+         "# 2 despliegue: escribe ambas, lee fullname\n"
          "User.in_batches(of: 1000) { |b| b.update_all('display_name = fullname'); sleep(0.1) }\n"
-         "# 3 despliegue: lee display_name; 4 despliegue: deja de grabar fullname\n"
+         "# 3 despliegue: lee display_name; 4 despliegue: deja de escribir fullname\n"
          "remove_column :users, :fullname                  # 5 contraer"),
         ("PostgreSQL: un lote del relleno, con un timeout de bloqueo",
          "SET lock_timeout = '2s';\n"
@@ -167,7 +167,7 @@ LESSON = Lesson(
     checklist=(
         "Cada migración funciona con la versión anterior y con la siguiente (corren a la vez).",
         "Añade columnas que admitan NULL o con un valor constante; nunca renombres ni borres en la misma versión.",
-        "Graba ambas columnas en una sentencia hasta que la vieja desaparezca; lee la vieja hasta verificar.",
+        "Escribe ambas columnas en una sentencia hasta que la vieja desaparezca; lee la vieja hasta verificar.",
         "Rellena en lotes pequeños con una pausa, y detente mientras la carga o el atraso de la réplica sean altos.",
         "Verifica (compara vieja y nueva) cuando la versión sea definitiva; borra la columna vieja al final.",
     ),
@@ -189,7 +189,7 @@ LESSON = Lesson(
             "Los seis pasos de un cambio de nombre seguro, y por qué está cada uno (en inglés)."),
     ),
     try_next=(
-        "Haz la etapa 1 en labs/zero_downtime_migration/es/main.py y mira cómo los errores siguen en 0 durante la reversión.",
+        "Haz la etapa 1 en labs/zero_downtime_migration/es/main.py y mira cómo los errores siguen en 0 durante la vuelta atrás.",
         "Haz la etapa 2 y mira cómo el p99 y la carga morada se quedan bajo la línea discontinua.",
         "Pon BATCH = 2000 en tu archivo: ¿por qué ahora una réplica atrasada tumba todo el grupo?",
         "Sáltate verify(): ¿qué migraciones dejan nombres erróneos, y por qué solo esas?",

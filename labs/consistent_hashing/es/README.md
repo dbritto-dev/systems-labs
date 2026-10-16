@@ -7,7 +7,7 @@ populares que el resto) de 8 servidores de caché que están delante de una base
 (10 ms por lectura, 4 a la vez: unas 400 lecturas/s). Tu `Router.node_for(key)` elige el
 servidor de cada lectura; un acierto responde al momento, un fallo va a la base de datos y
 llena la caché de ese servidor. En momentos al azar, como en producción, el clúster cambia:
-se cae un nodo (un pánico del kernel, la nube recupera una instancia spot, se queda sin memoria…) y más tarde se
+se cae un nodo (un kernel panic, la nube recupera una instancia spot, se queda sin memoria…) y más tarde se
 sustituye por uno con la caché vacía, el autoescalado añade un noveno nodo durante un rato, o
 un despliegue reinicia uno. La ejecución nunca se reinicia. El primer cambio siempre es un
 nodo que se cae a las 0:20.
@@ -36,10 +36,10 @@ Objetivos, evaluados en cada cambio:
 - **Carga BD ≤ 2x** (después): lecturas/s a la base de datos en los 4 s después del cambio
   frente a los 15 s de antes.
 
-La etapa sale del primer cambio: las claves movidas y el reparto, que decide tu router. Los
+La etapa sale del primer cambio: las claves movidas y el reparto, que decide tu enrutador. Los
 aciertos y la carga de la base de datos son lo que notan los usuarios y la base de datos; vienen
 después.
 
-Cada cambio se mide donde ocurre: el escenario le pregunta a tu router adónde van las claves de
+Cada cambio se mide donde ocurre: el escenario le pregunta a tu enrutador adónde van las claves de
 muestra justo antes y justo después de `add` o `remove`. Usa un hash estable (`stable_hash`,
 md5): el `hash()` de Python para un string cambia de un proceso a otro.

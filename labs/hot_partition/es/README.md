@@ -13,7 +13,7 @@ En momentos al azar, como en producción, una clave explota: la publicación de 
 viral (me gusta), todo el mundo hace clic en el enlace de un boletín (clics), una oferta relámpago
 vende un producto (ventas, y su página lee la cuenta) o un bot machaca un id (lecturas). Entre 200
 y 400 operaciones por segundo sobre una clave: más de lo que atiende su partición, mientras las
-otras cinco esperan. Su tráfico sube en 1,5 s, se mantiene de 5 a 22 s y baja a una cola de
+otras cinco están ociosas. Su tráfico sube en 1,5 s, se mantiene de 5 a 22 s y baja a una cola de
 tráfico que dura un minuto. La ejecución nunca se reinicia. El primer incidente siempre es una
 publicación viral entre 0:20 y 0:32.
 
@@ -49,7 +49,7 @@ mientras la clave aún recibe visitas).
 - **Por qué repartir perjudica a las lecturas.** La cuenta de una clave repartida está en N
   subclaves, así que una lectura tiene que pedir las N: repartir la clave que lee un bot multiplica
   su carga por seis en vez de repartirla. Las lecturas calientes piden una caché: una cuenta de me
-  gusta de medio segundo de antigüedad vale.
+  gusta de medio segundo de antigüedad sirve.
 - **Por qué volver a juntar.** Una clave sigue siendo algo popular mucho después de dejar de ser
   viral. Si se queda repartida para siempre, cada una de sus lecturas cuesta seis peticiones; con
   muchas publicaciones virales pasadas, las sumas se acumulan.

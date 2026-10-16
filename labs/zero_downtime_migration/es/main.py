@@ -4,20 +4,20 @@ La app guarda el nombre de cada usuario en `users.fullname`, y la próxima versi
 `users.display_name` (las versiones siguientes renombran otras columnas: email →
 email_address, ...). Seis instancias de la app atienden ~100 peticiones/s mientras la versión
 se despliega, una instancia cada 2 s, así que durante un rato las instancias VIEJAS (leen y
-graban `m.old`) y las NUEVAS (ejecutan tus `read_name` y `write_name` de abajo) comparten la
+escriben `m.old`) y las NUEVAS (ejecutan tus `read_name` y `write_name` de abajo) comparten la
 base de datos. Tu `migrate` empieza al abrirse la ventana, 2 s antes que el despliegue.
 
 Ahora mismo `migrate` renombra la columna de golpe: cada instancia vieja que sigue en marcha
-falla con la columna que ya no existe, y una reversión trae de vuelta instancias que fallan.
+falla con la columna que ya no existe, y una vuelta atrás reinstala instancias que fallan.
 
 Haz las etapas en orden, en este archivo:
 
-  Etapa 1  Expandir/contraer: añade la columna nueva, graba ambas desde el código nuevo, lee
+  Etapa 1  Expandir/contraer: añade la columna nueva, escribe ambas desde el código nuevo, lee
            la vieja hasta que la nueva esté llena, y borra la vieja solo cuando la versión
            sea definitiva. Llénala con una copia de todas las filas (`db.copy(m.old, m.new)`).
   Etapa 2  Rellena en lotes pequeños (BATCH filas, PAUSE entre ellos, espera mientras
            busy()), y verify() antes de cambiar: vuelve a copiar lo que las instancias viejas
-           grabaron después de la copia.
+           escribieron después de la copia.
 
 Compruébalo:  LABS_LANG=es uv run pytest labs/zero_downtime_migration
 Mira una solución (¡después de intentarlo!):  labs/zero_downtime_migration/es/reference.py
@@ -41,8 +41,8 @@ GRACE = 1.0  # segundos para que terminen las peticiones que empezaron antes de 
 # indicadores que migrate puede cambiar en cualquier momento (todas las instancias nuevas lo ven
 # a la vez, como opciones de configuración en caliente):
 #   m.read_new   False al principio: lee la columna vieja.
-#   m.write_old  True al principio: sigue grabando también la columna vieja.
-# `db.select(uid, col)` lee la columna de una fila; `db.update(uid, {col: valor, ...})` las graba
+#   m.write_old  True al principio: sigue escribiendo también la columna vieja.
+# `db.select(uid, col)` lee la columna de una fila; `db.update(uid, {col: valor, ...})` las escribe
 # todas a la vez. Las dos lanzan un error si una columna no existe (la petición falla).
 
 
@@ -58,9 +58,9 @@ async def read_name(db, m, uid: int):
 async def write_name(db, m, uid: int, name) -> None:
     """Cambia el nombre del usuario `uid`.
 
-    Etapa 1: graba m.new, y también m.old mientras m.write_old esté activo, en UN solo
+    Etapa 1: escribe m.new, y también m.old mientras m.write_old esté activo, en UN solo
     update, para que las dos columnas coincidan siempre: las instancias viejas aún leen
-    m.old, y una reversión puede traer más de ellas.
+    m.old, y una vuelta atrás puede traer más de ellas.
     """
     await db.update(uid, {m.new: name})
 
@@ -78,19 +78,19 @@ async def migrate(db, m, fleet) -> None:
         con first <= id < last (todas por defecto). Tarda 0.75 ms por fila, bloquea esas filas
         hasta que se consolida (las escrituras a ellas esperan) y carga la base de datos mientras.
       - `await fleet.all_new()`: espera a que cada instancia ejecute la versión nueva (una
-        reversión aún puede traer viejas). `await fleet.released()`: espera a que la versión
-        sea definitiva (ya no habrá reversión).
+        vuelta atrás aún puede traer viejas). `await fleet.released()`: espera a que la versión
+        sea definitiva (ya no habrá vuelta atrás).
 
     Debe estar hecha (la columna vieja borrada) antes de 60 s desde que empieza.
 
     Etapa 1 (expandir/contraer), en este orden:
         await db.add_column(m.new)       # expandir
-        await fleet.all_new()            # desde aquí cada instancia graba ambas columnas
-        await db.copy(m.old, m.new)      # llena las filas grabadas antes (etapa 2: backfill)
-        await fleet.released()           # ya no habrá reversión
+        await fleet.all_new()            # desde aquí cada instancia escribe ambas columnas
+        await db.copy(m.old, m.new)      # llena las filas escritas antes (etapa 2: backfill)
+        await fleet.released()           # ya no habrá vuelta atrás
         # etapa 2: await verify(db, m) aquí
         m.read_new = True                # las lecturas pasan a la columna nueva
-        m.write_old = False              # deja de grabar la vieja
+        m.write_old = False              # deja de escribir la vieja
         await asyncio.sleep(GRACE)       # terminan las peticiones que empezaron antes del cambio
         await db.drop_column(m.old)      # contraer
     """
@@ -116,8 +116,8 @@ async def backfill(db, m) -> int:
 
 
 async def verify(db, m) -> int:
-    """Etapa 2. Encuentra las filas cuyas dos columnas difieren (una instancia vieja grabó solo
-    m.old después de la copia, durante una reversión) y vuelve a copiarlas. Ve de BATCH en
+    """Etapa 2. Encuentra las filas cuyas dos columnas difieren (una instancia vieja escribió solo
+    m.old después de la copia, durante una vuelta atrás) y vuelve a copiarlas. Ve de BATCH en
     BATCH filas: cuenta las diferencias con `await db.diff(m.old, m.new, first, last)` (una
     lectura rápida, sin bloqueos) y vuelve a copiar ese lote cuando no sea 0; espera mientras
     busy(db) como en backfill. Devuelve las filas que volviste a copiar."""

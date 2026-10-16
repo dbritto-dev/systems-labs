@@ -28,22 +28,22 @@ CAUSES = {
 
 STAGES = [
     StageText("Una región primaria",
-              "Reto: los lejanos cruzan un océano en cada lectura, y cada escritura vive solo en us.",
+              "Reto: quien está lejos cruza un océano en cada lectura; cada escritura vive solo en us.",
               "Etapa 1: una réplica de lectura en cada región"),
     StageText("Réplicas de lectura",
               "Reto: leer es rápido, pero no ven sus propios cambios, y cada escritura tiene una copia.",
               "Etapa 2: escrituras en cada región, dos copias, token de sesión"),
     StageText("Escrituras en cada región",
-              "Resuelto: lecturas locales, un océano por escritura, nada perdido ni en riesgo.",
+              "Resuelto: lectura local, un océano por escritura, nada en riesgo, ni al perder una región.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
-    "read_p99": GoalText("Lectura p99 ≤ 50ms", "una réplica en cada región"),
-    "write_p99": GoalText("Escrit. p99 ≤ 400ms", "confirma con la más cercana"),
-    "ryw": GoalText("Lect. viejas = 0", "busca si el token es nuevo"),
+    "read_p99": GoalText("Lect. p99 ≤ 50ms", "una réplica en cada región"),
+    "write_p99": GoalText("Escr. p99 ≤ 0,4s", "confirma con la más cercana"),
+    "ryw": GoalText("Lect. viejas = 0", "busca si el token es mayor"),
     "available": GoalText("Éxito ≥ 99%", "escribe en cualquier región"),
-    "at_risk": GoalText("Escr. en riesgo = 0", "confirma con 2 regiones"),
+    "at_risk": GoalText("En riesgo = 0", "confirma con 2 regiones"),
 }
 
 LEGEND = {"fresh": "al día", "behind": "atrasada", "down": "caída", "request": "petición",
@@ -72,7 +72,7 @@ STRINGS = {
     "tile_stale": "Viejas",
     "tile_available": "Éxito",
     "title": "Regiones",
-    "subtitle": "lecturas y escrituras atendidas/s, último 1 s",
+    "subtitle": "lecturas y escrituras servidas/s, último 1 s",
     "limit": "capacidad {limit:.0f}/s",
     "head_stale": "{n} lecturas sin la escritura del propio usuario en 5 s",
     "head_down": "{name} está caída: sus usuarios van a {to}",
@@ -82,7 +82,7 @@ STRINGS = {
     "head_far": "Los usuarios de {region} esperan {p99} por lectura (p99)",
     "head_ok": "Cada región lee en casa: p99 {p99}",
     "note_nodes": "Nodos: una columna por región (us, eu, ap), tres zonas cada una.",
-    "note_chart": "Gráfico: operaciones/s: rápidas, lentas, sin lo propio, fallidas.",
+    "note_chart": "Gráfica: operaciones/s: rápidas, lentas, sin lo propio, fallidas.",
     # el dibujo del clúster: el estado bajo las regiones
     "state_down": "{name} CAÍDA · sus usuarios → {to}",
     "state_partition": "{name} AISLADA",
@@ -125,7 +125,7 @@ LESSON = Lesson(
         "último que escribe). Confirma una escritura solo cuando una segunda región también la tiene, la primera "
         "de las otras dos en responder: un océano por escritura, nunca dos, y ninguna escritura confirmada vive "
         "en una sola región. Ese es el precio de RPO = 0: ~140-300 ms por escritura, con lecturas locales.",
-        "La conmutación por error es una regla, no una esperanza: el balanceador manda a los usuarios de una "
+        "El failover es una regla, no una esperanza: el balanceador manda a los usuarios de una "
         "región caída a la siguiente, que acepta sus escrituras. La aplicación también reintenta en otra región "
         "y evita unos segundos la que le falló, así que las peticiones de un usuario pueden caer en regiones "
         "distintas. El token de sesión (la versión más nueva que el usuario escribió o vio) le dice a cualquier "
@@ -173,7 +173,7 @@ LESSON = Lesson(
         "perder nada.",
         "Espera a la primera de las otras regiones, no a todas: una región caída no debe detener las escrituras.",
         "Dale a cada petición un token de sesión, y nunca respondas algo más viejo.",
-        "Escribe la regla de conmutación por error: quién recibe a los usuarios de una región caída, y sus "
+        "Escribe la regla de failover: quién recibe a los usuarios de una región caída, y sus "
         "escrituras.",
         "Devuelve los usuarios a su región solo cuando se puso al día, o deja que los tokens lo detecten.",
         "Resuelve los conflictos a propósito (solo escribe el dueño, gana la más nueva, o CRDT), y pruébalo con "
@@ -183,7 +183,7 @@ LESSON = Lesson(
         Ref("AWS: Disaster recovery options in the cloud",
             "https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/"
             "disaster-recovery-options-in-the-cloud.html",
-            "Copia y restauración, piloto, en espera, activo/activo en varios sitios: RPO y RTO."),
+            "Copia y restauración, luz piloto, espera semiactiva, activo/activo en varios sitios: RPO y RTO."),
         Ref("Azure Cosmos DB: Niveles de coherencia",
             "https://learn.microsoft.com/es-es/azure/cosmos-db/consistency-levels",
             "Coherencia de sesión: leer tus escrituras con tokens de sesión, entre regiones."),
@@ -201,7 +201,7 @@ LESSON = Lesson(
             "Leer tus escrituras y lecturas monótonas, con estado de sesión, mientras los clientes cambian de servidor."),
         Ref("Amazon Route 53: DNS failover",
             "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/dns-failover.html",
-            "Chequeos de salud, enrutamiento por conmutación, y por qué las cachés de DNS la hacen gradual."),
+            "Chequeos de salud, enrutamiento con failover, y por qué las cachés de DNS la hacen gradual."),
     ),
     try_next=(
         "Haz la etapa 1 en labs/geo_replication/es/main.py y mira bajar el p99 de lectura en eu y ap.",

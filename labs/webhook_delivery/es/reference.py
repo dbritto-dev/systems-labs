@@ -7,12 +7,12 @@ from collections.abc import Callable
 
 from labs.webhook_delivery.api import Event, ok
 
-ATTEMPT_TIMEOUT = 2.0  # segundos que se espera una respuesta: un destino sano responde en ~0,1 s
+ATTEMPT_TIMEOUT = 2.0  # segundos que se espera una respuesta: un endpoint sano responde en ~0,1 s
 BACKOFF_BASE = 0.5  # segundos: lo más que espera el 1.er reintento; se duplica cada vez
 BACKOFF_CAP = 30.0
-MAX_IN_FLIGHT = 4  # POST en vuelo a un mismo destino, como mucho
-DISABLE_AFTER = 5  # fallos seguidos que pausan un destino
-PROBE_EVERY = 5.0  # segundos entre pruebas mientras un destino está pausado
+MAX_IN_FLIGHT = 4  # POST en vuelo a un mismo endpoint, como mucho
+DISABLE_AFTER = 5  # fallos seguidos que pausan un endpoint
+PROBE_EVERY = 5.0  # segundos entre pruebas mientras un endpoint está pausado
 MAX_ATTEMPTS = 6  # intentos antes de abandonar un evento que sigue fallando (veneno)
 
 
@@ -28,7 +28,7 @@ class Endpoint:
 
     def pick(self, now: float) -> Event | None:
         if len(self.sending) >= MAX_IN_FLIGHT:
-            return None  # este destino ya tiene su parte de los workers
+            return None  # este endpoint ya tiene su parte de los workers
         if self.parked:
             if self.sending or now < self.probe_at:
                 return None  # pausado: una prueba a la vez, cada PROBE_EVERY segundos
@@ -45,7 +45,7 @@ class Endpoint:
 
     def _probe(self) -> Event | None:
         # El primer evento de cada pedido puede salir; prueba con el menos intentado (uno nuevo), para
-        # que un evento mal formado que falla siempre no pueda dejar el destino pausado.
+        # que un evento mal formado que falla siempre no pueda dejar el endpoint pausado.
         heads: dict[int, Event] = {}
         for ev in self.queue:
             heads.setdefault(ev.key, ev)
@@ -70,7 +70,7 @@ class Endpoint:
         if self.failures >= DISABLE_AFTER:
             self.parked = True
             self.probe_at = now + PROBE_EVERY
-        elif ev.attempts >= MAX_ATTEMPTS:  # el destino funciona, este evento no: veneno
+        elif ev.attempts >= MAX_ATTEMPTS:  # el endpoint funciona, este evento no: veneno
             self.queue.remove(ev)
             self.retry_at.pop(ev.id, None)
             return True
@@ -85,7 +85,7 @@ class Dispatcher:
         self.give_up = give_up
         self.rng = rng or random.Random(0)
         self.endpoints: dict[int, Endpoint] = {}
-        self.turn = 0  # por turnos: a qué destino se pregunta primero
+        self.turn = 0  # por turnos: a qué endpoint se pregunta primero
 
     def submit(self, ev: Event, now: float) -> None:
         ep = self.endpoints.get(ev.endpoint)
@@ -109,7 +109,7 @@ class Dispatcher:
         elif ep.failed(ev, now):
             self.give_up(ev)
 
-    # la cola de reintentos de la etapa 1; la etapa 2 los guarda por destino
+    # la cola de reintentos de la etapa 1; la etapa 2 los guarda por endpoint
     def retry(self, ev: Event, now: float) -> None:
         self.endpoints[ev.endpoint].retry_at[ev.id] = now + backoff(ev.attempts, self.rng)
 

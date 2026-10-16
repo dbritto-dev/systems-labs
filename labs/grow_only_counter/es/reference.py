@@ -2,7 +2,7 @@
 
 Cada nodo tiene una clave de seq-kv, `count-<id del nodo>`, y es el único que la escribe.
 Así no hay nada por lo que pelear: ni compare-and-swap ni reintentos. El nodo lleva su propio
-total en memoria y lo escribe por tandas, una escritura a la vez (para que nunca lleguen
+total en memoria y lo escribe por lotes, una escritura a la vez (para que nunca lleguen
 desordenadas), y confirma una suma cuando ha funcionado una escritura que la incluye.
 
 Una lectura suma la clave de cada nodo. Tu propia clave siempre está al día (seq-kv te enseña
@@ -46,7 +46,7 @@ class CounterNode(Node):
         try:
             await self.kv.write(self.key(self.node_id), total)
         finally:
-            self.writing = False  # hecha, o sin respuesta a tiempo: la próxima tanda lo reintenta
+            self.writing = False  # hecha, o sin respuesta a tiempo: el próximo lote lo reintenta
         self.written = total
         done = [m for t, m in self.waiting if t <= total]
         self.waiting = [(t, m) for t, m in self.waiting if t > total]

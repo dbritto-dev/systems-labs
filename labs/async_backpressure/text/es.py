@@ -36,15 +36,15 @@ STAGES = [
               "Reto: sin muertes, pero la fuente parada desborda el origen y los lotes fijos no rinden.",
               "Etapa 2: créditos, lotes adaptativos, descartar baja"),
     StageText("Créditos + lotes adaptativos",
-              "Resuelto: memoria acotada, baja prioridad descartada y contada, lotes que crecen solos.",
+              "Resuelto: memoria acotada, baja descartada y contada, alta toda escrita, lotes que crecen.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
     "baseline": GoalText("Base correcta", "Pipeline.run() debe escribir"),
-    "oom": GoalText("Sin memoria = 0", "acota las colas"),
+    "oom": GoalText("Muertes OOM = 0", "acota las colas"),
     "lost": GoalText("Perdidos = 0", "descarta baja y cuéntalo"),
-    "peak": GoalText("Pico memoria ≤ 80%", "créditos en cada etapa"),
+    "peak": GoalText("Pico mem. ≤ 80%", "créditos en cada etapa"),
     "throughput": GoalText("Caudal ≥ 80%", "agrupa lo que hay en cola"),
     "p99": GoalText("p99 después < 1s", "ventanas acotadas"),
 }
@@ -66,7 +66,7 @@ STRINGS = {
     "burst_end": "el origen vuelve a su ritmo de siempre",
     "outage_start": "el destino está caído, toda escritura falla: {cause}",
     "outage_end": "el destino ha vuelto",
-    "warn_oom": "{n} proceso(s) matado(s) sin memoria: {lost:,} eventos perdidos con él",
+    "warn_oom": "{n} muerte(s) por OOM: {lost:,} eventos perdidos con el proceso",
     "warn_upstream": "{n:,} eventos tirados por el origen: su búfer estaba lleno",
     "warn_shed": "{n:,} eventos de baja prioridad descartados (contados)",
     # valores de los objetivos
@@ -83,17 +83,17 @@ STRINGS = {
     "head_restarting": "Sin memoria: {n:,} perdidos",
     "head_upstream": "Origen lleno: {n:,} perdidos",
     "head_memory": "Memoria {pct}: las colas crecen",
-    "head_shed": "Descarta {n:,.0f} de baja/s",
-    "head_paused": "Pausa: {n:,} esperan fuera",
+    "head_shed": "Descarta {n:,.0f} de baja/s, contados",
+    "head_paused": "En pausa: {n:,} en el origen",
     "head_slow": "Destino lento: lotes más grandes",
-    "head_spike": "Enriquecer va lento: esperan",
+    "head_spike": "Enriquecer va lento: las etapas esperan",
     "head_burst": "El origen envía más de lo normal",
     "head_outage": "Destino caído: se reintenta",
     "head_ok": "Escrituras de ~{n:,} eventos",
     "stat_written": "escritos",
     "stat_lost": "perdidos",
     "stat_shed": "descartados",
-    "note_chart": "Gráfico: memoria, % de 256 MiB: base, crudos, analizados, enriquecidos.",
+    "note_chart": "Gráfica: memoria, % de 256 MiB: base, crudos, analizados, enriquecidos.",
     # los dibujos
     "state_restarting": "SIN MEMORIA",
     "state_memory": "MEMORIA ALTA",
@@ -105,7 +105,7 @@ STRINGS = {
     "state_burst": "RÁFAGA",
     "state_outage": "DESTINO CAÍDO",
     "pic_mem": "{state} · {pct}",
-    "lbl_in": "ent {n}",
+    "lbl_in": "origen {n}",
     "lbl_a": "A {n}",
     "lbl_b": "B {n}",
     "lbl_c": "C {n}",
@@ -129,7 +129,7 @@ LESSON = Lesson(
         "memoria (OOM) y todo lo que tenía desaparece, sin que nadie sepa qué eventos.",
         "La contrapresión es la etapa lenta empujando hacia atrás: dale a cada cola un maxsize y `put` "
         "espera mientras está llena. La espera viaja hacia atrás, etapa por etapa, hasta la fuente, que "
-        "deja de leer. La memoria queda acotada, pero ahora el atraso lo guarda el origen. Un registro "
+        "deja de leer. La memoria queda acotada, pero ahora el atraso lo guarda el origen. Un log "
         "durable (Kafka) puede esperar; un flujo que empuja tiene un búfer pequeño y tira lo que no cabe. "
         "Decide qué pasa en la fuente.",
         "Los créditos hacen explícita la ventana: cada etapa le concede a la anterior cuántos eventos "
@@ -145,7 +145,7 @@ LESSON = Lesson(
         "incidente.",
     ),
     watch_for=(
-        "Colas sin límite: con el destino lento la memoria sube (naranja en el gráfico) hasta que matan "
+        "Colas sin límite: con el destino lento la memoria sube (naranja en la gráfica) hasta que matan "
         "el proceso; ~10.000 eventos desaparecen, el proceso arranca de nuevo y vuelve a pasar.",
         "Colas acotadas: la memoria queda plana, pero la puerta se cierra (la fuente deja de leer), los "
         "eventos esperan en el origen (naranja oscuro) y se pierden en rojo cuando su búfer se desborda.",

@@ -3,7 +3,7 @@
 Un procesador de flujos cuenta compras por ventana de 10 segundos para un panel en vivo (y
 para facturar). Cada evento lleva su tiempo del evento: cuándo ocurrió la compra, según el
 reloj del teléfono o del servidor que la hizo. Los eventos llegan al procesador por un
-canal (un registro con tres particiones), normalmente entre 0.05 y 1.5 s después y algo
+canal (un log con tres particiones), normalmente entre 0.05 y 1.5 s después y algo
 desordenados. Cada uno llama a `Windower.on_event(event, now)`; tú envías los resultados al
 panel con `self.sink.emit(start, count)`: la cuenta de la ventana que empieza en `start`.
 Emitir otra vez la misma ventana reemplaza su cuenta (una corrección).

@@ -33,7 +33,7 @@ LABS_LANG=es uv run pytest labs/graceful_shutdown            # x = aún no, X = 
 | 1 Drenar | `drain(server, deadline)`: deja de aceptar, cierra las conexiones ociosas, espera a lo que está en curso (con un plazo), sal | no se corta nada, cada instancia sale en ~4 s, pero su socket cerrado rechaza lo que el balanceador aún manda: sigue habiendo ~10% de errores, 4 de 6 sirviendo |
 | 2 Primero, no lista | `shutdown(server)`: deja de estar lista, espera a que el balanceador la saque, y drena | sin errores, nada cortado, 5 de 6 sirviendo, cada instancia se va en ~12 s, mucho antes de SIGKILL |
 
-Objetivos, juzgados por incidente: base correcta (antes: ≤ 0.1% de errores), errores ≤ 0.1% de
+Objetivos, evaluados por incidente: base correcta (antes: ≤ 0.1% de errores), errores ≤ 0.1% de
 las peticiones que empiezan durante él, peticiones y flujos cortados en curso = 0, al menos 5 de
 6 instancias sirviendo (en el balanceador y aceptando) en todo momento (durante), y cada
 instancia que paró salió antes de SIGKILL (después).

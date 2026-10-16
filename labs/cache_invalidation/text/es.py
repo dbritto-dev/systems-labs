@@ -30,7 +30,7 @@ STAGES = [
               "Reto: la caché muestra precios que la BD rechazó. Escribe la BD y luego borra la clave.",
               "Etapa 1: escribe primero la base de datos y luego borra la clave"),
     StageText("Escribir y luego borrar",
-              "Reto: un lector lento repone un precio viejo tras el borrado. Rellena con concesión.",
+              "Reto: un lector lento repone un precio viejo tras el borrado. Rellena con una concesión.",
               "Etapa 2: lease_get al fallar, lease_set al rellenar; TTL de 30 s"),
     StageText("Rellenos con concesión",
               "Resuelto: no se sirve ni se guarda ningún precio viejo, y la caché sigue atendiendo.",
@@ -40,7 +40,7 @@ STAGES = [
 GOALS = {
     "hits": GoalText("Aciertos ≥ 85%", "guarda en caché lo que lees"),
     "phantom": GoalText("No guardados = 0", "escribe la BD, luego borra"),
-    "stale": GoalText("Lect. viejas = 0", "rellena con concesión"),
+    "stale": GoalText("Lect. viejas = 0", "rellena con una concesión"),
     "entries": GoalText("Claves viejas = 0", "rechaza rellenos tardíos"),
     "db": GoalText("Lect. BD ≤ 500/s", "rellena la caché al fallar"),
 }
@@ -90,7 +90,7 @@ STRINGS = {
     "relay_stale": "claves viejas: {n}",
     "relay_down": "caché caída",
     "relay_writes": "ESCRITURAS",
-    "note": "Los puntos son una muestra de lecturas y escrituras, más lentas (estético).",
+    "note": "Los puntos son una muestra de lecturas y escrituras, más lentas (decorativo).",
     "subtitle": "por segundo, último 1 s",
     "title": "Lecturas, escrituras",
     # errores en tu código

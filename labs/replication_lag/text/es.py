@@ -74,7 +74,7 @@ STRINGS = {
     "fan_router": "enrutador",
     "fan_primary": "primario",
     "fan_lag": "{name} +{lag}",
-    "fan_down": "{name} caído",
+    "fan_down": "{name} caída",
     # errores en tu código
     "bad_pick": "Router.pick devolvió {name!r}: usa 'primary' o una de r1..r{last}",
     "stuck": "una lectura lleva más de {seconds:.0f} s esperando",

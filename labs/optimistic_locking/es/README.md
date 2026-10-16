@@ -27,12 +27,12 @@ LABS_LANG=es uv run pytest labs/optimistic_locking             # x = aún no, X 
 | 1 Control de versión | `compare_and_set(item, new, row.version)`; lanza `Conflict` si no coincide con ninguna fila | no se pierde nada, pero ~57% de las peticiones de una oferta reciben un 409 (naranja): gana un comprador por tanda |
 | 2 Reintento y combinación | tras un conflicto, espera `backoff(attempt, rng)` (jitter completo, con tope), vuelve a leer y aplica `delta` otra vez, hasta `MAX_TRIES` | nada perdido, 409 ≤ 0,6%, p99 ~220–280 ms en una oferta; todos los objetivos OK |
 
-Objetivos, juzgados por incidente: base correcta (peticiones atendidas antes), cambios
-perdidos = 0, 409 ≤ 1%, p99 < 500 ms y atendidas ≥ 98% (todo para las peticiones que empiezan
+Objetivos, evaluados por incidente: base correcta (peticiones servidas antes), cambios
+perdidos = 0, 409 ≤ 1%, p99 < 500 ms y servidas ≥ 98% (todo para las peticiones que empiezan
 durante el incidente).
 
 Dos dibujos: `lanes` (se abre primero) muestra a los usuarios enviando escrituras (blanco,
-naranja más intenso en cada reintento) a la API, y lo que vuelve a la puerta: atendida en verde,
+naranja más intenso en cada reintento) a la API, y lo que vuelve a la puerta: servida en verde,
 409 en naranja, un cambio que borró otros en rojo. `cluster` muestra los tres servidores y la
 base de datos: escrituras que se consolidan en blanco, las que fallan el control de versión en
 naranja, las que borran otras en rojo; pulsa `v` para cambiar.

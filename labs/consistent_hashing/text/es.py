@@ -4,18 +4,18 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Hashing consistente"
-SUMMARY = "8 servidores de caché delante de una base de datos. Reparte las claves para que un cambio mueva pocas."
+SUMMARY = "8 cachés delante de una base de datos. Reparte las claves para que un cambio mueva pocas."
 PARAMS = {"rate": "lecturas de claves por segundo"}
 
 INCIDENT = IncidentText("Cambio", "el cambio", "el próximo cambio")
 VERBS = {"lost": "CAÍDO", "back": "NUEVO", "join": "ENTRA", "leave": "SALE", "stop": "PARA", "start": "VUELVE"}
 CAUSES = {
-    "kernel_panic": "un pánico del kernel",
+    "kernel_panic": "un kernel panic",
     "spot_reclaimed": "la nube recuperó su instancia spot",
     "oom_killed": "se quedó sin memoria y el sistema paró la caché",
     "disk_full": "se llenó su disco",
     "evening_peak": "el pico de la tarde",
-    "sale_capacity": "capacidad extra para unas rebajas",
+    "sale_capacity": "capacidad extra para una oferta",
     "autoscaler_cpu": "el autoescalado vio la CPU alta",
     "rolling_deploy": "un despliegue escalonado",
     "config_restart": "un cambio de configuración pide reiniciar",
@@ -76,12 +76,12 @@ STRINGS = {
     "head_hot": "{node} tiene {spread:.1f}x su parte de claves",
     "head_ok": "{hits:.0%} aciertos; la base de datos lee {db:.0f}/s",
     "note_chart": "Gráfica: lecturas/s a la BD; en rojo, rechazadas.",
-    "note_nodes": "Nodos: color según su parte de claves.",
+    "note_nodes": "Nodos: color según su parte frente a la media.",
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_hits": "ACIERTOS {share:.0%}",
     "lanes_misses": "FALLOS {share:.0%}",
-    # el dibujo en embudo: el router (la puerta), los servidores de caché, la base de datos (el almacén)
-    "fan_router": "router",
+    # el dibujo en embudo: el enrutador (la puerta), los servidores de caché, la base de datos (el almacén)
+    "fan_router": "enrutador",
     "fan_down": "{node} caído",
     "fan_db": "{state} BD {db}/s",
     # errores en tu código
@@ -110,7 +110,7 @@ LESSON = Lesson(
         "Módulo: en cada cambio casi todos los puntos se vuelven rojos (fallos) y la barra de la BD pasa su límite.",
         "Anillo de hash: un cambio apenas se nota, pero algunos nodos siguen naranjas o rojos: tienen más claves.",
         "Anillo + nodos virtuales: todos los nodos siguen azules, y un cambio solo causa unos pocos fallos.",
-        "Los objetivos: claves movidas y reparto son cosa de tu router; aciertos y carga de la BD, lo que notan los usuarios.",
+        "Los objetivos: claves movidas y reparto son cosa de tu enrutador; aciertos y carga de la BD, lo que notan los usuarios.",
     ),
     build=(
         ("Un anillo con nodos virtuales (Python)",

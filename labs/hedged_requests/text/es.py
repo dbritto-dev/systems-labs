@@ -29,24 +29,24 @@ STAGES = [
               "Reto: el p99 bajó, pero una réplica lenta cuesta una copia por lectura. Limita y cancela.",
               "Etapa 2: un HedgeBudget, y cancela la perdedora"),
     StageText("Copia + presupuesto + cancelar",
-              "Resuelto: las copias tapan las respuestas lentas, con poca carga extra y nada perdido.",
+              "Resuelto: las copias tapan lo lento, con unos pocos % más de carga y sin desperdicio.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
     "tail": GoalText("p99 ≤ 50ms", "copia tras HEDGE_AFTER"),
-    "extra": GoalText("Extra ≤ 10%", "usa un HedgeBudget"),
-    "waste": GoalText("Perdido ≤ 5%", "cancela la llamada perdedora"),
+    "extra": GoalText("Extra ≤ 10%", "usa un token de HedgeBudget"),
+    "waste": GoalText("Desperdicio ≤ 5%", "cancela la llamada perdedora"),
     "served": GoalText("Servidas ≥ 99%", "devuelve la primera"),
-    "back": GoalText("Vuelve p99 ≤ 50ms", "rellena el presupuesto"),
+    "back": GoalText("Vuelve p99 ≤ 50ms", "el presupuesto se recarga"),
 }
 
-LEGEND = {"idle": "en reposo", "first_call": "primera llamada", "slow_reply": "respuesta lenta", "copy": "copia",
+LEGEND = {"idle": "en reposo", "first_call": "primera llamada", "slow_reply": "respuesta lenta", "copy": "copia (respaldo)",
           "wasted": "perdedora aún en curso", "failed": "fallida", "served": "servida", "limit": "10% extra",
           "incident": "incidente"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     "note_chart": "La gráfica: copias enviadas por segundo.",
     # el dibujo de clúster: la topología bajo la cuadrícula
     "topology": "servicio → {n} réplicas",
@@ -62,13 +62,13 @@ STRINGS = {
     "warn_extra": "las copias añaden un {extra:.0%} de carga",
     # el panel
     "tile_extra": "Extra",
-    "tile_waste": "Perdido",
+    "tile_waste": "Desperd.",
     "head_all_storm": "Todas lentas: copias suman +{extra:.0%}",
     "head_all_capped": "Todas lentas: copias frenadas",
     "head_one_hidden": "{replica} lenta: copias +{extra:.0%}",
     "head_one_capped": "{replica} lenta: copias limitadas",
     "head_one_waits": "{replica} lenta: la esperan",
-    "head_back": "Rápida otra vez; quedan lentas",
+    "head_back": "Rápida; las lentas terminan",
     "head_tail": "Respuestas lentas: p99 {p99}",
     "head_hedged": "Copias tapan lo lento: p99 {p99}",
     "head_calm": "Las respuestas son rápidas",
@@ -105,7 +105,7 @@ LESSON = Lesson(
     watch_for=(
         "Una llamada: la tarjeta p99 está en rojo sin que nada falle: unas pocas respuestas lentas la marcan.",
         "Copia: copias naranjas vuelan a otra réplica; p99 ~30 ms, pero Extra es +35% si una réplica va lenta.",
-        "Copia: perdedoras en naranja intenso se acumulan junto a la réplica lenta, aún en curso: la tarjeta Perdido.",
+        "Copia: perdedoras en naranja intenso se acumulan junto a la réplica lenta, aún en curso: la tarjeta Desperd.",
         "Copia + presupuesto + cancelar: las copias se quedan en pocos %; en carriles (v) la puerta se cierra "
         "mientras el presupuesto está agotado.",
     ),

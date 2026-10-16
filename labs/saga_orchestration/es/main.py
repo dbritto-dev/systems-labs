@@ -89,7 +89,7 @@ class Orchestrator:
           status "compensating":  compensa (la caída llegó mientras deshacías: deshazlo todo otra vez).
         Devuelve True si el pedido se completó, False si se deshizo.
         """
-        raise NotImplementedError("TODO etapa 2: Orchestrator.resume")
+        raise NotImplementedError("PENDIENTE etapa 2: Orchestrator.resume")
 
     async def compensate(self, saga_id: str, refs: list) -> None:
         """Etapa 1. Deshaz los pasos que ocurrieron, del último al primero.
@@ -100,11 +100,11 @@ class Orchestrator:
         tries=UNDO_TRIES)`, incluso el que dio timeout: pudo haber ocurrido, y deshacer lo que
         nunca pasó no hace nada.
         """
-        raise NotImplementedError("TODO etapa 1: Orchestrator.compensate")
+        raise NotImplementedError("PENDIENTE etapa 1: Orchestrator.compensate")
 
     async def attempt(self, call, *args, tries: int = TRIES, **kwargs):
         """Etapa 2. `await call(*args, **kwargs)`; si da Timeout, espera
         min(MAX_BACKOFF, BACKOFF * 2 ** n) y vuelve a intentarlo, hasta `tries` veces, y luego
         lanza la excepción. Reintentar solo es seguro porque la llamada lleva clave. Deja pasar
         Declined enseguida."""
-        raise NotImplementedError("TODO etapa 2: Orchestrator.attempt")
+        raise NotImplementedError("PENDIENTE etapa 2: Orchestrator.attempt")

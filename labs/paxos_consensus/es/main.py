@@ -1,26 +1,26 @@
 """Laboratorio paxos_consensus: TU ARCHIVO. Edítalo y guarda; la ventana en vivo lo vuelve a ejecutar.
 
-5 nodos ("n0" ... "n4") llevan un log replicado de cambios de configuración: los huecos 0, 1, 2, ...
-guardan un comando cada uno (un número). Los clientes envían `{"type": "command", "value": 17}` a
+5 nodos ("n0" ... "n4") llevan un log replicado de cambios de configuración: las posiciones 0, 1, 2, ...
+guardan un comando cada una (un número). Los clientes envían `{"type": "command", "value": 17}` a
 cualquier nodo; varios nodos proponen a la vez. Un nodo responde `command_ok` al cliente cuando el
-comando está decidido en un hueco y aplicado allí (learn() lo hace por ti). Todos los nodos deben
-decidir el mismo valor en cada hueco, y ningún comando confirmado al cliente puede desaparecer. Ahora
-cada nodo se queda con el primer valor que oye para un hueco, así que dos proponentes que compiten por
-un hueco parten el clúster: unos nodos deciden un comando y otros el otro.
+comando está decidido en una posición y aplicado allí (learn() lo hace por ti). Todos los nodos deben
+decidir el mismo valor en cada posición, y ningún comando confirmado al cliente puede desaparecer. Ahora
+cada nodo se queda con el primer valor que oye para una posición, así que dos proponentes que compiten por
+una posición parten el clúster: unos nodos deciden un comando y otros el otro.
 
 Haz las etapas en orden, en este archivo:
 
-  Etapa 1  Paxos de un solo valor por hueco. Un proponente elige una boleta mayor que cualquiera que
+  Etapa 1  Paxos de un solo valor por posición. Un proponente elige una boleta mayor que cualquiera que
            haya visto y envía `prepare`; un aceptador promete ignorar boletas menores y dice qué aceptó
            ya. Con una mayoría de promesas, el proponente debe proponer el valor aceptado con la boleta
            más alta (puede que ya esté elegido), y si no hay, el suyo, con `accept`. Una mayoría de
            aceptaciones lo decide. Es seguro, pero dos proponentes se superan uno al otro sin fin (se
            pisan), y cada comando cuesta dos idas y vueltas a todos.
   Etapa 2  Multi-Paxos con un líder estable. Un nodo que no oye a ningún líder durante un timeout
-           aleatorio ejecuta la fase 1 una sola vez, para todos los huecos desde su primero sin decidir
+           aleatorio ejecuta la fase 1 una sola vez, para todas las posiciones desde su primera sin decidir
            (`campaign`); después lidera: cada comando es solo una ronda de `accept` (`phase2`), y los
            demás redirigen a los clientes hacia él. Un líder nuevo vuelve a proponer cada valor que le
-           contaron las promesas, y llena cada hueco vacío (uno en el que nadie aceptó nada) con un
+           contaron las promesas, y llena cada posición vacía (una en la que nadie aceptó nada) con un
            no-op, o el log deja de aplicarse ahí.
 
 Los incidentes llegan al azar: el líder se cae a mitad de una ronda, se cae otro nodo, la red pierde y
@@ -30,12 +30,12 @@ lo que Paxos guarda en disco: promised, accepted y decided. El primer incidente 
 cayéndose mientras envía sus accept, a las 0:20 (vuelve a las 0:30).
 
 El protocolo (el comprobador lee `decided`, `accepted` y `promised`; los dibujos leen los tipos):
-  propose  {slot, value}                    etapa 0: gana el primero que un nodo oye para un hueco
-  prepare  {ballot, slot}  -> promise {ok, accepted: {slot: [ballot, value]} desde ese hueco}
+  propose  {slot, value}                    etapa 0: gana el primero que un nodo oye para una posición
+  prepare  {ballot, slot}  -> promise {ok, accepted: {slot: [ballot, value]} desde esa posición}
                                           o {ok: False, promised}
   accept   {ballot, slot, value} -> accepted {ok} o {ok: False, promised}
   decide   {slot, value}                    avisa a los demás (learn() lo guarda)
-  heartbeat {ballot, upto}                  etapa 2: el líder está vivo; upto = su primer hueco sin decidir
+  heartbeat {ballot, upto}                  etapa 2: el líder está vivo; upto = su primera posición sin decidir
   command  {value} -> command_ok, o command_redirect {leader}    (cliente -> cualquier nodo)
 
 Cómo habla tu nodo (mira core/net.py): self.node_id, self.node_ids, self.reply(msg, {...}),
@@ -45,7 +45,7 @@ self.every(segundos, funcion_corrutina), self.now(); y las ayudas de abajo:
 `self.next_ballot(above)`, `self.learn(slot, value)`, `self.decide(slot, value)` (aprende y avisa a
 los demás), `self.free_slot()`, `self.first_undecided()`, `self.accepted_from(slot)`.
 
-Compruébate:  uv run pytest labs/paxos_consensus
+Compruébalo:  uv run pytest labs/paxos_consensus
 Mira una solución (¡después de intentarlo!):  labs/paxos_consensus/es/reference.py
 """
 
@@ -56,33 +56,33 @@ import random
 
 from core.net import Message, Node, RPCError
 
-NOOP = 0  # el valor que llena un hueco vacío del log: no cambia nada al aplicarlo
+NOOP = 0  # el valor que llena una posición vacía del log: no cambia nada al aplicarlo
 TICK = 0.02  # cada cuánto se ejecuta tick()
 HEARTBEAT = 0.15  # el líder envía algo a cada nodo al menos así de seguido
 ELECTION_TIMEOUT = (0.3, 0.6)  # segundos sin oír a un líder antes de presentarse a la elección
 RPC_TIMEOUT = 0.15  # segundos de espera de una respuesta antes de enviar otra vez
 BACKOFF = 0.05  # etapa 1: un proponente superado espera hasta esto, el doble tras cada intento
 GIVE_UP = 2.0  # etapa 1: un proponente deja de intentarlo con un comando tras esto (el cliente se fue)
-SYNC_BATCH = 200  # huecos decididos por respuesta de sync, como mucho
+SYNC_BATCH = 200  # posiciones decididas por respuesta de sync, como mucho
 
 
 class PaxosNode(Node):
     def __init__(self, node_id: str, node_ids: list[str]) -> None:
         super().__init__(node_id, node_ids)
         # En disco: sobrevive a una caída (el escenario lo copia en el nodo reiniciado).
-        self.promised = 0  # la boleta más alta que este aceptador prometió (para todos los huecos)
-        self.accepted: dict[int, tuple[int, int]] = {}  # hueco -> (boleta, valor) que aceptó
-        self.decided: dict[int, int] = {}  # hueco -> el valor decidido allí
+        self.promised = 0  # la boleta más alta que este aceptador prometió (para todas las posiciones)
+        self.accepted: dict[int, tuple[int, int]] = {}  # posición -> (boleta, valor) que aceptó
+        self.decided: dict[int, int] = {}  # posición -> el valor decidido allí
         # En memoria: una caída lo pierde.
-        self.applied = 0  # los huecos 0 .. applied-1 están decididos y aplicados, en orden
+        self.applied = 0  # las posiciones 0 .. applied-1 están decididas y aplicadas, en orden
         self.waiting: dict[int, Message] = {}  # valor -> la petición del cliente a responder al aplicarlo
-        self.busy: set[int] = set()  # huecos para los que este nodo está proponiendo ahora
+        self.busy: set[int] = set()  # posiciones para las que este nodo está proponiendo ahora
         self.proposing = asyncio.Lock()  # etapa 1: un nodo hace una ronda de Paxos a la vez
         self.highest = 0  # la boleta más alta que este nodo ha visto en cualquier parte
         self.role = "follower"  # "follower" (seguidor), "candidate" (candidato) o "leader" (líder)
         self.leader_id: str | None = None
         self.ballot = 0  # la boleta con la que este nodo se presenta o lidera
-        self.next_slot = 0  # el siguiente hueco libre del líder
+        self.next_slot = 0  # la siguiente posición libre del líder
         self.index = node_ids.index(node_id)
         self.majority = len(node_ids) // 2 + 1
         self.peers = [n for n in node_ids if n != node_id]
@@ -107,13 +107,13 @@ class PaxosNode(Node):
             self.applied += 1
 
     def first_undecided(self) -> int:
-        """El hueco más bajo cuyo valor este nodo no conoce."""
+        """La posición más baja cuyo valor este nodo no conoce."""
         while self.applied in self.decided:
             self.applied += 1
         return self.applied
 
     def free_slot(self) -> int:
-        """El hueco sin decidir más bajo para el que este nodo no está proponiendo ya."""
+        """La posición sin decidir más baja para la que este nodo no está proponiendo ya."""
         slot = self.first_undecided()
         while slot in self.decided or slot in self.busy:
             slot += 1
@@ -131,7 +131,7 @@ class PaxosNode(Node):
         return self.rng.uniform(*ELECTION_TIMEOUT)
 
     def accepted_from(self, slot: int) -> dict[int, list[int]]:
-        """Lo que este aceptador aceptó en cada hueco desde `slot`: {hueco: [boleta, valor]}."""
+        """Lo que este aceptador aceptó en cada posición desde `slot`: {posición: [boleta, valor]}."""
         return {s: [b, v] for s, (b, v) in self.accepted.items() if s >= slot}
 
     async def broadcast(self, body: dict, timeout: float = RPC_TIMEOUT) -> list[dict]:
@@ -181,7 +181,7 @@ class PaxosNode(Node):
         self.learn(msg.body["slot"], msg.body["value"])
 
     async def on_sync(self, msg: Message) -> None:
-        """Un nodo que va atrasado pide los valores decididos desde un hueco."""
+        """Un nodo que va atrasado pide los valores decididos desde una posición."""
         start = msg.body["from"]
         top = self.first_undecided()
         decided = {s: self.decided[s] for s in range(start, min(top, start + SYNC_BATCH))}
@@ -229,7 +229,7 @@ class PaxosNode(Node):
     async def on_command(self, msg: Message) -> None:
         value = msg.body["value"]
         # Etapa 2: si self.role != "leader", responde {"type": "command_redirect", "leader": self.leader_id}
-        #          y vuelve; si no, guárdalo en self.waiting, toma el hueco self.next_slot (luego += 1) y
+        #          y vuelve; si no, guárdalo en self.waiting, toma la posición self.next_slot (luego += 1) y
         #          self.spawn(self.phase2(slot, value)).
         self.waiting[value] = msg  # learn() lo responde cuando se aplica aquí
         # Etapa 1: cambia las líneas de abajo por `self.spawn(self.submit(value))`.
@@ -241,7 +241,7 @@ class PaxosNode(Node):
     async def on_propose(self, msg: Message) -> None:
         slot = msg.body["slot"]
         if slot not in self.decided:
-            self.learn(slot, msg.body["value"])  # gana el primer valor que un nodo oye para un hueco
+            self.learn(slot, msg.body["value"])  # gana el primer valor que un nodo oye para una posición
         self.busy.discard(slot)
 
     # ---- el aceptador (etapa 1)
@@ -254,7 +254,7 @@ class PaxosNode(Node):
         Etapa 2: tras prometer, si no eres seguidor y la boleta es mayor que self.ballot, otro se
         presenta con una boleta más alta: self.step_down(). Y retrasa self.deadline
         (self.now() + self.timeout()) para dar tiempo al candidato a ganar."""
-        raise NotImplementedError("TODO etapa 1: PaxosNode.on_prepare")
+        raise NotImplementedError("PENDIENTE etapa 1: PaxosNode.on_prepare")
 
     async def on_accept(self, msg: Message) -> None:
         """Etapa 1. Si msg.body["ballot"] >= self.promised: self.promised = ballot,
@@ -262,12 +262,12 @@ class PaxosNode(Node):
         Si no, responde {"type": "accepted", "ok": False, "promised": self.promised}.
 
         Etapa 2: cuando aceptas, el líder está vivo: self.follow(ballot)."""
-        raise NotImplementedError("TODO etapa 1: PaxosNode.on_accept")
+        raise NotImplementedError("PENDIENTE etapa 1: PaxosNode.on_accept")
 
-    # ---- el proponente (etapa 1): una ronda completa de Paxos por hueco
+    # ---- el proponente (etapa 1): una ronda completa de Paxos por posición
 
     async def submit(self, value: int) -> None:
-        """Etapa 1. Propón `value` hueco tras hueco hasta que se elija en uno. Mantén
+        """Etapa 1. Propón `value` posición tras posición hasta que se elija en una. Mantén
         `async with self.proposing:` (una ronda a la vez por nodo) y, mientras value siga en
         self.waiting (learn() lo saca al aplicarlo) y durante GIVE_UP segundos como mucho: toma
         slot = self.free_slot(), añádelo a self.busy mientras ejecutas `chosen = await self.paxos(slot,
@@ -275,10 +275,10 @@ class PaxosNode(Node):
         sigue. None (te superó una boleta más alta): duerme antes un tiempo aleatorio
         self.rng.uniform(0, BACKOFF * 2 ** tries) (tries hasta 4), o los proponentes se siguen
         superando unos a otros."""
-        raise NotImplementedError("TODO etapa 1: PaxosNode.submit")
+        raise NotImplementedError("PENDIENTE etapa 1: PaxosNode.submit")
 
     async def paxos(self, slot: int, value: int) -> int | None:
-        """Etapa 1. Paxos de un solo valor para un hueco; devuelve el valor elegido ahí, o None.
+        """Etapa 1. Paxos de un solo valor para una posición; devuelve el valor elegido ahí, o None.
           1. ballot = self.next_ballot(max(self.promised, self.highest)); self.see(ballot).
           2. oks = self.count(await self.broadcast({"type": "prepare", "ballot": ballot, "slot": slot}));
              menos de self.majority: devuelve None.
@@ -287,9 +287,9 @@ class PaxosNode(Node):
           4. Lo mismo con {"type": "accept", "ballot": ballot, "slot": slot, "value": value}; con una
              mayoría de oks, self.decide(slot, value) y devuelve value; si no, None.
         """
-        raise NotImplementedError("TODO etapa 1: PaxosNode.paxos")
+        raise NotImplementedError("PENDIENTE etapa 1: PaxosNode.paxos")
 
-    # ---- Multi-Paxos (etapa 2): un líder, la fase 1 una vez para todos los huecos
+    # ---- Multi-Paxos (etapa 2): un líder, la fase 1 una vez para todas las posiciones
 
     async def tick(self) -> None:
         # Etapa 2: un líder envía {"type": "heartbeat", "ballot": self.ballot, "upto": self.first_undecided()}
@@ -298,7 +298,7 @@ class PaxosNode(Node):
         return
 
     async def campaign(self) -> None:
-        """Etapa 2. La fase 1 una sola vez, para todos los huecos desde start = self.first_undecided().
+        """Etapa 2. La fase 1 una sola vez, para todas las posiciones desde start = self.first_undecided().
           - ballot = self.next_ballot(max(self.promised, self.highest)); self.see(ballot);
             self.role, self.ballot, self.leader_id = "candidate", ballot, None; retrasa self.deadline
             un self.timeout() aleatorio (la espera si este intento falla: presentarse otra vez al
@@ -307,25 +307,25 @@ class PaxosNode(Node):
             Si ya no eres el candidato, o tienes menos de self.majority oks, o
             self.highest > ballot: vuelve a ser seguidor y sal.
           - Lidera: self.role, self.leader_id = "leader", self.node_id.
-          - Para cada hueco desde start hasta el más alto que contó alguna promesa, salvo los que sabes
-            decididos: self.spawn(self.phase2(slot, v)) donde v es el valor con la boleta más alta que
-            contaron las promesas ahí, o NOOP si ninguna lo hizo (un hueco vacío).
-            self.next_slot = ese más alto + 1.
+          - Para cada posición desde start hasta la más alta que contó alguna promesa, salvo las que sabes
+            decididas: self.spawn(self.phase2(slot, v)) donde v es el valor con la boleta más alta que
+            contaron las promesas ahí, o NOOP si ninguna lo hizo (una posición vacía).
+            self.next_slot = esa más alta + 1.
         """
-        raise NotImplementedError("TODO etapa 2: PaxosNode.campaign")
+        raise NotImplementedError("PENDIENTE etapa 2: PaxosNode.campaign")
 
     async def phase2(self, slot: int, value: int) -> None:
-        """Etapa 2. Aceptar y luego decidir, sin preparar: la boleta del líder vale para todos los
-        huecos. A cada nodo (lanza un emisor por nodo), mientras sigas liderando con esa boleta y el
-        hueco no esté decidido: self.last_sent[node] = self.now(); rpc {"type": "accept", "ballot":
+        """Etapa 2. Aceptar y luego decidir, sin preparar: la boleta del líder vale para todas las
+        posiciones. A cada nodo (lanza un emisor por nodo), mientras sigas liderando con esa boleta y la
+        posición no esté decidida: self.last_sent[node] = self.now(); rpc {"type": "accept", "ballot":
         self.ballot, "slot": slot, "value": value} con RPC_TIMEOUT; si salta TimeoutError, envíalo
         otra vez; un rechazo (ok False) es self.preempted(reply["promised"]). Cuando una mayoría
         aceptó: self.decide(slot, value)."""
-        raise NotImplementedError("TODO etapa 2: PaxosNode.phase2")
+        raise NotImplementedError("PENDIENTE etapa 2: PaxosNode.phase2")
 
     async def on_heartbeat(self, msg: Message) -> None:
         """Etapa 2. Si msg.body["ballot"] < self.promised, al emisor lo depusieron y no lo sabe:
         self.send(msg.src, {"type": "preempt", "promised": self.promised}) y sal. Si no,
         self.follow(ballot, msg.src); y si msg.body["upto"] > self.first_undecided(), te perdiste
         decisiones: self.spawn(self.catch_up(msg.src))."""
-        raise NotImplementedError("TODO etapa 2: PaxosNode.on_heartbeat")
+        raise NotImplementedError("PENDIENTE etapa 2: PaxosNode.on_heartbeat")

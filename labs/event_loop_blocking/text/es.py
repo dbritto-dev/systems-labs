@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Bucle de eventos bloqueado"
-SUMMARY = "Un solo bucle asyncio, y llamadas bloqueantes dentro. Pásalas a hilos, luego a grupos acotados."
+SUMMARY = "Un solo bucle asyncio, y llamadas bloqueantes dentro. Pásalas a hilos, luego a pools acotados."
 PARAMS = {"rate": "peticiones por segundo en un día normal"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -35,7 +35,7 @@ STAGES = [
               "Etapa 1: await to_thread(call) en vez de call()"),
     StageText("Delegado a hilos",
               "Reto: el bucle queda libre, pero un solo GIL y una cola sin límite: trabajo para nadie.",
-              "Etapa 2: un grupo acotado por tipo de trabajo; vigila el retardo"),
+              "Etapa 2: un pool acotado por tipo de trabajo; vigila el retardo"),
     StageText("Ejecutores acotados",
               "Resuelto: CPU en procesos, E/S en hilos, cola llena = 503, y el retardo vigilado.",
               "Todas las etapas hechas"),
@@ -44,7 +44,7 @@ STAGES = [
 GOALS = {
     "lag": GoalText("Retardo p99<50ms", "delega lo bloqueante"),
     "health": GoalText("Fallos salud = 0", "no bloquees el bucle"),
-    "light": GoalText("Ligeras <100ms", "deja libre el bucle"),
+    "light": GoalText("Ligeras p99<100ms", "deja libre el bucle"),
     "served": GoalText("Pesadas ok ≥ 70%", "la CPU, en procesos"),
     "queued": GoalText("En cola ≤ 50", "cola acotada: 503 si llena"),
     "watched": GoalText("Vigilado ≥ 90%", "arranca un vigilante"),
@@ -55,7 +55,7 @@ LEGEND = {"idle": "en reposo", "waits": "espera", "served": "servida", "shed": "
           "gc": "pausa de basura", "budget": "retardo máximo", "incident": "incidente"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     "note_chart": "Gráfica: el peor retardo del bucle en cada segundo, del color de lo que lo retuvo.",
     # los dibujos
     "blocked": "BLOQUEO {ms:.0f}ms",
@@ -66,7 +66,7 @@ STRINGS = {
     "pool_threads": "hilos {busy}/{n} +{q}",
     "pool_default": "por defecto {busy}/{n} +{q}",
     "pool_procs": "procesos {busy}/{n} +{q}",
-    "no_pools": "sin grupos",
+    "no_pools": "sin pools",
     "call_db": "una consulta síncrona",
     "call_http": "una llamada HTTP síncrona",
     "call_resize": "un redimensionado",
@@ -99,14 +99,14 @@ STRINGS = {
     "toplist": "Peticiones",
     "bar_asked": "Pedidas",
     "bar_served": "Servidas",
-    "bar_refused": "Rechaz.",
+    "bar_refused": "Rechazos",
     "limit_lag": "retardo máximo",
     "head_down": "Matado por el orquestador: reiniciando, toda petición falla",
     "head_blocked": "{what} retiene el bucle: {ms:.0f} ms, nada más corre",
     "head_lag": "Retardo p99 del bucle {ms:.0f} ms: toda petición lo espera",
     "head_gc": "Pausas de basura paran el bucle {ms:.0f} ms: no es tu código",
-    "head_queued": "{n:,} llamadas en cola: más de lo que el grupo hace a tiempo",
-    "head_shed": "{n} respondidas con 503 al instante: el grupo está lleno",
+    "head_queued": "{n:,} llamadas en cola: más de lo que el pool hace a tiempo",
+    "head_shed": "{n} respondidas con 503 al instante: el pool está lleno",
     "head_gil": "CPU en hilos: el bucle se turna con ellos por el GIL",
     "head_ok": "Retardo del bucle {ms:.0f} ms: el bucle sigue libre",
 }
@@ -125,14 +125,14 @@ LESSON = Lesson(
         "Mídelo con un vigilante (duerme 100 ms y mira cuánto tarde te despiertan) y publícalo como métrica; "
         "el modo de depuración de asyncio además registra cada tarea más lenta que "
         "loop.slow_callback_duration.",
-        "asyncio.to_thread / loop.run_in_executor llevan una llamada bloqueante a un grupo de hilos: el bucle "
+        "asyncio.to_thread / loop.run_in_executor llevan una llamada bloqueante a un pool de hilos: el bucle "
         "queda libre. Es lo correcto para E/S bloqueante, que suelta el GIL mientras espera. El código Python "
         "que usa CPU retiene el GIL: ocho hilos siguen calculando de uno en uno, y el hilo del bucle se turna "
         "con ellos (el intérprete cambia cada 5 ms, sys.getswitchinterval()). Las versiones sin GIL (PEP 703) "
         "lo cambian, pero casi todos los despliegues aún tienen GIL.",
         "Dale a cada tipo de trabajo su propio ejecutor: un ProcessPoolExecutor con un proceso por núcleo para "
-        "la CPU (cada proceso tiene su GIL; los argumentos viajan serializados con pickle) y un grupo de hilos "
-        "para la E/S bloqueante. Grupos separados son compartimentos estancos: una base de datos lenta llena "
+        "la CPU (cada proceso tiene su GIL; los argumentos viajan serializados con pickle) y un pool de hilos "
+        "para la E/S bloqueante. Pools separados son bulkheads: una base de datos lenta llena "
         "el de E/S, no el que redimensiona imágenes.",
         "Las colas de los ejecutores no tienen límite. En una ráfaga crecen mientras dure, cada llamada en "
         "ellas espera más que su usuario, y el trabajo se hace igual para nadie. Acota cada cola y rechaza "
@@ -144,7 +144,7 @@ LESSON = Lesson(
         "Ejecutores acotados: cuatro procesos calculan a la vez, los hilos de E/S esperan en paralelo y una cola llena responde 503 en amarillo.",
     ),
     build=(
-        ("Python: E/S bloqueante y CPU a grupos acotados",
+        ("Python: E/S bloqueante y CPU a pools acotados",
          "io = ThreadPoolExecutor(max_workers=16)  # E/S bloqueante: hilos que esperan\n"
          "cpu = ProcessPoolExecutor(max_workers=os.cpu_count())  # CPU: un proceso por núcleo\n"
          "MOST = {io: 16 + 32, cpu: 4 + 8}  # en marcha + en cola, como mucho\n"
@@ -178,8 +178,8 @@ LESSON = Lesson(
     ),
     checklist=(
         "Ninguna llamada bloqueante en un manejador async: drivers síncronos, requests, time.sleep, json.dumps enormes, imágenes.",
-        "E/S bloqueante a un grupo de hilos dimensionado para esperar; CPU a un grupo de procesos del tamaño de los núcleos.",
-        "Un ejecutor por tipo de trabajo (compartimentos estancos), cada uno con una cola acotada que responde 503 si está llena.",
+        "E/S bloqueante a un pool de hilos dimensionado para esperar; CPU a un pool de procesos del tamaño de los núcleos.",
+        "Un ejecutor por tipo de trabajo (bulkheads), cada uno con una cola acotada que responde 503 si está llena.",
         "Usa drivers async donde existan (asyncpg, httpx.AsyncClient): no hace falta ejecutor.",
         "Mide el retardo del bucle todo el tiempo y alerta con él; activa la depuración de asyncio en preproducción.",
         "Que los chequeos de salud sean baratos, y su timeout y umbral, mayores que la peor parada que aceptas.",
@@ -191,7 +191,7 @@ LESSON = Lesson(
             "Por qué el código bloqueante no debe correr en el bucle, y el registro de tareas lentas."),
         Ref("Python: loop.run_in_executor",
             "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor",
-            "Grupos de hilos y de procesos desde asyncio, y asyncio.to_thread."),
+            "Pools de hilos y de procesos desde asyncio, y asyncio.to_thread."),
         Ref("Python: concurrent.futures",
             "https://docs.python.org/3/library/concurrent.futures.html",
             "ThreadPoolExecutor y ProcessPoolExecutor, y sus valores por defecto."),

@@ -30,7 +30,7 @@ LABS_LANG=es uv run pytest labs/async_backpressure             # x = aún no, X 
 | 1 Colas acotadas | `asyncio.Queue(maxsize=QUEUE_SIZE)`: `put` espera, la fuente deja de leer | sin muertes, memoria plana (~51%); pero el búfer del origen se desborda: ~19.000–20.000 eventos perdidos en silencio, y las escrituras de 50 sacan ~29% de lo que admitiría el destino |
 | 2 Créditos + lotes adaptativos | ventanas de `Credits` en cada enlace, `take_batch`, `admit` descarta LOW (contados) y guarda una reserva para HIGH | pico ~57%, 0 perdidos, ~500 eventos LOW/s descartados (contados), todos los HIGH escritos, lotes de 1.000, caudal 93–98%, p99 de vuelta a ~60 ms justo después |
 
-Objetivos, juzgados por incidente: base correcta (eventos escritos frente a llegados, antes), sin
+Objetivos, evaluados por incidente: base correcta (eventos escritos frente a llegados, antes), sin
 memoria = 0 (muertes del proceso), perdidos = 0 (tirados por el origen, muertos con el proceso o
 HIGH descartados), pico de memoria ≤ 80% del límite (estos tres hasta 10 s después del incidente),
 caudal ≥ 80% (eventos escritos frente a lo que llegó, o lo mejor del servicio más lento si es menos),
@@ -39,7 +39,7 @@ recupera).
 
 Dos dibujos: `lanes` (el primero) muestra uno de cada diez eventos: espera (blanco, luego naranja
 más oscuro cuanto más espera, en el origen o en una cola), vuela a la puerta (la fuente) cuando se
-lee, y su destino se desvanece allí: verde escrito, gris descartado (LOW, contado), rojo perdido. La
+lee, y allí se desvanece con su resultado: verde escrito, gris descartado (LOW, contado), rojo perdido. La
 puerta se cierra cuando la fuente no da abasto (el origen guarda un atraso) y se pone roja mientras
 el proceso arranca de nuevo; el indicador del servidor es la memoria del proceso (naranja por encima
 del 80%). `cluster` pone la fuente, A, B, C y el destino en una fila: los eventos vuelan por ella,
@@ -51,7 +51,7 @@ lento); pulsa `v` para cambiar.
   y una lenta crece a la diferencia de sus ritmos. Entran 1.000 eventos/s, salen 156/s, 16 KiB cada
   uno: 13 MiB por segundo, y el kernel no pregunta qué eventos importan.
 - **Por qué las colas acotadas mueven el problema.** `put` espera, las esperas viajan hasta la
-  fuente, la fuente deja de leer y el atraso queda en el origen. Un registro durable (Kafka) puede
+  fuente, la fuente deja de leer y el atraso queda en el origen. Un log durable (Kafka) puede
   esperar horas; un flujo que empuja tiene unos segundos de búfer y luego tira. Pausar es una decisión
   que depende del origen: sabe cuál tienes.
 - **Por qué créditos.** Una cola acotada acota lo que espera, no lo que una etapa tiene en las manos

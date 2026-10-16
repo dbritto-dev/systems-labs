@@ -5,7 +5,7 @@ Un servicio de pagos mueve dinero entre cuentas. Cada transferencia bloquea las 
 los bloqueos. Ahora mismo bloquea en el orden de la petición: primero `src`, luego `dst`. Cuando A le
 paga a B mientras B le paga a A, cada una retiene un bloqueo y espera el de la otra, para siempre:
 un interbloqueo. Luego cada transferencia que toca A o B espera detrás de ellas, reteniendo su propio
-primer bloqueo, y la pila crece hasta que el servicio se queda sin conexiones y se congela. Nadie lo
+primer bloqueo, y la pila crece hasta que el servicio se queda sin workers y se congela. Nadie lo
 rompe hasta que el servidor mata las transacciones (8 s después).
 
 Haz las etapas en orden, en este archivo:
@@ -60,7 +60,7 @@ def backoff(attempt: int, rng: random.Random) -> float:
       - Usa `rng` (no el módulo `random`), para que una ejecución sea siempre igual.
     """
     # Etapa 1: return rng.uniform(0, min(CAP, BASE * 2 ** min(attempt, 30)))
-    raise NotImplementedError("TODO etapa 1: backoff(attempt, rng)")
+    raise NotImplementedError("PENDIENTE etapa 1: backoff(attempt, rng)")
 
 
 def lock_order(accounts) -> list[int]:
@@ -71,7 +71,7 @@ def lock_order(accounts) -> list[int]:
       - Acepta cualquier iterable (una lista, un generador).
     """
     # Etapa 2: return sorted(set(accounts))
-    raise NotImplementedError("TODO etapa 2: lock_order(accounts)")
+    raise NotImplementedError("PENDIENTE etapa 2: lock_order(accounts)")
 
 
 class Payments:

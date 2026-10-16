@@ -60,7 +60,7 @@ def diff(mine: dict, theirs: dict) -> tuple[list, list]:
     diff({"k1": 5, "k2": 3}, {"k1": 4, "k2": 7, "k3": 1}) == (["k2", "k3"], ["k1"])
     """
     # Etapa 1: recorre theirs.items(); compara cada versión con mine.get(key, 0).
-    raise NotImplementedError("TODO etapa 1: diff")
+    raise NotImplementedError("PENDIENTE etapa 1: diff")
 
 
 # ---------------------------------------------------------------- etapa 2: un árbol de Merkle
@@ -91,23 +91,23 @@ class MerkleTree:
         self.dirty: set[int] = set()  # hojas que cambiaron desde que se recalcularon sus ancestros
 
     def leaf_of(self, key: str) -> int:
-        raise NotImplementedError("TODO etapa 2: MerkleTree.leaf_of")
+        raise NotImplementedError("PENDIENTE etapa 2: MerkleTree.leaf_of")
 
     def keys_of(self, leaf: int) -> list[str]:
         # Las claves n con n * leaves // KEYS == leaf: desde ceil(leaf * KEYS / leaves) hasta (sin
         # incluir) ceil((leaf + 1) * KEYS / leaves). Con enteros, ceil(a / b) es -(-a // b).
-        raise NotImplementedError("TODO etapa 2: MerkleTree.keys_of")
+        raise NotImplementedError("PENDIENTE etapa 2: MerkleTree.keys_of")
 
     def children(self, i: int) -> range:
-        raise NotImplementedError("TODO etapa 2: MerkleTree.children")
+        raise NotImplementedError("PENDIENTE etapa 2: MerkleTree.children")
 
     def update(self, key: str, old, new) -> None:
-        raise NotImplementedError("TODO etapa 2: MerkleTree.update")
+        raise NotImplementedError("PENDIENTE etapa 2: MerkleTree.update")
 
     def hash(self, level: int, i: int) -> int:
         # Si cambiaron hojas, recalcula sus padres, luego los de ellos, hasta la raíz (el padre del
         # nodo i es i // fanout); luego responde desde self.levels.
-        raise NotImplementedError("TODO etapa 2: MerkleTree.hash")
+        raise NotImplementedError("PENDIENTE etapa 2: MerkleTree.hash")
 
 
 # ---------------------------------------------------------------- la réplica
@@ -141,7 +141,7 @@ class ReplicaNode(Replica):
     # ---- etapa 1: compara cada clave
 
     async def full_scan(self, peer: str) -> None:
-        raise NotImplementedError("TODO etapa 1: full_scan")  # sync_keys con todas las claves: ALL_KEYS
+        raise NotImplementedError("PENDIENTE etapa 1: full_scan")  # sync_keys con todas las claves: ALL_KEYS
 
     async def sync_keys(self, peer: str, keys) -> None:
         """Repara `keys` con `peer`, en los dos sentidos."""
@@ -149,13 +149,13 @@ class ReplicaNode(Replica):
         #          (cada clave de `keys`, 0 si no la tenemos). Guarda cada una de reply["newer"]
         #          ({clave: (versión, valor)}) con self.store; luego envía al par las entradas que
         #          pidió en reply["want"]: {"type": "entries", "entries": {clave: self.data[clave]}}.
-        raise NotImplementedError("TODO etapa 1: sync_keys")
+        raise NotImplementedError("PENDIENTE etapa 1: sync_keys")
 
     async def on_scan(self, msg: Message) -> None:
         # Etapa 1: compara con diff nuestras versiones de las claves de msg.body["versions"] con las
         #          suyas; responde {"type": "scan_ok", "newer": {clave: self.data[clave]} de las
         #          claves que tenemos más nuevas, "want": [las claves que ellos tienen más nuevas]}.
-        raise NotImplementedError("TODO etapa 1: on_scan")
+        raise NotImplementedError("PENDIENTE etapa 1: on_scan")
 
     async def on_entries(self, msg: Message) -> None:
         for key, (version, value) in msg.body["entries"].items():
@@ -170,9 +170,9 @@ class ReplicaNode(Replica):
         #          Si no difiere ninguno: hecho, no hay nada que reparar. En las hojas (level ==
         #          self.tree.depth): sync_keys(peer, todas las claves de las hojas que difieren). Si
         #          no, los hijos de los nodos que difieren son los nodos del siguiente nivel.
-        raise NotImplementedError("TODO etapa 2: merkle_sync")
+        raise NotImplementedError("PENDIENTE etapa 2: merkle_sync")
 
     async def on_hashes(self, msg: Message) -> None:
         # Etapa 2: responde {"type": "hashes_ok", "differ": [i for i, h in msg.body["hashes"].items()
         #          if nuestro hash del nodo i en el nivel msg.body["level"] != h]}.
-        raise NotImplementedError("TODO etapa 2: on_hashes")
+        raise NotImplementedError("PENDIENTE etapa 2: on_hashes")
