@@ -137,7 +137,11 @@ middle (a balancer, a gateway, a cache, a queue) with requests flying user → d
 server, and **fan-out** has the relay call a few small servers, each with its own gauge (an
 orchestrator and its services, a coordinator and its shards). **peers** stands the nodes on a
 ring (a pentagon, an octagon), each a small box with its gauge and its name, with the links that
-carry messages right now between them, and a red ✕ on every link a partition cuts.
+carry messages right now between them, and a red ✕ on every link a partition cuts. **fan-in**
+puts a column of nodes between the door and the one store they share (a KV store, a database, the
+storage behind a lock), and **pipeline** draws stages in a row, each with its queue, with an arc
+over the top for a step that skips the line (a dual write, a read sent to the tail). `broadcast`
+keeps the cluster picture: its grid is the real topology, drawn with its links.
 
 Each of these labs opens with that picture.
 
@@ -145,7 +149,9 @@ Each of these labs opens with that picture.
 |---|---|
 | relay | `load_balancing`, `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
 | fan-out | `saga_orchestration`, `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
-| peers | `raft_consensus`, `paxos_consensus`, `failure_detection`, `vector_clocks_crdts` |
+| peers | `raft_consensus`, `paxos_consensus`, `failure_detection`, `vector_clocks_crdts`, `merkle_anti_entropy`, `transactions`, `unique_id_generation`, `geo_replication` |
+| fan-in | `consistent_hashing`, `grow_only_counter`, `kafka_style_log`, `distributed_lock` |
+| pipeline | `async_backpressure`, `transactional_outbox`, `chain_replication` |
 
 Traffic and reliability:
 

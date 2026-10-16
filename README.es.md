@@ -143,7 +143,12 @@ peticiones van usuario → puerta → relevo → servidor; **abanico** hace que 
 varios servidores pequeños, cada uno con su indicador (un orquestador y sus servicios, un
 coordinador y sus fragmentos). **pares** pone los nodos en un anillo (un pentágono, un
 octógono), cada uno una caja pequeña con su indicador y su nombre, con los enlaces que llevan
-mensajes en ese momento, y una ✕ roja en cada enlace que corta una partición.
+mensajes en ese momento, y una ✕ roja en cada enlace que corta una partición. **embudo** pone
+una columna de nodos entre la puerta y el único almacén que comparten (un almacén clave-valor, una
+base de datos, el almacenamiento detrás de un cerrojo), y **tubería** dibuja etapas en fila, cada
+una con su cola, con un arco por encima para un paso que se salta la fila (una doble escritura, una
+lectura que va a la cola de la cadena). `broadcast` conserva el dibujo de clúster: su cuadrícula es
+la topología real, dibujada con sus enlaces.
 
 Cada uno de estos laboratorios abre con ese dibujo.
 
@@ -151,7 +156,9 @@ Cada uno de estos laboratorios abre con ese dibujo.
 |---|---|
 | relevo | `load_balancing`, `rate_limiting`, `graceful_shutdown`, `autoscaling`, `canary_releases`, `circuit_breaker`, `hedged_requests`, `connection_pool`, `idempotency`, `caching`, `cache_invalidation`, `n_plus_one_queries`, `zero_downtime_migration`, `message_queue_consumers` |
 | abanico | `saga_orchestration`, `webhook_delivery`, `two_phase_commit`, `hot_partition`, `replication_lag`, `quorum_replication` |
-| pares | `raft_consensus`, `paxos_consensus`, `failure_detection`, `vector_clocks_crdts` |
+| pares | `raft_consensus`, `paxos_consensus`, `failure_detection`, `vector_clocks_crdts`, `merkle_anti_entropy`, `transactions`, `unique_id_generation`, `geo_replication` |
+| embudo | `consistent_hashing`, `grow_only_counter`, `kafka_style_log`, `distributed_lock` |
+| tubería | `async_backpressure`, `transactional_outbox`, `chain_replication` |
 
 Tráfico y fiabilidad:
 
