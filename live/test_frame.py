@@ -142,3 +142,53 @@ def test_an_error_before_the_first_minute_says_where_to_fix_it():
     text = "\n".join(plain(x) for x in compose(world, "main", 0.0, 110, 44, error=error))
     assert "Your code stopped with an error" in text and "TypeError: boom" in text
     assert "Edit labs/retry_storm/main.py:38" in text and "stopped" in text.splitlines()[0]
+
+
+def _run_in_pty(argv: list[str], keys: bytes = b"", seconds: float = 20) -> tuple[int | None, str]:
+    """Run the viewer in a pseudo-terminal, drain its output, type `keys` once the header is up."""
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execv(sys.executable, [sys.executable, "-m", "live", *argv])
+    import fcntl
+    import struct
+    import termios
+
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 44, 110, 0, 0))
+    out, typed, status = b"", not keys, None
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        r, _, _ = select.select([fd], [], [], 0.1)
+        if r:
+            try:
+                out += os.read(fd, 65536)
+            except OSError:
+                pass
+        if not typed and (b"Behavior:" in out or b"Your stage shows" in out):
+            os.write(fd, keys)
+            typed = True
+        done, code = os.waitpid(pid, os.WNOHANG)
+        if done:
+            status = code
+            break
+    if status is None:
+        os.kill(pid, 9)
+        os.waitpid(pid, 0)
+    return status, out.decode("utf-8", "replace")
+
+
+def test_a_recorded_session_replays_by_itself(tmp_path):
+    script = tmp_path / "keys.jsonl"
+    script.write_text('{"t": 0.4, "key": "space"}\n{"t": 0.8, "key": "up"}\n{"t": 1.2, "key": "q"}\n')
+    status, text = _run_in_pty(["retry_storm", "--variant", "reference", "--replay", str(script)])
+    assert status is not None and os.WEXITSTATUS(status) == 0, text[-500:]  # it quit on the replayed q
+    assert "Traceback" not in text
+
+
+def test_recording_writes_every_key_with_its_time(tmp_path):
+    log = tmp_path / "rec.jsonl"
+    status, text = _run_in_pty(["retry_storm", "--variant", "reference", "--record", str(log)], keys=b"v q")
+    assert status is not None and os.WEXITSTATUS(status) == 0, text[-500:]
+    import json
+
+    keys = [json.loads(line)["key"] for line in log.read_text().splitlines()]
+    assert keys == ["v", "space", "q"]
