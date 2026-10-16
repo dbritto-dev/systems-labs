@@ -1,12 +1,14 @@
-"""The pictures for lab transactions."""
+"""The pictures for lab transactions: the three nodes (peers: on a triangle, the links between them; cluster: on
+a grid), and the clients' view (lanes)."""
 
 from __future__ import annotations
 
-from live.adapters.common import client_lanes, every, message_gauge
-from live.canvas import BLUE, GREEN, RED, WHITE
+from live.adapters.common import client_lanes, every, link_list, message_gauge, peer_traffic
+from live.canvas import BLUE, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_peers import LINE, Leaf, PeersAdapter, PeersFrame
 
 DROP_FADE = 0.6  # seconds a dropped message stays on screen
 MAX_FLIGHTS = 60
@@ -49,9 +51,6 @@ class TxnCluster(ClusterAdapter):
 GAUGE_MAX = 300  # messages per second between nodes that fill the cluster's gauge
 
 
-
-
-
 @adapts("transactions", "lanes")
 class TxnLanes(LaneAdapter):
     """The clients' view: transactions waiting on the cluster; the door is the network."""
@@ -77,3 +76,52 @@ class TxnLanes(LaneAdapter):
             state = (words["connected"], GREEN)
         return LaneFrame(users=waiting, flights=flights, outcomes=outcomes, closed=split, fill=fill, gauge=gauge,
                          outline=RED if split or g1b else OUTLINE, state=state)
+
+
+# ---------------------------------------------------------------- the peers picture: the triangle, and the clients
+
+
+@adapts("transactions", "peers")
+class TxnPeers(PeersAdapter):
+    """The clients (the users, and the door: the network, shut while a node is cut off; an answer is green, red
+    when it failed or read an uncommitted write) and the three nodes on a triangle. A box's outline is how up to
+    date it is: blue, oranges the more keys it is behind, red for a moment when it served an intermediate read
+    ("n1 G1b"). Its gauge is its share of fresh keys (within 1 s of the newest value; orange under 95%). A link
+    is drawn while it carries replication (blue); the two links of a node cut off are cut (a red ✕, "n2 cut
+    off"), what is sent over them lost half way; the re-sends that piled up flow once it heals."""
+
+    def frame(self, variant: str, t: float, users: int) -> PeersFrame:
+        from labs.transactions import lab
+        from labs.transactions.scenario import TXN_NODE, TXN_START
+        from live.worlds.transactions import ANOM_NODE, MSG_ARRIVED, MSG_DEST, MSG_SENT, MSG_SRC
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return PeersFrame()
+        lane = TxnLanes(w).frame(variant, t, users)  # the users, the door, the answers and the state
+        flights, drops, recent = peer_traffic(run, t, (MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED), lambda m: BLUE,
+                                              most=MAX_FLIGHTS)
+        for r in run.rows("txns", t - 0.12, t + 1e-9):  # transactions on their way (~100 ms)
+            flights.append((-1, r[TXN_NODE], min(1.0, (t - r[TXN_START]) / 0.1), WHITE))
+        cut = w.cut_at(variant, t)
+        stale = w.stale_at(run, t)
+        groups = None if cut is None else [1 if i == cut else 0 for i in range(len(stale))]
+        g1b = {a[ANOM_NODE] for a in run.rows("anomalies", t - 0.5, t + 1e-9)}
+        colours = w.node_colours(run, t)
+        peers = []
+        for i, behind in enumerate(stale):
+            node = f"n{i}"
+            if i in g1b:
+                label = w.s("peer_g1b", node=i)
+            elif i == cut:
+                label = w.s("state_cut", node=i)
+            else:
+                label = node
+            fresh = 1 - behind / lab.KEYS
+            peers.append(Leaf(label=(label, RED if i == cut else colours[i]), short=node, tiny=node, fill=fresh,
+                              gauge=BLUE if fresh >= lab.FRESH_MIN else EXTRA2, outline=colours[i]))
+        return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, state=lane.state, peers=peers,
+                          links=link_list(recent, groups, LINE), groups=groups,  # its two links cut
+                          flights=every(flights, MAX_FLIGHTS), drops=drops)

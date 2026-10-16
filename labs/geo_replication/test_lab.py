@@ -203,13 +203,13 @@ def test_a_bug_in_your_node_is_reported():
 
 
 @starting_code
-def test_two_pictures_the_cluster_first():
+def test_three_pictures_the_peers_first():
     from live.canvas import EXTRA2, RED, plain
     from live.frame import compose
     from live.views import adapter_for, set_view, views_for
 
     worlds = {v: build_world(LAB, v, 1) for v in ("main", "reference")}
-    assert views_for(worlds["main"]) == ["cluster", "lanes"] and worlds["main"].view == "cluster"
+    assert views_for(worlds["main"]) == ["peers", "cluster", "lanes"] and worlds["main"].view == "peers"
 
     def pictures(v: str, t: float):
         world = worlds[v]
@@ -234,6 +234,39 @@ def test_two_pictures_the_cluster_first():
     assert any(c == EXTRA2 for _, _, _, c in frame.flights)  # requests forwarded across an ocean
     frame, lanes = pictures("reference", 25.0)
     assert not any(c == RED for c, _ in lanes.outcomes)  # nothing fails: us's users write in eu
+
+
+@starting_code
+def test_the_peers_picture_shows_the_oceans_and_the_region_cut_off():
+    from live.canvas import BLUE, EXTRA2, RED, WHITE, plain
+    from live.frame import compose
+    from live.views import adapter_for
+
+    def peers(v, times):
+        world = build_world(LAB, v, 1)
+        assert world.view == "peers"
+        return world, [adapter_for(world).frame(v, t, 90) for t in times]
+
+    calm = [k / 2 for k in range(10, 38)]  # 0:05 to 0:19
+    for v in ("main", "reference"):
+        world, (cut,) = peers(v, [25.0])
+        assert [p.short for p in cut.peers] == ["us", "eu", "ap"]
+        assert set(cut.link_labels.values()) == {"70ms", "100ms", "150ms"}
+        assert cut.groups == [1, 0, 0] and cut.peers[0].label == (world.s("peer_cut", name="us"), RED)
+        assert cut.peers[0].outline != RED  # cut off, not down
+        text = "\n".join(plain(line) for line in compose(world, v, 25.0, 110, 44))
+        assert "✕" in text and "150ms" in text  # us's two oceans cut; eu–ap still there
+    world, given = peers("main", calm)
+    _, solved = peers("reference", calm)
+    behind = [p for f in given[4:] for p in f.peers[1:]]  # one primary in us: eu and ap lag behind it
+    assert behind and all("−" in p.label[0] and p.outline != BLUE for p in behind)
+    assert any(c == EXTRA2 for f in given for _, _, c in f.links)  # writes forwarded across an ocean
+    assert all(p.outline == BLUE and p.label[0] == p.short for f in solved for p in f.peers)
+    assert all(c == BLUE for f in solved for *_, c in f.links)  # every region writes locally: only replication
+    assert max(f.peers[0].fill for f in given) > 0.6 > max(p.fill for f in solved for p in f.peers)  # us busiest
+    _, during = peers("reference", [k / 2 for k in range(42, 58)])  # 0:21 to 0:29: us's users moved
+    moved = {c for f in during for a, b, _, c in f.flights if a == -1 and b != 0}
+    assert {WHITE, EXTRA2} <= moved  # home users in eu and ap, and us's users failed over to them
 
 
 # ------------------------------------------------------------- your code: three regions, one user

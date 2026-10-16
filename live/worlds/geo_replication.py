@@ -125,7 +125,7 @@ GOALS = [
 
 class GeoReplicationWorld(World):
     id = "geo_replication"
-    view = "cluster"  # regions as columns of nodes, messages crossing oceans: the cluster teaches best
+    view = "peers"  # the three regions, the oceans between them and what crosses them: the peers teach best
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "fresh", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "down", "◉"),
               (WHITE, "request"), (EXTRA2, "far"), (BLUE, "replication"), (PURPLE, "stale"), (RED, "failed"),
@@ -364,7 +364,7 @@ class GeoReplicationWorld(World):
                 (("c_fast", WHITE), ("c_far", EXTRA2), ("c_stale", PURPLE), ("c_failed", RED))]
 
     def legend_notes(self) -> list[str]:
-        return [self.s("note_nodes"), self.s("note_chart")]
+        return [self.s("note_nodes" if self.view == "cluster" else "note_regions"), self.s("note_chart")]
 
 
 WORLD = GeoReplicationWorld

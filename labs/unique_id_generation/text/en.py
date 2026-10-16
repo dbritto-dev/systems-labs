@@ -80,6 +80,9 @@ STRINGS = {
     # the lanes picture (the clients' view): states under the cluster, at most 13 letters
     "lanes_dups": "DUPLICATES",
     "lanes_clock": "CLOCK SKEW",
+    # the peers picture: under a node, short
+    "peer_clock": "n{node} clock −{seconds:g}s",
+    "peer_dup": "n{node} dup!",
 }
 
 LESSON = Lesson(

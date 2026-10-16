@@ -96,6 +96,12 @@ STRINGS = {
     "lanes_cut": "{name} AISLADA",
     "lanes_busy": "{name} AL {util:.0%}",
     "lanes_far": "p99 {p99}",
+    # el dibujo de pares: bajo cada región, corto; en cada enlace, su latencia de ida
+    "peer_down": "{name} caída",
+    "peer_cut": "{name} aislada",
+    "peer_behind": "{name} −{n}",
+    "peer_ms": "{ms:.0f}ms",
+    "note_regions": "Regiones: us, eu, ap; en cada enlace, la latencia de ida por el océano.",
     # errores en tu código
     "no_store": "RegionNode debe guardar sus datos en self.store, como {key: (version, value)}: el comprobador mira ahí",
 }
