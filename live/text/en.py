@@ -77,5 +77,6 @@ ENDED = "ended"
 # ---- the command line
 LABS_HEADER = "Labs (watch one with: uv run python -m live <lab>)"
 NO_LAB = "no lab named {name!r}. Labs: {labs}"
+DID_YOU_MEAN = " Did you mean {name!r}?"
 LESSON = {"learn": "Learn", "watch": "Watch for", "build": "In production", "checklist": "Checklist",
           "refs": "Read more", "next": "Try next"}

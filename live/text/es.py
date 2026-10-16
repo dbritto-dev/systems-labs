@@ -77,5 +77,6 @@ ENDED = "terminó"
 # ---- la línea de comandos
 LABS_HEADER = "Laboratorios (abre uno con: uv run python -m live <lab>)"
 NO_LAB = "no hay un laboratorio llamado {name!r}. Laboratorios: {labs}"
+DID_YOU_MEAN = " ¿Quisiste decir {name!r}?"
 LESSON = {"learn": "Aprende", "watch": "Fíjate en", "build": "En producción", "checklist": "Lista de comprobación",
           "refs": "Para leer más", "next": "Prueba después"}

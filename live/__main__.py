@@ -69,9 +69,12 @@ def colour_mode(forced: bool) -> str:
 def parse_size(s: str) -> tuple[int, int]:
     try:
         w, h = s.lower().split("x")
-        return int(w), int(h)
+        w, h = int(w), int(h)
     except ValueError:
         raise SystemExit(f"--size expects WIDTHxHEIGHT like 110x44, got {s!r}") from None
+    if w <= 0 or h <= 0:
+        raise SystemExit(f"--size expects a positive WIDTHxHEIGHT like 110x44, got {s!r}")
+    return w, h
 
 
 def one_frame(world, feed: Feed, lab: str, args) -> int:
@@ -136,7 +139,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.lab:
         return list_labs()
     if args.lab not in labs:
-        print(screen_text().NO_LAB.format(name=args.lab, labs=", ".join(labs)), file=sys.stderr)
+        import difflib
+
+        close = difflib.get_close_matches(args.lab, list(labs), n=1)
+        hint = screen_text().DID_YOU_MEAN.format(name=close[0]) if close else ""
+        print(screen_text().NO_LAB.format(name=args.lab, labs=", ".join(labs)) + hint, file=sys.stderr)
         return 2
     try:
         params = parse_params(labs[args.lab], args.set)
