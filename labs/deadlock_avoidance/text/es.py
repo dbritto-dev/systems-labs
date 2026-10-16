@@ -44,7 +44,7 @@ GOALS = {
     "deadlocks": GoalText("Interbloqueos = 0", "bloquea en un orden global"),
     "completed": GoalText("Completadas ≥ 99%", "timeout, libera, reintenta"),
     "p99": GoalText("p99 ≤ 100ms", "suelta pronto los bloqueos"),
-    "retries": GoalText("Reintentos ≤ 0,1", "en orden: sin timeouts"),
+    "retries": GoalText("Reintentos ≤ 0.1", "en orden: sin timeouts"),
     "money": GoalText("Descuadre = 0 $", "mueve con ambos bloqueos"),
 }
 
@@ -57,7 +57,7 @@ STRINGS = {
     "payout_end": "el pago masivo ha terminado",
     "refunds_start": "{rate:.0f} reembolsos/s de un gran comercio a compradores que le siguen pagando: {cause}",
     "refunds_end": "los reembolsos han terminado",
-    "slow_start": "el {rate:.1f}% de las escrituras de auditoría se atasca 0,2-0,6 s: {cause}",
+    "slow_start": "el {rate:.1f}% de las escrituras de auditoría se atasca 0.2-0.6 s: {cause}",
     "slow_end": "el registro de auditoría vuelve a ir rápido",
     "batch_start": "{rate:.0f} lotes/s, cada uno bloquea de 10 a 25 cuentas: {cause}",
     "batch_end": "el proceso por lotes ha terminado",

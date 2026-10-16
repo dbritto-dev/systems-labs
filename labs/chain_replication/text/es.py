@@ -67,7 +67,7 @@ STRINGS = {
     "bar_reads": "Lecturas",
     "limit": "escrituras",
     "head_chain": "Cadena {chain}",
-    "note_chart": "Gráfica: escrituras por segundo: rápidas, lentas (más de 0,5 s), fallidas.",
+    "note_chart": "Gráfica: escrituras por segundo: rápidas, lentas (más de 0.5 s), fallidas.",
     # lo que vive la cadena: una frase (clúster, titular) ...
     "sit_lost": "escrituras confirmadas perdidas",
     "sit_stale": "lecturas que no ven escrituras confirmadas",

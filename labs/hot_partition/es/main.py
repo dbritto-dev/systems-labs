@@ -3,7 +3,7 @@
 Un almacén clave/valor está repartido en seis particiones (p0 ... p5) según un hash de la clave;
 cada una atiende 150 peticiones por segundo. Los usuarios dan me gusta, hacen clic y miran cosas:
 cada me gusta es `Counters.incr(key)` y cada vez que se ve una cuenta es `Counters.read(key)`, ~120
-operaciones por segundo sobre 5.000 claves. Repartido en seis particiones es fácil: cada una está
+operaciones por segundo sobre 5,000 claves. Repartido en seis particiones es fácil: cada una está
 ocupada un ~15% del tiempo.
 
 Entonces una clave explota: la publicación de una famosa se hace viral, todo el mundo hace clic en

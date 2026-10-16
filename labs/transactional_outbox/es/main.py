@@ -78,7 +78,7 @@ class Relay:
     """Etapa 1. Lleva los eventos de la tabla outbox al intermediario.
 
     El escenario llama a `await relay.relay_once()` una y otra vez: enseguida si devolvió un número
-    mayor que 0, tras una pausa corta (0,1 s) si devolvió 0, y tras 0,5 s si lanzó
+    mayor que 0, tras una pausa corta (0.1 s) si devolvió 0, y tras 0.5 s si lanzó
     BrokerUnavailable. Tras una muerte crea un Relay nuevo: guarda tu progreso en la base de datos.
 
       relay_once()  trae hasta BATCH filas sin enviar (`fetch_unsent`), publica cada una y luego

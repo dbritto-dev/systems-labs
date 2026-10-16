@@ -90,7 +90,7 @@ LESSON = Lesson(
         "servidores, y casi todas se topan con una (Dean y Barroso, \"The Tail at Scale\").",
         "Una petición de respaldo espera un poco (más o menos el p95 de una respuesta) y, si aún no "
         "hay respuesta, manda la misma lectura a otra réplica y se queda con la que conteste antes. "
-        "Dos respuestas lentas seguidas son muy raras (1 de cada 2.500), así que el p99 baja a "
+        "Dos respuestas lentas seguidas son muy raras (1 de cada 2,500), así que el p99 baja a "
         "~30 ms. Solo el ~2% lento recibe copia, así que cuesta ~2% más de carga.",
         "Sin límite, se vuelve en tu contra justo cuando algo va mal. Si una réplica va lenta, cada "
         "lectura que le llega recibe copia: +33% de carga. Si van lentas todas, todas la reciben: "
@@ -142,7 +142,7 @@ LESSON = Lesson(
             "Por qué las respuestas lentas raras dominan a gran escala, y las peticiones de respaldo y atadas."),
         Ref("The Tail at Scale (PDF)",
             "https://www.barroso.org/publications/TheTailAtScale.pdf",
-            "El artículo: una copia tras 10 ms bajó un p99.9 de 1.800 ms a 74 ms, con un 2% más de peticiones."),
+            "El artículo: una copia tras 10 ms bajó un p99.9 de 1,800 ms a 74 ms, con un 2% más de peticiones."),
         Ref("gRPC: Request Hedging",
             "https://grpc.io/docs/guides/request-hedging/",
             "hedgingDelay, maxAttempts y la limitación con tokens."),

@@ -106,3 +106,14 @@ def test_every_goal_phase_and_legend_key_has_words(lab):
         assert item[1] in names, f"{lab}: legend key {item[1]!r} is not in LEGEND"
     for g in type(world).goals:
         assert g.key in world.text.GOALS, f"{lab}: goal key {g.key!r} is not in GOALS"
+
+
+def test_bar_labels_leave_a_gap_before_their_bar():
+    """The panel gives a bar's label 10 columns; at 10 letters it would touch the bar."""
+    from core.contract import discover
+    from core.i18n import LANGS, catalog
+
+    long = [(lab, code, k, v) for lab in discover() for code in LANGS
+            for k, v in getattr(catalog(f"labs.{lab}.text", code), "STRINGS", {}).items()
+            if k.startswith("bar_") and "{" not in v and len(v) > 9]
+    assert not long, long

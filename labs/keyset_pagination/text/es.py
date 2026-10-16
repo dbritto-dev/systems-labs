@@ -109,8 +109,8 @@ LESSON = Lesson(
         "peticiones las filas se mueven: una publicación escrita arriba empuja todo un puesto hacia abajo, y "
         "la página siguiente repite una publicación; una publicación borrada por encima sube todo un puesto, "
         "y otra no se muestra nunca. Nadie recibe un error, solo una lista equivocada.",
-        "OFFSET además es lento justo donde duele. La base de datos no puede saltar a la fila 20.000: "
-        "recorre el índice desde arriba y tira las 20.000 primeras filas. Un proceso que pagina la tabla "
+        "OFFSET además es lento justo donde duele. La base de datos no puede saltar a la fila 20,000: "
+        "recorre el índice desde arriba y tira las 20,000 primeras filas. Un proceso que pagina la tabla "
         "entera lee n^2/2 filas, y sus páginas profundas ocupan workers por los que todos los demás esperan.",
         "La paginación por clave (seek) recuerda dónde está el cliente: la clave de orden de la última "
         "fila que recibió. La página siguiente es WHERE created_at < :ultimo ORDER BY created_at DESC "

@@ -58,7 +58,7 @@ STRINGS = {
     "tile_primary": "Primario",
     "bar_replicas": "Réplicas",
     "bar_primary": "Primario",
-    "bar_writes": "Escrituras",
+    "bar_writes": "Escrit.",
     "reads": "Lecturas",
     "head_behind": "{name} va {lag:.1f} s por detrás",
     "head_down": "{name} se está reiniciando",

@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 from labs.webhook_delivery.api import Event, ok
 
-ATTEMPT_TIMEOUT = 2.0  # segundos que se espera una respuesta: un endpoint sano responde en ~0,1 s
+ATTEMPT_TIMEOUT = 2.0  # segundos que se espera una respuesta: un endpoint sano responde en ~0.1 s
 BACKOFF_BASE = 0.5  # segundos: lo más que espera el 1.er reintento; se duplica cada vez
 BACKOFF_CAP = 30.0
 MAX_IN_FLIGHT = 4  # POST en vuelo a un mismo endpoint, como mucho

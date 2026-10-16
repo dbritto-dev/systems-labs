@@ -2,7 +2,7 @@
 
 *[Read in English](../README.md)*
 
-La app guarda el nombre de cada usuario en `users.fullname` (10.000 filas), y la próxima
+La app guarda el nombre de cada usuario en `users.fullname` (10,000 filas), y la próxima
 versión lo renombra a `users.display_name`. Seis instancias de la app atienden ~100
 peticiones/s (el 70% lee un nombre, el 30% lo cambia). Una versión se despliega una instancia
 cada 2 s, así que durante un rato las instancias **viejas** (leen y escriben la columna vieja)
@@ -32,7 +32,7 @@ LABS_LANG=es uv run pytest labs/zero_downtime_migration            # x = aún no
 
 | Etapa | En `es/main.py` | Lo que ves (primera ventana, 12 semillas) |
 |---|---|---|
-| 0 Renombrar de golpe (dada) | `migrate` renombra la columna de golpe; el código nuevo solo usa el nombre nuevo | cada instancia vieja falla hasta que la reemplazan, y otra vez tras la vuelta atrás: de 1.003 a 1.352 errores |
+| 0 Renombrar de golpe (dada) | `migrate` renombra la columna de golpe; el código nuevo solo usa el nombre nuevo | cada instancia vieja falla hasta que la reemplazan, y otra vez tras la vuelta atrás: de 1,003 a 1,352 errores |
 | 1 Expandir/contraer | añade la columna, escribe ambas (`m.write_old`), lee la vieja (`m.read_new`), un `db.copy` de todas las filas, cambia y borra tras `fleet.released()` | sin errores, pero la copia bloquea todas las filas 7.5 s (p99 de escritura de 6.5 a 7.1 s), y quedan de 102 a 177 nombres erróneos escritos por instancias viejas durante la vuelta atrás |
 | 2 Relleno frenado y verificado | `backfill`: BATCH filas por copia, PAUSE entre ellas, espera mientras `busy()`; `verify` vuelve a copiar los lotes que difieren | sin errores, p99 de escritura de 25 a 29 ms, ningún nombre erróneo, hecha en 42 a 49 s |
 

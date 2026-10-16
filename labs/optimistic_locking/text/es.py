@@ -63,7 +63,7 @@ STRINGS = {
     "tile_conflicts": "409",
     "tile_retried": "Reint.",
     "bar_users": "Usuarios",
-    "bar_writes": "Escrituras",
+    "bar_writes": "Escrit.",
     "limit": "usuarios/s",
     "head_lost": "{n} cambios perdidos en 10 s",
     "head_conflicts": "{n} respuestas 409 en 10 s",

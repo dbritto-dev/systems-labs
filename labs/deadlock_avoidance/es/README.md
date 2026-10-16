@@ -12,8 +12,8 @@ llevan una parte Zipf de todos los pagos). Como en MySQL con `innodb_deadlock_de
 rompe un interbloqueo por ti: el servidor mata una transacción a los 8 s. En momentos al azar, como
 en producción, un pago masivo mueve dinero entre las cuentas más activas en ambos sentidos (y llena
 el registro de auditoría), un comercio reembolsa a los compradores que le siguen pagando
-(transferencias al revés de lo habitual), la auditoría se atasca de vez en cuando (el 0,4–0,8% de
-las escrituras tarda 0,2–0,6 s), o un proceso por lotes (un cobro de comisiones) bloquea de 10 a 25
+(transferencias al revés de lo habitual), la auditoría se atasca de vez en cuando (el 0.4–0.8% de
+las escrituras tarda 0.2–0.6 s), o un proceso por lotes (un cobro de comisiones) bloquea de 10 a 25
 cuentas a la vez. La ejecución nunca se reinicia. El primer incidente es siempre un pago masivo a
 los 0:20–0:30.
 
@@ -26,12 +26,12 @@ LABS_LANG=es uv run pytest labs/deadlock_avoidance             # x = aún no, X 
 | Etapa | En `es/main.py` | Lo que ves en el primer pago masivo |
 |---|---|---|
 | 0 Orden de la petición (dada) | `lock_all` pide `src` y luego `dst`, esperando siempre | 1–2 interbloqueos en menos de un segundo, y luego todos los workers quedan atascados: la puerta se cierra, se completa el 14–22% de las transferencias, p99 de 2 s (el timeout del cliente) |
-| 1 Timeouts y reintento | `lock_all`: `timeout=0.05`; ante `LockTimeout`, `release_all()`, duerme `backoff(attempt, rng)` y reintenta hasta 8 veces | ningún interbloqueo dura (los ciclos se rompen en 50 ms), pero los timeouts también saltan en esperas largas en las cuentas más activas: 1,4–1,6 reintentos por transferencia, 88–91% completadas, p99 de 1,8–2 s |
+| 1 Timeouts y reintento | `lock_all`: `timeout=0.05`; ante `LockTimeout`, `release_all()`, duerme `backoff(attempt, rng)` y reintenta hasta 8 veces | ningún interbloqueo dura (los ciclos se rompen en 50 ms), pero los timeouts también saltan en esperas largas en las cuentas más activas: 1.4–1.6 reintentos por transferencia, 88–91% completadas, p99 de 1.8–2 s |
 | 2 Un solo orden | `lock_order` = `sorted(set(accounts))` en `transfer` y `settle`; auditoría tras liberar; `LOCK_TIMEOUT = 2` y 3 intentos como red de seguridad | nunca se forma un ciclo: 100% completadas, p99 de ~23 ms, 0 reintentos; todos los objetivos OK |
 
 Objetivos, evaluados por incidente, para las transferencias que empiezan durante él: interbloqueos =
 0 (un ciclo de transferencias esperando que dura 1 s), completadas ≥ 99%, p99 ≤ 100 ms (las de los
-usuarios, no los lotes), reintentos ≤ 0,1 por transferencia, y descuadre = 0 $ (dinero que apareció
+usuarios, no los lotes), reintentos ≤ 0.1 por transferencia, y descuadre = 0 $ (dinero que apareció
 o desapareció porque una escritura pisó la de otra, durante el incidente y 5 s después).
 
 Dos dibujos: `lanes` (se abre primero) muestra las transferencias como usuarios (su color: cuánto
@@ -51,9 +51,9 @@ en verde. Pulsa `v` para cambiar.
 - **Por qué funciona un solo orden.** Un ciclo exige una transferencia que retenga un id mayor y
   espere uno menor. Bloquear en orden nunca hace eso, ni con dos cuentas ni con un lote de 25.
 - **Por qué la sección crítica debe ser corta.** El orden solo evita interbloqueos, no esperas: con
-  la auditoría dentro de los bloqueos, las colas de los grandes comercios crecen (p99 de 1,4–2 s,
+  la auditoría dentro de los bloqueos, las colas de los grandes comercios crecen (p99 de 1.4–2 s,
   `ORDER_ONLY`), y si además los timeouts son cortos, cada espera larga se vuelve un reintento
   (`ORDER_SLOW_TIMEOUT`).
 - **Por qué los dos bloqueos.** Si bloqueas solo al que paga, nada espera en círculo, pero dos pagos
   al mismo comercio leen su saldo y la segunda escritura pisa la primera: aparecen o desaparecen
-  ~36.000 $ en diez segundos (`PAYER_ONLY`).
+  ~36,000 $ en diez segundos (`PAYER_ONLY`).

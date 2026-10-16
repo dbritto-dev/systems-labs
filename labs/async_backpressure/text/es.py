@@ -146,7 +146,7 @@ LESSON = Lesson(
     ),
     watch_for=(
         "Colas sin límite: con el destino lento la memoria sube (naranja en la gráfica) hasta que matan "
-        "el proceso; ~10.000 eventos desaparecen, el proceso arranca de nuevo y vuelve a pasar.",
+        "el proceso; ~10,000 eventos desaparecen, el proceso arranca de nuevo y vuelve a pasar.",
         "Colas acotadas: la memoria queda plana, pero la puerta se cierra (la fuente deja de leer), los "
         "eventos esperan en el origen (naranja oscuro) y se pierden en rojo cuando su búfer se desborda.",
         "Créditos: los eventos de baja prioridad se descartan en gris en la puerta, todos los de alta se "

@@ -197,6 +197,15 @@ def split_error(error: str) -> tuple[str, str]:
     return (message, where.rstrip(")")) if sep else (error, "")
 
 
+def fit_words(s: str, n: int) -> str:
+    """s in at most n characters, cut at a word with "…" when it is longer (never mid-word)."""
+    if len(s) <= n:
+        return s
+    cut = s[: max(0, n - 1)]
+    space = cut.rfind(" ")
+    return (cut[:space] if space > n // 2 else cut).rstrip(" ,;:·—-") + "…"
+
+
 def help_card(width: int, height: int, style: Style) -> list[str]:
     """Every key and what it does (key ?)."""
     p = style.paint
@@ -247,13 +256,13 @@ def compose(world, variant: str, t: float, cols: int, rows: int, *, style: Style
     verdict = world.verdict_at(variant) if run else None
     stage = world.stage(variant) if run and (verdict is None or t >= verdict) else None  # not before its time
     if stage:
-        out.append(p(f" {stage.story}"[:W], MUTED))
+        out.append(p(fit_words(f" {stage.story}", W), MUTED))
         lead = f"{sc.BEHAVIOR} "
         out.append(" " + p(lead, MUTED) + style.bold(p(stage.label, stage.colour))
                    + p(f"   → {stage.next}"[: max(0, W - len(stage.label) - len(lead) - 3)], MUTED))
     else:
         hint = sc.STAGE_AT.format(clock=clock(verdict)) if run and verdict is not None else ""
-        out += [p(f" {_about(world)[0]}"[:W], MUTED), p(f" {hint}"[:W], MUTED) if hint else ""]
+        out += [p(fit_words(f" {_about(world)[0]}", W), MUTED), p(fit_words(f" {hint}", W), MUTED) if hint else ""]
     out.append("")
 
     body = L["body"]

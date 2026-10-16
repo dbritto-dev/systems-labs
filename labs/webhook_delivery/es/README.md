@@ -3,7 +3,7 @@
 *[Read in English](../README.md)*
 
 Una plataforma de tiendas envía webhooks a 20 endpoints de clientes: cada pedido crea
-`order.created`, luego `order.paid` (0,05–2 s después), `order.fulfilled` (4–15 s después) y a
+`order.created`, luego `order.paid` (0.05–2 s después), `order.fulfilled` (4–15 s después) y a
 veces `order.refunded`, ~60 eventos por segundo en total; el endpoint #1 es el cliente más grande.
 24 workers de entrega se reparten el trabajo: un worker libre le pregunta a tu
 `Dispatcher.next(now)` qué enviar, hace el POST, e informa de la respuesta con
@@ -11,7 +11,7 @@ veces `order.refunded`, ~60 eventos por segundo en total; el endpoint #1 es el c
 como en producción, un endpoint se cae (su despliegue responde 503, un certificado TLS caducado,
 un servicio que se reinicia sin parar), sus conexiones se cuelgan sin respuesta (un cambio de DNS
 apunta a una IP vieja, un cortafuegos descarta nuestros paquetes), se vuelve lento (su base de
-datos sufre: 2,5–8 s por respuesta), responde 500 para siempre a unos pocos eventos mal formados,
+datos sufre: 2.5–8 s por respuesta), responde 500 para siempre a unos pocos eventos mal formados,
 o una oferta provoca un pico de 2–3 veces los eventos. La ejecución nunca se reinicia. El primer
 incidente es siempre el endpoint #1 colgado entre 0:20 y 0:45.
 
@@ -33,7 +33,7 @@ con su indicador en la parte ocupada.
 | Etapa | En `main.py` | Lo que ves |
 |---|---|---|
 | 0 Un solo envío (dada) | una sola cola compartida; un POST que falla se abandona; sin timeout (los 30 s del cliente) | cuando #1 se cuelga, sus eventos se pierden (morado) y todos los workers acaban esperándolo: los otros 19 endpoints se quedan sin servicio |
-| 1 Reintentos | `timeout = ATTEMPT_TIMEOUT`; `backoff` (jitter completo, 0,5 s que se duplica, con tope de 30 s); `retry` mete cada fallo en un montículo que `next` sirve primero | nada perdido; pero los timeouts y reintentos de #1 siguen llenando el grupo compartido (el p99 de los sanos sube a segundos), y cuando un endpoint vuelve sus eventos llegan desordenados |
+| 1 Reintentos | `timeout = ATTEMPT_TIMEOUT`; `backoff` (jitter completo, 0.5 s que se duplica, con tope de 30 s); `retry` mete cada fallo en un montículo que `next` sirve primero | nada perdido; pero los timeouts y reintentos de #1 siguen llenando el grupo compartido (el p99 de los sanos sube a segundos), y cuando un endpoint vuelve sus eventos llegan desordenados |
 | 2 Cola por endpoint | `Endpoint.pick/succeeded/failed`: una cola por endpoint, como mucho `MAX_IN_FLIGHT` (4) POST cada uno, un evento por pedido a la vez, el más viejo primero; tras `DISABLE_AFTER` (5) fallos seguidos, pausarlo: una prueba cada 5 s con un evento nuevo, y reenviar lo atrasado cuando responda; abandonar un evento tras `MAX_ATTEMPTS` solo mientras el endpoint funciona (veneno) | como mucho 4 workers esperan a #1, y luego ninguno; los demás ni se enteran; todos los objetivos bien |
 
 Objetivos, evaluados por incidente con los eventos creados durante él y 5 s después: base

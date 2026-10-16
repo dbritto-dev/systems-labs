@@ -23,9 +23,9 @@ LABS_LANG=es uv run pytest labs/optimistic_locking             # x = aún no, X 
 
 | Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|
-| 0 Gana la última escritura (dada) | `read`, suma `delta`, `write` | cada petición se atiende (p99 ~20 ms), y la oferta pierde ~900 de sus ~1.000 cambios (rojo): el inventario queda mal y nadie lo sabe |
+| 0 Gana la última escritura (dada) | `read`, suma `delta`, `write` | cada petición se atiende (p99 ~20 ms), y la oferta pierde ~900 de sus ~1,000 cambios (rojo): el inventario queda mal y nadie lo sabe |
 | 1 Control de versión | `compare_and_set(item, new, row.version)`; lanza `Conflict` si no coincide con ninguna fila | no se pierde nada, pero ~57% de las peticiones de una oferta reciben un 409 (naranja): gana un comprador por tanda |
-| 2 Reintento y combinación | tras un conflicto, espera `backoff(attempt, rng)` (jitter completo, con tope), vuelve a leer y aplica `delta` otra vez, hasta `MAX_TRIES` | nada perdido, 409 ≤ 0,6%, p99 ~220–280 ms en una oferta; todos los objetivos OK |
+| 2 Reintento y combinación | tras un conflicto, espera `backoff(attempt, rng)` (jitter completo, con tope), vuelve a leer y aplica `delta` otra vez, hasta `MAX_TRIES` | nada perdido, 409 ≤ 0.6%, p99 ~220–280 ms en una oferta; todos los objetivos OK |
 
 Objetivos, evaluados por incidente: base correcta (peticiones servidas antes), cambios
 perdidos = 0, 409 ≤ 1%, p99 < 500 ms y servidas ≥ 98% (todo para las peticiones que empiezan

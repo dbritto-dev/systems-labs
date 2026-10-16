@@ -77,7 +77,7 @@ STRINGS = {
     "tile_money": "Dinero",
     "tile_doubt": "En duda",
     "bar_votes": "Votos",
-    "bar_decided": "Decisiones",
+    "bar_decided": "Decididas",
     "bar_ended": "Terminan",
     "limit": "transferencias",
     "head_partial": "{n} parciales en 10 s",

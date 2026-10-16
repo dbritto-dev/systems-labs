@@ -1,12 +1,12 @@
 """Laboratorio async_backpressure: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
-Un proceso de ingesta: un flujo de eventos le empuja ~1.000 eventos/s (30% HIGH: pedidos, pagos;
+Un proceso de ingesta: un flujo de eventos le empuja ~1,000 eventos/s (30% HIGH: pedidos, pagos;
 70% LOW: clics, páginas vistas). Tu `Pipeline` los lee (la fuente), los analiza (etapa A), los
 enriquece con un servicio (etapa B, ~25 ms por llamada) y los escribe en una base de datos por
 lotes (etapa C). Cada evento que tienes cuesta memoria (4 KiB crudo, 8 analizado, 16
 enriquecido); el contenedor tiene 256 MiB, y si los pasa el kernel mata el proceso (OOM): todo
 evento que tenía se pierde, y uno nuevo arranca 5 s después. Mientras no lees, el origen guarda lo
-que llega en su búfer (5.000 eventos, ~5 s); cuando se llena tira los más viejos, y nadie te avisa.
+que llega en su búfer (5,000 eventos, ~5 s); cuando se llena tira los más viejos, y nadie te avisa.
 
 Ahora mismo las etapas se hablan con asyncio.Queue sin límite y escriben de 50 en 50. Cuando el
 destino va lento (el primer incidente: autovacuum, 16 veces más lento) la cola de delante crece
@@ -34,7 +34,7 @@ Lo que tienes (mira labs/async_backpressure/api.py):
   chunk = await io.read()         de 1 a 50 eventos del flujo (espera a la trama siguiente)
   parsed = io.parse(chunk)        RAW -> PARSED, sin E/S
   enriched = await io.enrich(b)   PARSED -> ENRICHED, como mucho ENRICH_MAX (100) eventos por llamada
-  await io.write(batch)           al destino, como mucho MAX_BATCH (1.000) eventos ENRICHED;
+  await io.write(batch)           al destino, como mucho MAX_BATCH (1,000) eventos ENRICHED;
                                   lanza SinkUnavailable cuando el destino está caído
   io.shed(events)                 descarta eventos LOW a propósito: contados, nunca en silencio
   Event(id, arrived, priority, kind), HIGH, LOW
@@ -107,7 +107,7 @@ async def take_batch(queue: asyncio.Queue, most: int) -> list[Event]:
         (`queue.put_nowait`).
       - Así, cuando el servicio siguiente va rápido los lotes son pequeños (poca latencia), y cuando
         va lento se acumulan más eventos durante cada llamada y el lote siguiente es más grande (más
-        caudal): una escritura cuesta 15 ms + 0,1 ms por evento, así que 1.000 eventos cuestan
+        caudal): una escritura cuesta 15 ms + 0.1 ms por evento, así que 1,000 eventos cuestan
         115 ms, no 20 x 20 ms.
 
     Pista: batch = list(await queue.get()); while len(batch) < most and not queue.empty():

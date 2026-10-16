@@ -6,7 +6,7 @@ que recorren la tabla entera (un indexador de búsqueda, exportaciones). Mientra
 escribiendo publicaciones arriba y borrando en cualquier parte. Ahora mismo una página es
 LIMIT 20 OFFSET n, y el cursor es el offset n: cuando se escribe una publicación por encima del
 lector, todas las filas bajan un puesto y la página siguiente repite una; cuando se borra una,
-otra se salta. Y OFFSET no puede ir directo: la página 1.000 lee 20.020 filas para devolver 20.
+otra se salta. Y OFFSET no puede ir directo: la página 1,000 lee 20,020 filas para devolver 20.
 
 Haz las etapas en orden, en este archivo:
 

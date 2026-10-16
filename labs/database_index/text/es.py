@@ -63,7 +63,7 @@ STRINGS = {
     "tile_p99": "p99",
     "bar_logins": "Logins",
     "bar_ranges": "Rangos",
-    "bar_writes": "Escrituras",
+    "bar_writes": "Escrit.",
     "queries": "Consultas",
     "head_timeouts": "{n} usuarios se cansaron de esperar",
     "head_import": "Carga: la tabla tiene {rows:,} filas",

@@ -8,16 +8,16 @@ dentro de una región, ~70 ms de ida entre us y eu, ~100 ms entre us y ap, ~150 
 (±20%). 600 usuarios, 200 en cada región, leen y escriben su propio perfil y leen el de otros:
 ~200 operaciones por segundo, 20% escrituras; tras guardar, la mitad mira su perfil enseguida. El
 balanceador global manda a cada usuario a su propia región; cuando una región cae, mueve a sus
-usuarios a la siguiente (us → eu, eu → us, ap → us) en ~1 s, y los devuelve 0,5 s después de que se
+usuarios a la siguiente (us → eu, eu → us, ap → us) en ~1 s, y los devuelve 0.5 s después de que se
 recupera (las cachés de DNS hacen ambos cambios graduales, en 4 s). La aplicación del usuario
-reintenta una vez, en la siguiente región, ante un timeout (0,6 s) o un error, y evita 3 s la región
+reintenta una vez, en la siguiente región, ante un timeout (0.6 s) o un error, y evita 3 s la región
 que le falló. Una región atiende 320 lecturas y escrituras por segundo.
 
 En momentos al azar, como en producción: cae una región entera (un corte de luz, un cambio de
 configuración erróneo, una caída de la nube, una falla de refrigeración), una región queda aislada
 de las otras dos aunque sus usuarios todavía llegan a ella (un corte de fibra, una fuga BGP, una
 regla de cortafuegos), el enlace entre dos regiones se vuelve 150–350 ms más lento y pierde el 10% de
-sus mensajes (un cable submarino cortado), o una región tiene su pico (2,5–3 veces su tráfico). La
+sus mensajes (un cable submarino cortado), o una región tiene su pico (2.5–3 veces su tráfico). La
 ejecución nunca se reinicia. El primer incidente siempre aísla a us, la primaria de las etapas 0 y 1, de eu y ap de 0:20 a
 0:32 (un corte de fibra); sus propios usuarios todavía llegan a ella.
 
@@ -42,7 +42,7 @@ la escritura del propio usuario) o rojas (fallidas).
 | Etapa | En `es/main.py` | Qué ves |
 |---|---|---|
 | 0 Una región primaria (dada) | cada región reenvía cada lectura y escritura a us | puntos naranjas cruzan un océano en cada petición de eu y ap (p99 ~180–250 ms); con us aislada, sus peticiones esperan un timeout y un reintento en us (p99 ~650 ms), y cada escritura vive solo en us; cuando us cae, todo falla |
-| 1 Réplicas de lectura | cada región responde las lecturas con su copia; us confirma las escrituras y las envía (`ship`) en lotes cada 0,1 s (`on_replicate` las guarda) | las lecturas se quedan en casa (p99 ~10–15 ms); pero quien guarda y recarga no ve su cambio (morado), las escrituras recientes existen solo en us (todas mientras está aislada), las de eu y ap esperan un reintento al otro lado del océano, y con us caída nadie puede escribir |
+| 1 Réplicas de lectura | cada región responde las lecturas con su copia; us confirma las escrituras y las envía (`ship`) en lotes cada 0.1 s (`on_replicate` las guarda) | las lecturas se quedan en casa (p99 ~10–15 ms); pero quien guarda y recarga no ve su cambio (morado), las escrituras recientes existen solo en us (todas mientras está aislada), las de eu y ap esperan un reintento al otro lado del océano, y con us caída nadie puede escribir |
 | 2 Escrituras en cada región | cualquier región acepta una escritura y la confirma cuando la primera de las otras dos la tiene (`replicate`, `send_to`); las escrituras perdidas se vuelven pistas (`hand_off`); una lectura más vieja que el token de sesión busca (`fetch`) la nueva | con us aislada, sus escrituras se rechazan allí y las acepta eu, y sus lecturas en casa esperan al token en vez de mostrar datos viejos; con us caída, eu recibe a sus usuarios; todos los objetivos OK |
 
 Objetivos, evaluados por incidente, sobre lo que pasa desde su inicio hasta 5 s después de su fin:
@@ -54,7 +54,7 @@ Objetivos, evaluados por incidente, sobre lo que pasa desde su inicio hasta 5 s 
 - **Lecturas viejas = 0**: una lectura del propio perfil a la que le falta una escritura que el
   usuario vio confirmada.
 - **Éxito ≥ 99%** de todas las operaciones, tras el único reintento de la aplicación.
-- **Escrituras en riesgo = 0**: cada 0,2 s el comprobador mira dentro del `store` de cada región y
+- **Escrituras en riesgo = 0**: cada 0.2 s el comprobador mira dentro del `store` de cada región y
   cuenta las escrituras confirmadas que tiene una sola región. Son las que se llevaría una región
   perdida para siempre: la replicación asíncrona siempre tiene algunas (RPO > 0). Contamos esas, no
   "escrituras perdidas", porque aquí una región vuelve con su disco; en un desastre real, quizá no.

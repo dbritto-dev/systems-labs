@@ -77,7 +77,7 @@ STRINGS = {
     "tile_phantom": "Fantasma",
     "tile_twice": "Dobles",
     "bar_saved": "Guardados",
-    "bar_published": "Publicados",
+    "bar_published": "Emitidos",
     "bar_shipped": "Enviados",
     "limit": "pedidos/s",
     "head_phantom": "{n} eventos fantasma en 10 s",

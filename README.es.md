@@ -295,5 +295,5 @@ Después hazlo tuyo:
 
 Un fotograma de 110x44 se dibuja en 1–4 ms (2 ms de mediana) y sigue así en ejecuciones largas;
 el visor dibuja a 30 fps constantes y se salta los fotogramas que no cambiarían. Simular un
-minuto tarda 0,01–0,6 s en el proceso hijo (geo_replication es el más lento), muy por delante
+minuto tarda 0.01–0.6 s en el proceso hijo (geo_replication es el más lento), muy por delante
 del cabezal. Pulsa `d` para ver las cifras en vivo.

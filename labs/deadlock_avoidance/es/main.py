@@ -11,7 +11,7 @@ rompe hasta que el servidor mata las transacciones (8 s después).
 Haz las etapas en orden, en este archivo:
 
   Etapa 1  Timeouts de bloqueo con reintento: en `lock_all`, pide cada bloqueo con
-           `timeout=LOCK_TIMEOUT` (0,05 s). Ante LockTimeout, `release_all()` (nunca esperes
+           `timeout=LOCK_TIMEOUT` (0.05 s). Ante LockTimeout, `release_all()` (nunca esperes
            reteniendo un bloqueo), duerme `backoff(attempt, rng)` y vuelve a intentarlo, hasta
            MAX_TRIES (8) intentos; tras el último, lanza el error. Se acabaron los congelamientos,
            pero cada interbloqueo (y cada espera larga en una cuenta muy usada) cuesta ahora

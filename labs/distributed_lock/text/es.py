@@ -71,7 +71,7 @@ STRINGS = {
     "tile_done": "Hechos",
     "bar_jobs": "Trabajos",
     "bar_lock": "Cerrojo",
-    "bar_writes": "Escrituras",
+    "bar_writes": "Escrit.",
     "messages": "Mensajes",
     "head_corrupt": "{worker} escribió sin el cerrojo",
     "head_refused": "Rechazada una escritura de {worker}",

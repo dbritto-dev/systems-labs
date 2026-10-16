@@ -2,7 +2,7 @@
 
 Antientropía con barrido completo (etapa 1): en cada ronda, envía a un par la versión de cada
 clave; responde con lo que tiene más nuevo y pide lo que tenemos más nuevo. Lo repara todo, pero
-cada ronda mueve 20.000 entradas para hallar unos cientos de diferencias.
+cada ronda mueve 20,000 entradas para hallar unos cientos de diferencias.
 
 Árboles de Merkle (etapa 2): cada réplica mantiene un árbol de hash sobre su rango de claves,
 actualizado en cada cambio (`changed`). Una hoja es el XOR de los digest de sus claves, así que un
@@ -18,7 +18,7 @@ from labs.merkle_anti_entropy.api import ALL_KEYS, KEYS, Message, Replica, index
 
 ROUND = 2.0  # segundos entre dos rondas de reparación, cada una con el siguiente par
 FANOUT = 16  # hijos de cada nodo interior del árbol
-DEPTH = 3  # niveles bajo la raíz: 16 ** 3 = 4.096 hojas de ~5 claves
+DEPTH = 3  # niveles bajo la raíz: 16 ** 3 = 4,096 hojas de ~5 claves
 
 
 # ---------------------------------------------------------------- etapa 1: barrido completo

@@ -5,11 +5,11 @@
 Los productores envían ~40 trabajos por segundo a una cola como Amazon SQS. Siete procesos
 worker los reciben, seis a la vez cada uno, y llaman a tu `Consumer.process(msg)`. Un mensaje
 recibido queda oculto para los demás workers durante su timeout de visibilidad (2 s); si no se
-borra (se confirma) antes, la cola se lo da a otro worker. Un trabajo tarda ~0,1 s. En momentos
+borra (se confirma) antes, la cola se lo da a otro worker. Un trabajo tarda ~0.1 s. En momentos
 al azar, como en producción, los procesos worker caen a mitad de trabajo y vuelven 2 s después
 (un despliegue, un OOM, instancias spot que se recuperan), un servicio de abajo se vuelve lento y
-el 10% de los trabajos tarda 2,5–5 s (más que el timeout de visibilidad), un despliegue malo de
-un productor envía mensajes veneno que fallan siempre (cada intento espera 2,5 s y falla), o el
+el 10% de los trabajos tarda 2.5–5 s (más que el timeout de visibilidad), un despliegue malo de
+un productor envía mensajes veneno que fallan siempre (cada intento espera 2.5 s y falla), o el
 servicio de abajo tiene una caída breve (cada llamada falla durante 1–3 s). La ejecución nunca
 se reinicia. El primer incidente siempre es un lote de veneno entre 0:20 y 0:30.
 
@@ -45,7 +45,7 @@ veneno apartado, y ningún trabajo bueno apartado (después; "nada" cuando no hu
   mantiene el timeout corto y los trabajos lentos ocultos.
 - **Por qué backoff, y por qué limitado.** Sin límite, un mensaje veneno se reintenta para
   siempre. Sin backoff, el límite también aparta trabajos buenos: cuando el servicio de abajo
-  cae un segundo, cuatro intentos en 0,3 s fallan todos y un trabajo bueno acaba en la DLQ. El
+  cae un segundo, cuatro intentos en 0.3 s fallan todos y un trabajo bueno acaba en la DLQ. El
   backoff reparte los intentos más allá de la caída.
 - **Los duplicados siguen pasando.** Un worker que cae después del trabajo y antes de confirmar
   deja un trabajo que se ejecutará otra vez. «Al menos una vez» quiere decir que los propios

@@ -63,7 +63,7 @@ STRINGS = {
     "down_end": "el endpoint #{n} vuelve a responder",
     "hang_start": "el endpoint #{n} no responde nunca: {cause}",
     "hang_end": "el endpoint #{n} vuelve a responder",
-    "slow_start": "el endpoint #{n} tarda 2,5-8 s en responder: {cause}",
+    "slow_start": "el endpoint #{n} tarda 2.5-8 s en responder: {cause}",
     "slow_end": "el endpoint #{n} vuelve a ir rápido",
     "poison_start": "el endpoint #{n} falla siempre con 1 de cada 20 eventos nuevos: {cause}",
     "poison_end": "los eventos nuevos vuelven a estar bien; los malos siguen fallando",

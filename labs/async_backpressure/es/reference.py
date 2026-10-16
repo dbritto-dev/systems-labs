@@ -77,7 +77,7 @@ class Pipeline:
     def __init__(self, io: Services) -> None:
         self.io = io
         # Los créditos acotan cada evento entre dos etapas, en la cola y en manos de la etapa que lo
-        # tiene, así la memoria tiene techo: 3.000 x 4 + 1.000 x 8 + 2.000 x 16 KiB = ~51 MiB.
+        # tiene, así la memoria tiene techo: 3,000 x 4 + 1,000 x 8 + 2,000 x 16 KiB = ~51 MiB.
         self.to_a, self.to_b, self.to_c = asyncio.Queue(), asyncio.Queue(), asyncio.Queue()
         self.credits_a = Credits(WINDOW_A)
         self.credits_b = Credits(WINDOW_B)

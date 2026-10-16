@@ -45,7 +45,7 @@ GOALS = {
     "recovered": GoalText("Recupera ≤ 5 s", "descarta carga para volver"),
 }
 
-LEGEND = {"idle": "en reposo", "first_try": "primer intento", "retries": "reintento 1,2",
+LEGEND = {"idle": "en reposo", "first_try": "primer intento", "retries": "reintento 1.2",
           "wasted": "trabajo para quien se fue", "rejected": "rechazada", "in_time": "a tiempo",
           "max": "máximo", "incident": "incidente"}
 

@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Antientropía con árboles de Merkle"
-SUMMARY = "4 réplicas de 20.000 claves se separan sin avisar: halla y repara las diferencias, barato."
+SUMMARY = "4 réplicas de 20,000 claves se separan sin avisar: halla y repara las diferencias, barato."
 PARAMS = {"rate": "escrituras de clientes por segundo (las lecturas son el doble)"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -29,7 +29,7 @@ STAGES = [
               "Reto: las escrituras perdidas nunca se reparan; cada réplica responde distinto. Repara.",
               "Etapa 1: un barrido completo: compara cada clave con un par"),
     StageText("Barrido completo",
-              "Reto: convergen, pero cada ronda envía las 20.000 claves. Envía solo lo que difiere.",
+              "Reto: convergen, pero cada ronda envía las 20,000 claves. Envía solo lo que difiere.",
               "Etapa 2: árboles de Merkle: baja donde difieren los hash"),
     StageText("Árboles de Merkle",
               "Resuelto: los hash hallan las diferencias y se reparan en segundos, con pocas entradas.",

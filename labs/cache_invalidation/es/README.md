@@ -30,7 +30,7 @@ LABS_LANG=es uv run pytest labs/cache_invalidation             # x = aún no, X 
 | 2 Rellenos con concesión | `read`: `lease_get` y, al fallar, `lease_set(key, record, token, TTL)`; `TTL = 30` | esos mismos rellenos tardíos se rechazan (naranja): 0 lecturas viejas, 0 claves viejas, ~90% de aciertos, ~90 lecturas de BD/s como mucho; todos los objetivos OK |
 
 Objetivos, evaluados por incidente: aciertos ≥ 85% (los 15 s anteriores), lecturas que sirvieron un
-precio que nunca se guardó = 0 y lecturas viejas = 0 (una lectura es vieja si empezó más de 0,5 s
+precio que nunca se guardó = 0 y lecturas viejas = 0 (una lectura es vieja si empezó más de 0.5 s
 después de confirmar al cliente una escritura y devolvió algo más antiguo; para las lecturas que
 empiezan durante el incidente), claves viejas en la caché = 0 (se mira cada segundo, durante el
 incidente y 5 s después) y lecturas de la BD ≤ 500/s.
@@ -52,5 +52,5 @@ rechaza; pulsa `v` para cambiar.
 - **Por qué concesiones.** El problema es el relleno del lector: lleva datos de antes de la
   escritura y llega después del borrado. Una concesión ata el relleno al fallo; un borrado entre
   medias la anula.
-- **Por qué no un TTL minúsculo.** Un TTL de 0,2 s oculta casi todas las claves viejas, y los
+- **Por qué no un TTL minúsculo.** Un TTL de 0.2 s oculta casi todas las claves viejas, y los
   aciertos caen a ~35% (`TINY_TTL`): todas esas lecturas van a la base de datos.

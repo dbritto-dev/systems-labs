@@ -40,7 +40,7 @@ STAGES = [
 
 GOALS = {
     "read_p99": GoalText("Lect. p99 ≤ 50ms", "una réplica en cada región"),
-    "write_p99": GoalText("Escr. p99 ≤ 0,4s", "confirma con la más cercana"),
+    "write_p99": GoalText("Escr. p99 ≤ 0.4s", "confirma con la más cercana"),
     "ryw": GoalText("Lect. viejas = 0", "busca si el token es mayor"),
     "available": GoalText("Éxito ≥ 99%", "escribe en cualquier región"),
     "at_risk": GoalText("En riesgo = 0", "confirma con 2 regiones"),
@@ -141,7 +141,7 @@ LESSON = Lesson(
         "Escrituras en todas partes: cada escritura manda dos puntos azules y se responde con la primera "
         "respuesta; los usuarios de una región aislada escriben en otra, y su columna se pone naranja "
         "(atrasada) hasta que llegan las pistas.",
-        "Escrituras en riesgo: se cuentan cada 0,2 s mirando dentro de cada región. La replicación asíncrona "
+        "Escrituras en riesgo: se cuentan cada 0.2 s mirando dentro de cada región. La replicación asíncrona "
         "siempre tiene alguna.",
     ),
     build=(

@@ -4,16 +4,16 @@
 
 Un almacén clave/valor está repartido en seis particiones (p0 ... p5) según un hash de la clave,
 como DynamoDB, Cassandra o un Redis repartido; cada partición atiende 150 peticiones por segundo
-y rechaza peticiones cuando su cola guarda más de 0,2 s de trabajo. Los usuarios dan me gusta,
+y rechaza peticiones cuando su cola guarda más de 0.2 s de trabajo. Los usuarios dan me gusta,
 hacen clic y miran cosas: ~120 operaciones por segundo sobre contadores (60% lecturas de una
-cuenta, 40% incrementos) sobre 5.000 claves con una popularidad tipo Zipf, todas a través de tu
+cuenta, 40% incrementos) sobre 5,000 claves con una popularidad tipo Zipf, todas a través de tu
 `Counters` (`incr(key)`, `read(key)`). Cada partición está ocupada un ~15% del tiempo.
 
 En momentos al azar, como en producción, una clave explota: la publicación de una famosa se hace
 viral (me gusta), todo el mundo hace clic en el enlace de un boletín (clics), una oferta relámpago
 vende un producto (ventas, y su página lee la cuenta) o un bot machaca un id (lecturas). Entre 200
 y 400 operaciones por segundo sobre una clave: más de lo que atiende su partición, mientras las
-otras cinco están ociosas. Su tráfico sube en 1,5 s, se mantiene de 5 a 22 s y baja a una cola de
+otras cinco están ociosas. Su tráfico sube en 1.5 s, se mantiene de 5 a 22 s y baja a una cola de
 tráfico que dura un minuto. La ejecución nunca se reinicia. El primer incidente siempre es una
 publicación viral entre 0:20 y 0:32.
 
@@ -35,8 +35,8 @@ subclaves), azules (de la caché) o rojas (rechazada).
 | Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|
 | 0 Hash por clave (dada) | cada operación va a la propia clave | un nodo se pone rojo, le llueven puntos morados que mueren en rojo; los demás siguen azules |
-| 1 Claves repartidas | `heat` cuenta las escrituras de cada clave en los últimos 0,25 s; con `HOT` escrituras/s, `salt` la reparte: las escrituras van a una de seis subclaves al azar (`pick`), y `keys_of` nombra las seis, así `read` las suma | las escrituras de la publicación viral se reparten por las seis particiones; pero cada lectura cuesta ahora seis peticiones (naranja), y sigue repartida cuando se enfría; un bot (solo lecturas) sigue saturando su partición |
-| 2 Reparto adaptativo | `salts_for`: N según el calor; guarda en caché 0,5 s la cuenta de una clave caliente de lecturas o repartida; `cool`: tras 2 s bajo `COOL` escrituras/s, escribe en la propia clave, y `fold` junta las subclaves 1 s después | la clave se reparte solo mientras está caliente, las lecturas del bot salen de la caché, y al enfriarse el naranja se acaba; todos los objetivos OK |
+| 1 Claves repartidas | `heat` cuenta las escrituras de cada clave en los últimos 0.25 s; con `HOT` escrituras/s, `salt` la reparte: las escrituras van a una de seis subclaves al azar (`pick`), y `keys_of` nombra las seis, así `read` las suma | las escrituras de la publicación viral se reparten por las seis particiones; pero cada lectura cuesta ahora seis peticiones (naranja), y sigue repartida cuando se enfría; un bot (solo lecturas) sigue saturando su partición |
+| 2 Reparto adaptativo | `salts_for`: N según el calor; guarda en caché 0.5 s la cuenta de una clave caliente de lecturas o repartida; `cool`: tras 2 s bajo `COOL` escrituras/s, escribe en la propia clave, y `fold` junta las subclaves 1 s después | la clave se reparte solo mientras está caliente, las lecturas del bot salen de la caché, y al enfriarse el naranja se acaba; todos los objetivos OK |
 
 Objetivos, evaluados en cada incidente: la partición más cargada bajo el 90% (su ocupación media
 mientras la clave está caliente, desde el segundo 1), rechazadas ≤ 1% y p99 ≤ 100 ms (las

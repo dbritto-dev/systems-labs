@@ -1,7 +1,7 @@
 """Laboratorio merkle_anti_entropy: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
 4 réplicas (n0 ... n3) de un almacén clave/valor, cada una con una copia completa de las mismas
-20.000 claves ("k00000" ... "k19999"), en una red donde cada mensaje tarda ~100 ms. Los clientes
+20,000 claves ("k00000" ... "k19999"), en una red donde cada mensaje tarda ~100 ms. Los clientes
 escriben ~100 claves por segundo, cada una en una réplica, que la replica a las demás por lotes; y
 leen ~200 claves por segundo de cualquier réplica que esté en pie.
 
@@ -15,7 +15,7 @@ Haz las etapas en orden, en este archivo:
   Etapa 1  Un barrido completo: cada ROUND segundos, envía al siguiente par la versión de cada
            clave que tienes (`full_scan`, `sync_keys`). Te responde con las entradas que tiene más
            nuevas y las claves que quiere (`on_scan`, con `diff`); guarda las primeras y envíale
-           las segundas. Todas las réplicas convergen, pero cada ronda envía 20.000 entradas para
+           las segundas. Todas las réplicas convergen, pero cada ronda envía 20,000 entradas para
            hallar unos cientos de diferencias.
   Etapa 2  Árboles de Merkle: mantén un árbol de hash sobre el rango de claves (`MerkleTree`),
            actualizado en `changed` en cada cambio. Compara raíces con un par, baja solo por los
@@ -45,8 +45,8 @@ from labs.merkle_anti_entropy.api import ALL_KEYS, KEYS, Message, Replica, index
 
 ROUND = 2.0  # segundos entre dos rondas de reparación, cada una con el siguiente par
 FANOUT = 16  # etapa 2: hijos de cada nodo interior del árbol
-DEPTH = 3  # etapa 2: niveles bajo la raíz, así que FANOUT ** DEPTH hojas. 1 = 16 hojas de 1.250 claves;
-#            3 = 4.096 hojas de ~5 claves; 5 = un millón de hojas, casi todas vacías. Elige bien.
+DEPTH = 3  # etapa 2: niveles bajo la raíz, así que FANOUT ** DEPTH hojas. 1 = 16 hojas de 1,250 claves;
+#            3 = 4,096 hojas de ~5 claves; 5 = un millón de hojas, casi todas vacías. Elige bien.
 
 
 # ---------------------------------------------------------------- etapa 1: barrido completo
@@ -81,7 +81,7 @@ class MerkleTree:
     claves, así que update() saca con XOR el digest viejo y mete el nuevo (dos XOR se anulan). El
     hash de un nodo interior es digest(*los hash de sus hijos). Recalcula solo los ancestros de las
     hojas que cambiaron, y solo cuando te piden hash() (guarda las hojas cambiadas en un conjunto):
-    nunca recalcules las 20.000 claves.
+    nunca recalcules las 20,000 claves.
     """
 
     def __init__(self, digest, fanout: int = FANOUT, depth: int = DEPTH) -> None:

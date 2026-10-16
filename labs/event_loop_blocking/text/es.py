@@ -12,7 +12,7 @@ VERBS = {"upload": "FOTOS", "slow": "LENTO", "report": "CARGA", "gc": "PAUSA", "
          "calm": "CALMA"}
 CAUSES = {
     "wedding_photos": "una fotógrafa sube una boda entera, a resolución completa",
-    "catalogue_import": "un comercio importa un catálogo de 40.000 fotos de productos",
+    "catalogue_import": "un comercio importa un catálogo de 40,000 fotos de productos",
     "camera_roll_sync": "una nueva versión de la aplicación sincroniza el carrete de cada usuario",
     "photo_migration": "una migración vuelve a procesar fotos antiguas por la ruta de subida",
     "db_lock": "una migración de esquema retiene un bloqueo: las consultas de pedidos esperan",
