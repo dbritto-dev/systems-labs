@@ -6,7 +6,7 @@ Los clientes pagan ~40 veces por segundo a través de tu `PaymentService.charge(
 amount)`. Cada pago lleva una clave de idempotencia. Un cliente espera hasta 1 s una
 respuesta; si no llega, reintenta con la misma clave (hasta 4 intentos, esperando cada vez
 más), y después de un 409 (`Conflict`) reintenta un poco más tarde. En momentos al azar, como
-en producción, el libro mayor se vuelve lento (un bloqueo, E/S de disco, una conmutación:
+en producción, el libro mayor se vuelve lento (un bloqueo, E/S de disco, un failover:
 el reintento llega mientras el primer intento sigue cobrando), las respuestas se pierden por
 el camino (un reinicio del balanceador, un despliegue que corta conexiones: la tarjeta se
 cobró y el cliente no se enteró), o los clientes envían el mismo pago dos veces a la vez (un
@@ -26,7 +26,7 @@ LABS_LANG=es uv run pytest labs/idempotency            # x = aún no, X = hecho
 | 2 Claves reservadas | reclama la clave con `store.add(key, IN_PROGRESS, ttl)` antes de cobrar; los duplicados esperan el recibo (o lanzan `Conflict`); todo caduca | ningún cobro doble, cada intento recibe el mismo recibo; todos los objetivos OK |
 
 Objetivos, evaluados en cada incidente: base correcta (antes), respuestas repetidas ≥ 95% de
-los reintentos que llegan después del primer cobro (durante y 5 s después; "ninguno" cuando no
+los reintentos que llegan después del primer cobro (durante y 5 s después; "nada" cuando no
 llegó ningún reintento tan tarde, y pasa), cobros dobles = 0 (durante), el mismo recibo para
 cada intento de un pago (durante), p99 < 500 ms para los pagos empezados en los 5 s
 siguientes.

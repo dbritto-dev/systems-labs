@@ -39,18 +39,18 @@ LABS_LANG=es uv run pytest labs/event_loop_blocking            # x = aún no, X 
 | 1 Delegado a hilos | `await to_thread(call)` | el bucle queda libre (retardo ~1 ms, ningún chequeo falla, ligeras p99 12 ms), pero 8 hilos comparten un GIL: 565-684 llamadas en cola, solo el 3-4% de las pesadas a tiempo, y la cola tarda minutos en vaciarse después |
 | 2 Ejecutores acotados | CPU a un `ProcessPool(4)`, E/S a un `ThreadPool(16)`, cada cola acotada (8 y 32: `Overloaded` → 503), y un vigilante del retardo | retardo <1 ms, ligeras p99 11 ms, 86-91% de las pesadas servidas (el resto recibe un 503 al instante), como mucho 8 en cola, retardo publicado cada segundo |
 
-Objetivos, juzgados por incidente (durante él): retardo p99 del bucle < 50 ms (medido desde fuera de tu
+Objetivos, evaluados por incidente (durante él): retardo p99 del bucle < 50 ms (medido desde fuera de tu
 código, cada 50 ms), chequeos de salud fallidos = 0, peticiones ligeras p99 < 100 ms (una fallida
 cuenta como 5 s), peticiones pesadas servidas a tiempo ≥ 70%, llamadas en cola en los ejecutores ≤ 50,
 y publicaciones de tu vigilante en ≥ 90% de los segundos. La etapa se juzga con el primer lote de
 fotos: un bucle parado (retardo o chequeos) es la etapa 0; un bucle libre que falla otro objetivo es
 la etapa 1.
 
-Por qué importa cada parte de la etapa 2 (el primer lote): con los grupos correctos pero sin límite
+Por qué importa cada parte de la etapa 2 (el primer lote): con los pools correctos pero sin límite
 de cola, la cola de CPU llega a 67-121 llamadas y solo se sirve a tiempo el 61-85% de las pesadas;
-con colas acotadas pero la CPU en hilos (un grupo para todo), el GIL sirve solo el 45-50%; sin el
+con colas acotadas pero la CPU en hilos (un pool para todo), el GIL sirve solo el 45-50%; sin el
 vigilante nadie ve el retardo (0% publicado). Los otros incidentes enseñan el resto: una dependencia
-lenta llena el grupo de E/S, no el de CPU (compartimentos estancos); las pausas de basura son retardo
+lenta llena el pool de E/S, no el de CPU (bulkheads); las pausas de basura son retardo
 que ninguna delegación quita, y solo el vigilante lo muestra (10-26 ms de p99 con la solución).
 
 **Los dibujos.** La ventana se abre en los carriles: usuarios → el socket del proceso (la puerta:
@@ -60,8 +60,8 @@ naranja para CPU, rosa para el GIL, morado para la basura), su borde rojo mientr
 retraso; debajo, su estado y retardo, `BLOQUEO 420ms` contando durante una parada, u `OCUPADO +663`
 cuando las llamadas se amontonan en los ejecutores. Pulsa `v` (o `--view cluster`) para ver el
 proceso: el bucle es el primer nodo (verde, rojo mientras está bloqueado, oscuro si lo matan), y luego
-cada trabajador de cada grupo, apagado si está libre, verde azulado con E/S, naranja con CPU, rosa
+cada worker de cada pool, apagado si está libre, verde azulado con E/S, naranja con CPU, rosa
 mientras tiene una llamada pero espera al GIL (un hilo) o a un núcleo (un proceso); las peticiones
-vuelan hacia el bucle, y las llamadas del bucle al trabajador que las ejecuta. Debajo: ocupados/tamaño
-+en cola de cada grupo. La gráfica muestra el peor retardo del bucle en cada segundo, del color de lo
+vuelan hacia el bucle, y las llamadas del bucle al worker que las ejecuta. Debajo: ocupados/tamaño
++en cola de cada pool. La gráfica muestra el peor retardo del bucle en cada segundo, del color de lo
 que lo retuvo.

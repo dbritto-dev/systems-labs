@@ -9,8 +9,8 @@ de cerrojos bloquea todos los demás trabajos, quizá para siempre.
 
 Haz las etapas en orden, en este archivo:
 
-  Etapa 1  Plazos (leases): el servicio de cerrojos da el cerrojo por LEASE segundos y lo
-           recupera cuando se acaba el plazo; el dueño lo renueva cada LEASE / 3 mientras corre
+  Etapa 1  Concesiones (leases): el servicio de cerrojos da el cerrojo por LEASE segundos y lo
+           recupera cuando vence la concesión; el dueño lo renueva cada LEASE / 3 mientras corre
            su trabajo. Ahora nadie espera más de un par de segundos a un dueño muerto. Pero un
            dueño que estuvo congelado (una pausa de recolección de basura) despierta creyendo
            que aún tiene el cerrojo, y escribe encima del trabajo que tomó el cerrojo después.
@@ -72,7 +72,7 @@ class LockService(Node):
     def __init__(self, node_id: str, node_ids: list[str]) -> None:
         super().__init__(node_id, node_ids)
         self.holder = None  # el trabajo que tiene el cerrojo
-        # Etapa 1: self.expires = 0.0, cuándo se acaba el plazo del dueño.
+        # Etapa 1: self.expires = 0.0, cuándo vence la concesión del dueño.
         # Etapa 2: self.token = 0, el token de la última concesión.
 
     async def on_acquire(self, msg: Message) -> None:
@@ -87,10 +87,10 @@ class LockService(Node):
         self.reply(msg, {"type": "acquire_ok"})
 
     async def on_renew(self, msg: Message) -> None:
-        """Etapa 1: si msg.body["job"] tiene el cerrojo y su plazo no se acabó, lleva
+        """Etapa 1: si msg.body["job"] tiene el cerrojo y su concesión no venció, lleva
         self.expires a self.now() + LEASE y responde {"type": "renew_ok"}; si no, responde
-        {"type": "error", "code": 22} (el plazo se fue: quizá otro tiene el cerrojo)."""
-        raise NotImplementedError("TODO stage 1: LockService.on_renew")
+        {"type": "error", "code": 22} (la concesión venció: quizá otro tiene el cerrojo)."""
+        raise NotImplementedError("PENDIENTE etapa 1: LockService.on_renew")
 
     async def on_release(self, msg: Message) -> None:
         if self.holder == msg.body["job"]:
@@ -140,8 +140,8 @@ class Worker(Node):
 
     async def renew(self, job: int) -> None:
         """Etapa 1: cada LEASE / 3 segundos, haz un rpc {"type": "renew", "job": job} a LOCK, para
-        siempre. Deja que un RPCError o un TimeoutError termine el bucle: el plazo se fue."""
-        raise NotImplementedError("TODO stage 1: Worker.renew")
+        siempre. Deja que un RPCError o un TimeoutError termine el bucle: la concesión venció."""
+        raise NotImplementedError("PENDIENTE etapa 1: Worker.renew")
 
 
 class Storage(Node):
@@ -161,7 +161,7 @@ class Storage(Node):
         """Etapa 2: True cuando una escritura viene de un cerrojo perdido: sin token, o con un
         token más viejo (menor) que self.highest. Un token igual es la siguiente parte del
         mismo dueño."""
-        raise NotImplementedError("TODO stage 2: Storage.is_stale")
+        raise NotImplementedError("PENDIENTE etapa 2: Storage.is_stale")
 
     async def on_write(self, msg: Message) -> None:
         # Etapa 2: si self.is_stale(token), responde {"type": "error", "code": 22} y termina;

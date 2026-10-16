@@ -35,7 +35,7 @@ class ChainNode(Node):
     def __init__(self, node_id: str, node_ids: list[str]) -> None:
         super().__init__(node_id, node_ids)
         self.chain: list[str] = []  # lo dice el maestro: la cabeza primero, la cola al final
-        self.store: dict[str, int] = {}  # clave -> valor (el verificador mira aquí)
+        self.store: dict[str, int] = {}  # clave -> valor (el comprobador mira aquí)
         self.seq = 0  # la última escritura aplicada aquí
         self.pending: dict[int, dict] = {}  # escrituras que llegaron antes de un hueco: seq -> escritura
         self.sent: dict[int, dict] = {}  # pasadas hacia abajo, aún sin confirmar por la cola: seq -> escritura

@@ -25,20 +25,20 @@ LABS_LANG=es uv run pytest labs/deadlock_avoidance             # x = aún no, X 
 
 | Etapa | En `es/main.py` | Lo que ves en el primer pago masivo |
 |---|---|---|
-| 0 Orden de la petición (dada) | `lock_all` pide `src` y luego `dst`, esperando siempre | 1–2 interbloqueos en menos de un segundo, y luego todas las conexiones quedan atascadas: la puerta se cierra, se completa el 14–22% de las transferencias, p99 de 2 s (el timeout del cliente) |
+| 0 Orden de la petición (dada) | `lock_all` pide `src` y luego `dst`, esperando siempre | 1–2 interbloqueos en menos de un segundo, y luego todos los workers quedan atascados: la puerta se cierra, se completa el 14–22% de las transferencias, p99 de 2 s (el timeout del cliente) |
 | 1 Timeouts y reintento | `lock_all`: `timeout=0.05`; ante `LockTimeout`, `release_all()`, duerme `backoff(attempt, rng)` y reintenta hasta 8 veces | ningún interbloqueo dura (los ciclos se rompen en 50 ms), pero los timeouts también saltan en esperas largas en las cuentas más activas: 1,4–1,6 reintentos por transferencia, 88–91% completadas, p99 de 1,8–2 s |
 | 2 Un solo orden | `lock_order` = `sorted(set(accounts))` en `transfer` y `settle`; auditoría tras liberar; `LOCK_TIMEOUT = 2` y 3 intentos como red de seguridad | nunca se forma un ciclo: 100% completadas, p99 de ~23 ms, 0 reintentos; todos los objetivos OK |
 
-Objetivos, juzgados por incidente, para las transferencias que empiezan durante él: interbloqueos =
+Objetivos, evaluados por incidente, para las transferencias que empiezan durante él: interbloqueos =
 0 (un ciclo de transferencias esperando que dura 1 s), completadas ≥ 99%, p99 ≤ 100 ms (las de los
 usuarios, no los lotes), reintentos ≤ 0,1 por transferencia, y descuadre = 0 $ (dinero que apareció
 o desapareció porque una escritura pisó la de otra, durante el incidente y 5 s después).
 
 Dos dibujos: `lanes` (se abre primero) muestra las transferencias como usuarios (su color: cuánto
 llevan esperando), volando hacia el servicio (la puerta: blanco un primer intento, naranja un
-reintento) y lo que volvió: verde hecha, rojo fallida o vencida. La puerta se cierra cuando todas
-las conexiones están atascadas; el servidor es el gestor de bloqueos y el libro contable, y su
-indicador, las conexiones en uso. `cluster` muestra las cuentas: las seis más activas arriba
+reintento) y lo que volvió: verde hecha, rojo fallida o vencida. La puerta se cierra cuando todos
+los workers están atascados; el servidor es el gestor de bloqueos y el libro contable, y su
+indicador, los workers en uso. `cluster` muestra las cuentas: las seis más activas arriba
 (#1–#6), y debajo seis huecos que comparten todas las demás. Una transferencia que retiene X y
 espera Y es una flecha de puntos que avanzan de X a Y (blanca, luego naranja según espera); un
 interbloqueo es un ciclo de flechas, en rojo; el dinero que se mueve vuela del que paga al que cobra,

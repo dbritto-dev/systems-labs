@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Contador que solo crece (Gossip Glomers #4)"
-SUMMARY = "Gossip Glomers #4: cuenta sumas en 3 nodos sin estado con un almacén KV secuencialmente consistente."
+SUMMARY = "Gossip Glomers #4: cuenta sumas en 3 nodos sin estado con un KV secuencialmente consistente."
 PARAMS = {"rate": "operaciones de clientes por segundo (60% add, 40% read)"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -34,10 +34,10 @@ STAGES = [
 ]
 
 GOALS = {
-    "stored": GoalText("Cuenta en seq-kv", "guarda la cuenta en seq-kv"),
-    "right": GoalText("Sin sumas perdidas", "usa cas, no write"),
-    "conflicts": GoalText("Conflictos < 10%", "una clave por nodo"),
-    "answered": GoalText("Sumas respondidas", "menos reintentos por suma"),
+    "stored": GoalText("Total en seq-kv", "guarda la cuenta en seq-kv"),
+    "right": GoalText("Sin pérdidas", "usa cas, no write"),
+    "conflicts": GoalText("Choques < 10%", "una clave por nodo"),
+    "answered": GoalText("Sumas atendidas", "menos reintentos por suma"),
     "after": GoalText("Bien después", "lecturas al día"),
 }
 

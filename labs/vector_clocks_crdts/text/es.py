@@ -108,8 +108,8 @@ LESSON = Lesson(
     watch_for=(
         "Gana la última escritura: cuando la red se une, las altas de un lado desaparecen (rojo); un salto de reloj también.",
         "Relojes vectoriales: Perdidas se queda en 0, pero tras un corte vuelven productos quitados (Revividas en rojo).",
-        "Un conjunto de productos quitados sin etiquetas pierde las altas repetidas: un producto añadido otra vez.",
-        "ORSet: las réplicas divergen durante el corte (naranja) y coinciden un segundo después de unirse.",
+        "Un conjunto de productos quitados sin etiquetas pierde las altas repetidas: un producto añadido otra vez tras quitarlo.",
+        "ORSet: las réplicas divergen durante el corte (naranja) y coinciden antes de un segundo tras unirse.",
     ),
     build=(
         ("Riak: guarda hermanas (relojes vectoriales), o deja que un conjunto CRDT las fusione",

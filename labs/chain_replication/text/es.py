@@ -35,10 +35,10 @@ STAGES = [
 
 GOALS = {
     "stale": GoalText("Lect. viejas = 0", "lee de la cola"),
-    "lost": GoalText("Pérdidas = 0", "que confirme la cola"),
+    "lost": GoalText("Escr. perdidas = 0", "que confirme la cola"),
     "outage": GoalText("Sin escribir ≤ 3s", "reenvía lo no confirmado"),
     "replicas": GoalText("Al día = 4", "la cola guarda tras la copia"),
-    "p99": GoalText("p99 escr. ≤ 500ms", "no esperes a cada escritura"),
+    "p99": GoalText("Escr. p99 ≤ 500ms", "no esperes a cada escritura"),
 }
 
 LEGEND = {"request": "petición de cliente", "write": "escritura", "ack": "confirmación", "copy": "copia",
@@ -56,13 +56,13 @@ STRINGS = {
     "warn_ejected": "el maestro expulsa a {node}; arranca de nuevo vacío",
     "warn_lost": "{n} escrituras confirmadas perdidas",
     "warn_stale_after": "{n} lecturas viejas después de que entrara {node}",
-    # valores de las metas
+    # valores de los objetivos
     "seconds": "{n} s",
     # el panel
     "title": "Escrituras y lecturas",
     "tile_stale": "Viejas",
     "tile_lost": "Perdidas",
-    "tile_writes": "Escrito",
+    "tile_writes": "Escr.",
     "bar_writes": "Escritas",
     "bar_reads": "Lecturas",
     "limit": "escrituras",
@@ -121,7 +121,7 @@ LESSON = Lesson(
     ),
     watch_for=(
         "Primario-respaldo: la tarjeta Viejas se pone roja sin que nada falle; si cae la cabeza, Perdidas también.",
-        "Una cadena: nada viejo, nada perdido; pero cuando cae n1 las escrituras se atascan para siempre.",
+        "Una cadena: nada viejo, nada perdido; pero cuando cae n1 las escrituras se atascan para siempre (Escr. en 0%).",
         "Reparar sin guardar escrituras durante la copia: el nodo que entra se pierde algunas y la cadena se atasca.",
         "Cadena + reparación: una caída cuesta como mucho un segundo de escrituras; la copia (naranja) vuela a la cola nueva.",
     ),

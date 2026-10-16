@@ -58,8 +58,8 @@ STAGES = [
 GOALS = {
     "baseline": GoalText("Base correcta", "decide() debe dar de 0 a 1"),
     "hurt": GoalText("Dañadas ≤ 0.5%", "empieza poco: un canario 5%"),
-    "full": GoalText("Malas al 100% = 0", "compara errores Y latencia"),
-    "alarms": GoalText("Falsas alarmas = 0", "compara con la base"),
+    "full": GoalText("Mala al 100% = 0", "compara errores Y latencia"),
+    "alarms": GoalText("Falsa alarma = 0", "compara con la base"),
     "rollout": GoalText("Despliegue ≤ 90s", "sube 5→25→50→100%"),
 }
 
@@ -68,7 +68,7 @@ LEGEND = {"idle": "en reposo", "request": "petición", "waits": "espera", "serve
           "incident": "despliegue"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     "note_chart": "Gráfica: peticiones por segundo según la versión que respondió; lentas o fallidas encima.",
     # los dibujos
     "state_live": "ACTIVA v{v}",
@@ -177,7 +177,7 @@ LESSON = Lesson(
          "    return False"),
     ),
     checklist=(
-        "Nunca des una versión a todos a la vez: empieza con un canario pequeño (1-5%) y una reversión automática.",
+        "Nunca des una versión a todos a la vez: empieza con un canario pequeño (1-5%) y una vuelta atrás automática.",
         "Compara el canario con una base que corre la versión vieja a la vez, no con un número fijo.",
         "Juzga errores Y latencia (y saturación): una versión lenta es una versión mala.",
         "Espera un mínimo de peticiones antes de decidir; pon el listón alto si pruebas muchas métricas a menudo.",

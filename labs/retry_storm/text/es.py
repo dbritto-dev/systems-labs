@@ -63,7 +63,7 @@ STRINGS = {
     "healthy_again": "vuelve a estar sano",
     "warn_load": "carga {load:.1f}x lo que piden los usuarios",
     # valores de los objetivos
-    "avg": "media {value:.1f}x",
+    "avg": "{value:.1f}x",
     "few": "pocos",
     # el panel
     "tile_load": "Carga",
@@ -77,7 +77,7 @@ STRINGS = {
     "head_recovered": "Recuperado {seconds:.0f} s después de la caída",
     "head_draining": "Ya funciona; aún se vacían los reintentos",
     "head_load": "Carga: {load:.1f}x lo que piden",
-    "note_dots": "Los puntos son una muestra de llamadas, más lentas (estético).",
+    "note_dots": "Los puntos son una muestra de llamadas, más lentas (decorativo).",
     # errores en tu código
     "stuck": "una petición lleva más de {seconds:.0f} s: ¿Client.call reintenta sin fin?",
 }

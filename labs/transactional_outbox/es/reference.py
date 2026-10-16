@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from labs.transactional_outbox.api import BrokerUnavailable, DuplicateKey, new_id  # noqa: F401
 
-BATCH = 100  # filas de la bandeja que el relé publica por vuelta
+BATCH = 100  # filas de la bandeja que el publicador publica por vuelta
 
 
 class OrderService:

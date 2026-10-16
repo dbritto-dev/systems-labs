@@ -21,9 +21,9 @@ CAUSES = {
     "batch_job": "un proceso por lotes corre en las mismas máquinas",
     "backup": "una copia de seguridad comprime archivos en las mismas máquinas",
     "log_shipper": "un enviador de registros se queda atrás y quema CPU",
-    "deploy": "un despliegue gradual reinicia las instancias, tanda a tanda",
-    "config_push": "un cambio de configuración reinicia las instancias, tanda a tanda",
-    "node_rotation": "un parche de seguridad rota las máquinas, tanda a tanda",
+    "deploy": "un despliegue gradual reinicia las instancias, lote a lote",
+    "config_push": "un cambio de configuración reinicia las instancias, lote a lote",
+    "node_rotation": "un parche de seguridad rota las máquinas, lote a lote",
 }
 
 STAGES = [
@@ -44,7 +44,7 @@ GOALS = {
     "p99": GoalText("p99 < 1s", "ajusta la flota al tráfico"),
     "headroom": GoalText("Margen ≥ 50%", "objetivo: 10 pet/s por inst."),
     "flaps": GoalText("Oscilaciones ≤ 2", "reduce despacio: estabiliza"),
-    "cost": GoalText("Coste ≤ ideal+50%", "sigue peticiones, no CPU"),
+    "cost": GoalText("Costo ≤ ideal+50%", "sigue peticiones, no CPU"),
 }
 
 LEGEND = {"idle": "en reposo", "request": "petición", "waits": "espera / cola", "served": "servida",
@@ -52,7 +52,7 @@ LEGEND = {"idle": "en reposo", "request": "petición", "waits": "espera / cola",
           "short": "faltan", "max": "flota máxima", "incident": "incidente"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     "note_chart": "Gráfica: la flota en cada segundo, y en rojo las instancias que le faltan para el objetivo.",
     # los dibujos
     "fleet_state": "{state} {n}+{booting}",
@@ -77,7 +77,7 @@ STRINGS = {
     "warn_flap": "oscilación: {n} instancias añadidas y quitadas en 30 s",
     # el panel
     "tile_headroom": "Margen",
-    "tile_cost": "Coste",
+    "tile_cost": "Costo",
     "toplist": "Flota",
     "toplist_sub": "instancias ahora",
     "bar_fleet": "Flota",
@@ -122,7 +122,7 @@ LESSON = Lesson(
     watch_for=(
         "Flota fija: el pico llena las colas y los usuarios acaban en timeout, en rojo; luego, de noche, casi todas las instancias están ociosas.",
         "Umbrales de CPU: un nodo naranja claro por turno, siempre por detrás del pico; con la CPU ruidosa añade instancias para nada.",
-        "Seguimiento de objetivo: aparece una tanda de instancias a la vez, arranca, se calienta (de naranja a azul), y la flota aguanta antes de encoger.",
+        "Seguimiento de objetivo: aparece un lote de instancias a la vez, arranca, se calienta (de naranja a azul), y la flota aguanta antes de encoger.",
     ),
     build=(
         ("AWS: seguimiento de peticiones por destino, con calentamiento",
@@ -163,7 +163,7 @@ LESSON = Lesson(
         "Deja margen: un objetivo cerca del 50-60% de lo que puede una instancia cubre ráfagas y el arranque.",
         "Cuenta en la flota las instancias que arrancan o se calientan, para que el siguiente turno no las pida otra vez.",
         "Crece rápido y reduce despacio (una ventana de estabilización); fija una flota mínima y una máxima.",
-        "Métricas: instancias deseadas, en marcha y en servicio; acciones de escalado por hora; p99; coste por petición.",
+        "Métricas: instancias deseadas, en marcha y en servicio; acciones de escalado por hora; p99; costo por petición.",
     ),
     refs=(
         Ref("AWS: Target tracking scaling policies",
@@ -184,7 +184,7 @@ LESSON = Lesson(
     ),
     try_next=(
         "Haz la etapa 1 en labs/autoscaling/es/main.py y mira cómo la flota persigue el pico de una instancia en una.",
-        "Haz la etapa 2 y mira cómo arrancan tandas enteras a la vez, y cómo la flota aguanta antes de encoger.",
+        "Haz la etapa 2 y mira cómo arrancan lotes enteros a la vez, y cómo la flota aguanta antes de encoger.",
         "Pon STABILISE a 0 y mira las oscilaciones; pon TARGET_RPS a 18 y mira cómo el pico acaba en timeouts.",
     ),
 )

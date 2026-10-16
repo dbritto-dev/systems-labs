@@ -47,7 +47,7 @@ class Policy:
       admit(request, queue_len, now)  cuando llega una petición: False la rechaza
                                       al momento (el usuario recibe un error, sin reintento)
       drop(request, now)              cuando el servidor va a trabajar en una
-                                      petición: True la salta sin coste
+                                      petición: True la salta sin costo
       newest_first(queue_len, now)    cuando el servidor elige la siguiente:
                                       True toma la más nueva (LIFO), False la
                                       más antigua (FIFO)

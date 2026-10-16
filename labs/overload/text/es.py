@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Sobrecarga y colas"
-SUMMARY = "Un pico llena la cola de usuarios que ya se fueron. Descarta carga para que el servidor se recupere."
+SUMMARY = "Un pico llena la cola de usuarios que ya se fueron. Descarta carga y el servidor se recupera."
 PARAMS = {"rate": "usuarios por segundo (cada uno espera 1 s y reintenta hasta dos veces)"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -39,7 +39,7 @@ STAGES = [
 GOALS = {
     "baseline": GoalText("Base correcta", "responde a tiempo"),
     "queue": GoalText("Cola ≤ 250", "rechaza con la cola llena"),
-    "waste": GoalText("Pérdida < 5%", "salta lo que llega tarde"),
+    "waste": GoalText("Desperd. < 5%", "salta lo que llega tarde"),
     "goodput": GoalText("Goodput ≥ 80%", "no sirvas a quien se fue"),
     "fast": GoalText("Rápido < 300ms", "lo nuevo primero si es larga"),
     "recovered": GoalText("Recupera ≤ 5 s", "descarta carga para volver"),
@@ -65,7 +65,7 @@ STRINGS = {
     "over_seconds": ">{seconds:.0f} s",
     # el panel
     "tile_served": "Servido",
-    "tile_waste": "Pérdida",
+    "tile_waste": "Desperd.",
     "tile_reply": "Resp.",
     "bar_arrive": "Llegan",
     "bar_server": "Servidor",
@@ -78,7 +78,7 @@ STRINGS = {
     "head_ok": "Cada respuesta llega a tiempo",
     "stat_gave_up": "se rindieron",
     "stat_rejected": "rechazadas",
-    "note_dots": "Puntos: una muestra, más lenta (estético).",
+    "note_dots": "Puntos: una muestra, más lenta (decorativo).",
     # el dibujo
     "state_wasting": "DERROCHA",
     # errores en tu código
@@ -152,7 +152,7 @@ LESSON = Lesson(
     ),
     try_next=(
         "Haz la etapa 1 en labs/overload/es/main.py y mira cómo la puerta rechaza en el pico.",
-        "Haz la etapa 2 y mira cómo el objetivo Pérdida se pone verde y el servidor se recupera.",
+        "Haz la etapa 2 y mira cómo el objetivo Desperd. se pone verde y el servidor se recupera.",
         "Haz la etapa 3 y mira cómo el tiempo de respuesta baja a milisegundos.",
         "Prueba --set rate=90: ¿cuánto se puede acercar a la capacidad antes de que un pico lo rompa?",
     ),

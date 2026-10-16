@@ -27,9 +27,9 @@ LABS_LANG=es uv run pytest labs/saga_orchestration             # x = aún no, X 
 | 1 Compensaciones | ante `StepFailed`, `compensate`: deshaz los pasos cuyas refs volvieron, del último al primero | los fallos definitivos se deshacen limpiamente (naranja), pero un envío que dio timeout y sí ocurrió, y cada saga que la caída cortó, se quedan a medias |
 | 2 Sagas reanudables | `key=saga_id` en cada llamada, `attempt` reintenta los timeouts, el registro dice "running" / "compensating", `recover()` reanuda cada saga sin terminar | nada a medias, ningún cobro doble, cada pedido que puede completarse se completa; todos los objetivos OK |
 
-Objetivos, juzgados por incidente (sagas que empezaron desde 2 s antes, porque siguen en marcha
+Objetivos, evaluados por incidente (sagas que empezaron desde 2 s antes, porque siguen en marcha
 cuando empieza): base correcta (antes), deshechos 100% (las sagas que abandonaste no retienen nada
-de lo que te dijeron que ocurrió; "ninguno" si no abandonaste ninguna), a medias = 0 (dinero
+de lo que te dijeron que ocurrió; "nada" si no abandonaste ninguna), a medias = 0 (dinero
 cobrado, artículos retenidos o un mensajero reservado para un pedido que no está completo), cobros
 dobles = 0, completos ≥ 95% de los pedidos a los que nadie dijo que no, y p99 del tiempo hasta
 terminar < 1 s para las sagas que empiezan en los 5 s siguientes.

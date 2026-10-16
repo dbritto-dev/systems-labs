@@ -40,7 +40,7 @@ GOALS = {
     "reach": GoalText("Llega a todos", "reenvía los números nuevos"),
     "survive": GoalText("Aguanta corte", "reenvía hasta que confirmen"),
     "msgs30": GoalText("Msgs/op < 30", "envía menos mensajes"),
-    "fast": GoalText("Rápido 400/600ms", "menos saltos por número"),
+    "fast": GoalText("Ráp. 400/600", "menos saltos por número"),
     "msgs20": GoalText("Msgs/op < 20", "agrupa los números"),
     "batched": GoalText("Rápido 1s/2s", "envía lotes más a menudo"),
 }

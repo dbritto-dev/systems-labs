@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Log de Kafka (Gossip Glomers #5)"
-SUMMARY = "Gossip Glomers #5: un log estilo Kafka replicado en dos nodos; primero correcto, luego barato."
+SUMMARY = "Gossip Glomers #5: un log tipo Kafka replicado en 2 nodos; primero correcto, luego barato."
 PARAMS = {"rate": "operaciones de clientes por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -70,7 +70,7 @@ STRINGS = {
     "head_hot": "{k} caliente: p99 send {p99}",
     "head_slow": "lin-kv va lento: p99 send {p99}",
     "head_ok": "Log bien: {mpo} mensajes por operación",
-    "note_dots": "Puntos más lentos para que se vean (estético).",
+    "note_dots": "Puntos más lentos para que se vean (decorativo).",
     # el dibujo
     "state_hot": "CLAVE CALIENTE {k}",
     "state_kv_slow": "LIN-KV LENTO",

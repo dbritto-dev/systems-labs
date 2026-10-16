@@ -8,7 +8,7 @@ SUMMARY = "Guarda cada pedido y avísalo a envíos: sin perder eventos, sin inve
 PARAMS = {"rate": "pedidos por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
-VERBS = {"crash": "MUERE", "broker": "CAÍDA", "locks": "TRABAS", "relay": "RELÉ", "rebalance": "REPART",
+VERBS = {"crash": "MUERE", "broker": "CAÍDA", "locks": "BLOQ.", "relay": "PUBL.", "rebalance": "REPAR.",
          "calm": "CALMA"}
 CAUSES = {
     "oom_kill": "una fuga de memoria agota la RAM y el sistema mata el servicio de pedidos",
@@ -23,12 +23,12 @@ CAUSES = {
     "batch_deadlock": "un proceso nocturno se interbloquea con los pedidos",
     "db_failover": "la base de datos de pedidos conmuta a su réplica a mitad de una consolidación",
     "hot_row": "una oferta relámpago martillea una fila de existencias: fallos de serialización",
-    "relay_oom": "el sistema mata el relé, sin memoria por un lote enorme",
-    "relay_deploy": "un despliegue reinicia el relé una y otra vez",
-    "lease_lost": "el relé pierde una y otra vez su concesión de líder",
+    "relay_oom": "el sistema mata al publicador, sin memoria por un lote enorme",
+    "relay_deploy": "un despliegue reinicia el publicador una y otra vez",
+    "lease_lost": "el publicador pierde una y otra vez su concesión de líder",
     "consumer_deploy": "envíos despliega: su grupo de consumidores se reparte de nuevo",
     "autoscale": "el autoescalado añade y quita consumidores de envíos",
-    "missed_heartbeat": "un consumidor de envíos lento deja de dar señales de vida y lo echan del grupo",
+    "missed_heartbeat": "un consumidor de envíos lento pierde latidos y lo echan del grupo",
 }
 
 STAGES = [
@@ -36,7 +36,7 @@ STAGES = [
               "Reto: una muerte entre la base de datos y el intermediario pierde o inventa eventos.",
               "Etapa 1: escribe el evento en la bandeja de salida, en la transacción del pedido"),
     StageText("Bandeja de salida",
-              "Reto: tras una muerte el relé vuelve a publicar, y hay pedidos enviados dos veces.",
+              "Reto: tras una muerte el publicador vuelve a publicar y hay envíos dobles. Descártalos.",
               "Etapa 2: anota el id de cada evento en la transacción del envío"),
     StageText("Consumidor idempotente",
               "Resuelto: cada pedido guardado se envía exactamente una vez, y nada más.",
@@ -46,9 +46,9 @@ STAGES = [
 GOALS = {
     "baseline": GoalText("Base correcta", "envía cada pedido guardado"),
     "lost": GoalText("Perdidos = 0", "escribe el evento en la tx"),
-    "phantom": GoalText("Fantasmas = 0", "publica solo desde el relé"),
-    "dup": GoalText("Envíos dobles = 0", "descarta por id de evento"),
-    "lag": GoalText("Retraso p99 < 3s tras", "relé por lotes, sin pausas"),
+    "phantom": GoalText("Fantasmas = 0", "solo publica el publicador"),
+    "dup": GoalText("Dobles = 0", "descarta por id de evento"),
+    "lag": GoalText("p99 < 3s tras", "publica en lotes, sin pausas"),
 }
 
 LEGEND = {"idle": "en reposo", "event": "pedido, evento", "republished": "publicado otra vez",
@@ -63,17 +63,17 @@ STRINGS = {
     "broker_end": "el intermediario vuelve",
     "locks_start": "falla el {share:.0%} de las consolidaciones de pedidos: {cause}",
     "locks_end": "las consolidaciones vuelven a pasar",
-    "relay_start": "el relé muere cada {every:.1f} s: {cause}",
-    "relay_end": "el relé sigue en pie otra vez",
+    "relay_start": "el publicador muere cada {every:.1f} s: {cause}",
+    "relay_end": "el publicador sigue en pie otra vez",
     "rebalance_start": "envíos se reparte de nuevo cada {every:.1f} s: {cause}",
     "rebalance_end": "el grupo de consumidores de envíos vuelve a estar estable",
     "warn_lost": "{n} pedidos guardados nunca llegaron a envíos",
     "warn_twice": "{n} pedidos enviados dos veces",
     # valores de los objetivos
     "count": "{n}",
-    "on_the_way": "{n} en camino",
+    "on_the_way": "{n} pend.",
     # el panel
-    "tile_lost": "Perdid.",
+    "tile_lost": "Perdidos",
     "tile_phantom": "Fantasma",
     "tile_twice": "Dobles",
     "bar_saved": "Guardados",
@@ -88,27 +88,27 @@ STRINGS = {
     # los dibujos
     "state_restart": "REINICIANDO",
     "state_broker": "INTERMEDIARIO CAÍDO",
-    "state_relay": "RELÉ CAÍDO",
+    "state_relay": "PUBLICADOR CAÍDO",
     "state_rebalance": "REPARTIENDO",
     "state_locks": "INTERBLOQUEOS",
     "lane_state": "{state} · bandeja {n}",
-    "pic_state": "servicio·bd·relé / envíos·interm.: {state}",
+    "pic_state": "servicio·bd·publ. / envíos·interm.: {state}",
     # el dibujo de la tubería: un nombre bajo cada caja
     "box_service": "servicio",
     "box_service_short": "serv",
     "box_service_tiny": "S",
     "box_db": "bd",
     "box_db_n": "bd {n}",
-    "box_relay": "relé",
-    "box_relay_short": "relé",
-    "box_relay_tiny": "R",
+    "box_relay": "publicador",
+    "box_relay_short": "publ.",
+    "box_relay_tiny": "P",
     "box_broker": "interm.",
     "box_broker_short": "int.",
     "box_broker_tiny": "I",
     "box_shipping": "envíos",
     "box_shipping_short": "env.",
     "box_shipping_tiny": "E",
-    "note": "Los puntos son una muestra de pedidos y eventos, más lentos (estético).",
+    "note": "Los puntos son una muestra de pedidos y eventos, más lentos (decorativo).",
     "subtitle": "por segundo, último 1 s",
     "title": "Eventos",
     # errores en tu código
@@ -127,19 +127,19 @@ LESSON = Lesson(
         "evento sale antes de una consolidación que luego falla (un fantasma: envíos manda un pedido que "
         "no existe).",
         "La bandeja de salida transaccional escribe el evento como una fila de una tabla outbox, en la "
-        "misma transacción de base de datos que el pedido. O se guardan los dos o ninguno. Un relé aparte "
+        "misma transacción de base de datos que el pedido. O se guardan los dos o ninguno. Un publicador aparte "
         "lee las filas sin enviar, las publica y las marca como enviadas. Es el único camino al "
         "intermediario.",
-        "El relé publica primero y marca después. Si muere entre medias, la fila se publica otra vez al "
+        "El publicador primero publica y después marca. Si muere entre medias, la fila se publica otra vez al "
         "reiniciarse: entrega al menos una vez. Marcar primero sería como mucho una vez, y perdería "
         "eventos. Los repartos del grupo de consumidores también vuelven a entregar. Los duplicados son "
         "normales; cuenta con ellos.",
         "Un consumidor idempotente anota el id de cada evento que ha tratado en su propia base de datos, en "
         "la misma transacción que el efecto (el envío), y salta un id que ya ha visto. Entrega al menos una "
         "vez más un consumidor idempotente es exactamente una vez en efecto.",
-        "El retraso es el precio: un evento sale cuando el relé vuelve a consultar. Consulta a menudo, "
+        "El retraso es el precio: un evento sale cuando el publicador vuelve a consultar. Consulta a menudo, "
         "publica por lotes y, tras una caída del intermediario, vacía deprisa lo acumulado. La captura de "
-        "cambios (Debezium leyendo el registro de la base de datos) es un relé que no consulta.",
+        "cambios (Debezium leyendo el log de la base de datos) es un publicador que no consulta.",
     ),
     watch_for=(
         "Doble escritura: cada muerte justo después de publicar deja un fantasma (rojo); una caída del "
@@ -155,7 +155,7 @@ LESSON = Lesson(
          "INSERT INTO orders (id, customer, total) VALUES ($1, $2, $3);\n"
          "INSERT INTO outbox (id, topic, payload) VALUES ($4, 'orders', $5);\n"
          "COMMIT;"),
-        ("El relé: publica y luego marca (SKIP LOCKED deja que varios relés compartan la tabla)",
+        ("El publicador: publica y luego marca (SKIP LOCKED deja que varios publicadores compartan la tabla)",
          "rows = SELECT * FROM outbox WHERE sent_at IS NULL ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED;\n"
          "for row in rows: producer.send(row.topic, key=row.aggregate_id, value=row.payload)\n"
          "producer.flush()\n"
@@ -171,7 +171,7 @@ LESSON = Lesson(
         "Nunca publiques desde una petición que también escribe en la base de datos: escribe una fila en "
         "la bandeja de salida.",
         "La fila de la bandeja y la fila del negocio se consolidan en una sola transacción.",
-        "El relé publica, espera la confirmación del intermediario y luego marca las filas como enviadas.",
+        "El publicador publica, espera la confirmación del intermediario y luego marca las filas como enviadas.",
         "Cada evento tiene un id único, y los consumidores descartan duplicados por él en la misma "
         "transacción que su efecto.",
         "Guarda los ids tratados al menos mientras pueda haber reentregas; borra las filas ya enviadas.",
@@ -181,7 +181,7 @@ LESSON = Lesson(
     refs=(
         Ref("microservices.io: Transactional outbox",
             "https://microservices.io/patterns/data/transactional-outbox.html",
-            "El patrón, sus fuerzas y el relé (consulta periódica o lectura del registro) (en inglés)."),
+            "El patrón, sus fuerzas y el publicador (consulta periódica o lectura del log) (en inglés)."),
         Ref("microservices.io: Idempotent consumer",
             "https://microservices.io/patterns/communication-style/idempotent-consumer.html",
             "Anotar los ids de los mensajes tratados para que los duplicados no hagan daño (en inglés)."),
@@ -194,14 +194,14 @@ LESSON = Lesson(
             "La bandeja de salida en AWS, con el tratamiento de duplicados en el consumidor (en inglés)."),
         Ref("Debezium: Outbox event router",
             "https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html",
-            "Un relé hecho con captura de cambios: lee el registro de la base de datos en vez de consultar "
+            "Un publicador hecho con captura de cambios: lee el log de la base de datos en vez de consultar "
             "(en inglés)."),
         Ref("Confluent: Message delivery guarantees",
             "https://docs.confluent.io/kafka/design/delivery-semantics.html",
             "Como mucho una vez, al menos una vez y exactamente una vez, y de dónde sale cada una (en inglés)."),
     ),
     try_next=(
-        "Haz la etapa 1 en labs/transactional_outbox/es/main.py y mira cómo Perdid. y Fantasma se quedan en 0.",
+        "Haz la etapa 1 en labs/transactional_outbox/es/main.py y mira cómo Perdidos y Fantasma se quedan en 0.",
         "Luego mira la siguiente muerte: ¿por qué envíos recibe ahora algunos pedidos dos veces?",
         "Haz la etapa 2 y mira cómo las repeticiones se vuelven grises: descartadas, nunca enviadas dos veces.",
     ),

@@ -21,7 +21,7 @@ CAUSES = {
     "raid_rebuild": "una reconstrucción del RAID perdió una franja",
     "wrong_snapshot": "se restauró la instantánea equivocada tras una migración",
     "operator_error": "un operador restauró por error la copia de la semana pasada",
-    "rollback": "un proceso de vuelta atrás restauró un fichero de datos viejo",
+    "rollback": "un proceso de vuelta atrás restauró un archivo de datos viejo",
 }
 
 STAGES = [
@@ -48,12 +48,12 @@ LEGEND = {"in_sync": "al día", "diverged": "le faltan escrituras", "down": "ca�
 
 STRINGS = {
     # objetivos
-    "left": "faltan {n:,}",
+    "left": "aún {n:,}",
     "per_key": "{v:.0f}/clave",
     "none_fixed": "{n:,} por 0",
     "rate": "{v:,.0f}/s",
     # incidentes
-    "down": "{node} está caída: {cause}; las demás guardan {hints} pistas cada una para ella",
+    "down": "{node} está caído: {cause}; los demás guardan {hints} pistas cada uno para él",
     "up": "{node} vuelve; se reenvían las pistas",
     "blip": "un corte de red aisló a {node}: {cause}; se pierden lotes de replicación",
     "healed": "{node} vuelve a estar accesible",
@@ -68,8 +68,8 @@ STRINGS = {
     "limit": "10k/s",
     "hash_title": "Cálculo de hash",
     "hash_sub": "por réplica, 1 s",
-    "head_down": "{node} caída: se acumulan pistas",
-    "head_blip": "{node} aislada: lotes perdidos",
+    "head_down": "{node} caído: se acumulan pistas",
+    "head_blip": "{node} aislado: lotes perdidos",
     "head_diverged": "{n:,} claves difieren, más en {node}",
     "head_repaired": "{n:,} claves reparadas en 1 s",
     "head_ok": "Cada réplica tiene lo último",
@@ -80,7 +80,7 @@ STRINGS = {
     "stat_repair": "reparación",
     "note_chart": "Gráfica: entradas enviadas por segundo: replicación, reparación.",
     # el dibujo
-    "state_down": "{node} CAÍDA",
+    "state_down": "{node} CAÍDO",
     "state_diverged": "DIFIEREN {n:,}",
     "state_sync": "AL DÍA",
     # el dibujo de carriles (lo que ven los clientes): estados bajo el servidor, 13 letras como mucho
@@ -88,8 +88,8 @@ STRINGS = {
     "lanes_diverged": "DIFIEREN",
     "lanes_sync": "AL DÍA",
     # el dibujo de pares: bajo cada réplica, lo que le falta, corto
-    "peer_down": "{node} caída",
-    "peer_cut": "{node} aislada",
+    "peer_down": "{node} caído",
+    "peer_cut": "{node} aislado",
     "peer_missing": "{node} −{n}",
     # errores en tu código
     "not_replica": "ReplicaNode debe heredar de Replica (de labs.merkle_anti_entropy.api)",
@@ -106,7 +106,7 @@ LESSON = Lesson(
         "cada lectura depende de qué réplica responde.",
         "La antientropía es un proceso de fondo que compara réplicas y copia la versión más nueva de "
         "cada clave que difiere. La más simple, un barrido completo, envía a un par la versión de cada "
-        "clave: lo repara todo, pero su coste crece con los datos, no con las diferencias.",
+        "clave: lo repara todo, pero su costo crece con los datos, no con las diferencias.",
         "Un árbol de Merkle resume con hash el rango de claves: cada hoja cubre unas pocas claves, cada "
         "nodo interior es el hash de sus hijos, y la raíz lo resume todo. Dos réplicas comparan raíces; "
         "si difieren, comparan los hijos y bajan solo donde los hash difieren, y luego intercambian las "
@@ -142,7 +142,7 @@ LESSON = Lesson(
     checklist=(
         "Da por hecho que las réplicas se separan: ejecuta la antientropía siempre, no solo tras "
         "incidentes conocidos.",
-        "Haz que su coste crezca con las diferencias, no con los datos: compara hash primero.",
+        "Haz que su costo crezca con las diferencias, no con los datos: compara hash primero.",
         "Mantén los árboles incrementales, y limita la reparación para que no dañe el tráfico normal.",
         "Elige hojas de unas pocas claves a unos cientos, para que una clave mala no arrastre un rango entero.",
         "Alerta por volumen de reparación: una ráfaga repentina significa que algo perdió escrituras.",

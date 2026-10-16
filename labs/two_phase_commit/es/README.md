@@ -28,12 +28,12 @@ LABS_LANG=es uv run pytest labs/two_phase_commit             # x = aún no, X = 
 | Etapa | En `es/main.py` | Lo que ves (primer incidente) |
 |---|---|---|
 | 0 Un fragmento a la vez (dada) | escribe en cada fragmento por turnos; para en el primer no | cuando `n2` dice que no, el fragmento anterior conserva su escritura: 22 consolidaciones parciales, $2,773 creados o destruidos (rojo) |
-| 1 Consolidación en dos fases | `two_phase`: prepara en todos (`vote`), consolida solo si todos votan sí, si no aborta; los fragmentos `prepare` / `commit` / `abort` | los votos no abortan en todos los fragmentos; pero la caída deja a `n2` y `n3` en duda para siempre (naranja), faltan $121, y sus filas bloqueadas hacen que las transferencias siguientes den timeout (56% completas) |
-| 2 2PC con recuperación | registra la consolidación antes de enviarla, reenvíala hasta que se confirme, `recover()` reenvía lo que tenga el registro; los fragmentos en duda preguntan (`ask`) al coordinador; `on_status` responde desde el registro (aborto presunto) | los fragmentos siguen en duda mientras el coordinador está caído (el precio de 2PC), y se resuelven un momento después de que vuelva; todos los objetivos OK |
+| 1 Consolidación en dos fases | `two_phase`: prepara en todos (`vote`), consolida solo si todos votan sí, si no aborta; los fragmentos `prepare` / `commit` / `abort` | un voto que dice no aborta la transferencia en todos los fragmentos; pero la caída deja a `n2` y `n3` en duda para siempre (naranja), faltan $121, y sus filas bloqueadas hacen que las transferencias siguientes den timeout (56% completas) |
+| 2 2PC con recuperación | registra la consolidación antes de enviarla, reenvíala hasta que se confirme, `recover()` reenvía lo que tenga el log; los fragmentos en duda preguntan (`ask`) al coordinador; `on_status` responde desde el log (aborto presunto) | los fragmentos siguen en duda mientras el coordinador está caído (el precio de 2PC), y se resuelven un momento después de que vuelva; todos los objetivos OK |
 
-Objetivos, juzgados por incidente (transferencias que empezaron desde 1 s antes, porque siguen en
+Objetivos, evaluados por incidente (transferencias que empezaron desde 1 s antes, porque siguen en
 marcha cuando empieza): base correcta (≥ 95% consolidadas en los 15 s anteriores), abortos limpios
-100% (las transferencias a las que un fragmento dijo que no no se aplican en ninguno; "ninguno" si
+100% (las transferencias a las que un fragmento dijo que no no se aplican en ninguno; "nada" si
 ningún fragmento dijo que no), parciales = 0 (aplicadas en algunos fragmentos y abortadas en otros),
 dinero conservado 3 s después de que termine (el dinero creado o destruido por sus transferencias:
 $0), en duda ≤ 3 s después de que termine (transferencias preparadas que aún esperan una decisión),

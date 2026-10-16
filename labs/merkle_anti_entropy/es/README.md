@@ -11,8 +11,8 @@ avisa. Los incidentes llegan al azar, como en producción: una réplica está ca
 que cubren sus pistas (las demás guardan como mucho 50 pistas cada una para ella, y las escrituras
 que no caben nunca le llegan), un corte de red pierde los lotes de replicación de y hacia una
 réplica, un disco dañado pierde unos cientos de claves en una réplica, o un operador restaura una
-copia vieja sobre un rango de claves de una réplica. El primer incidente siempre es n2 caída de
-0:20 a 0:30.
+copia vieja sobre un rango de claves de una réplica. El primer incidente siempre es la caída de n2,
+de 0:20 a 0:30.
 
 ```
 uv run python -m live merkle_anti_entropy --lang es            # míralo; edita es/main.py y guarda
@@ -26,7 +26,7 @@ LABS_LANG=es uv run pytest labs/merkle_anti_entropy            # x = todavía no
 | 1 Barrido completo | `diff`, `full_scan`, `sync_keys`, `on_scan`: en cada ronda, envía a un par la versión de cada clave; toma lo que tiene más nuevo, envía lo que pide | las réplicas vuelven a azul en segundos, pero la gráfica es un muro naranja: 20.000 entradas por ronda para hallar unos cientos de diferencias |
 | 2 Árboles de Merkle | `MerkleTree` (actualizado en `changed`), `merkle_sync`, `on_hashes`: compara raíces, baja solo donde los hash difieren, sincroniza las claves de las hojas que difieren | una ronda en calma cuesta unos pocos cientos de entradas; tras un incidente una ráfaga corta naranja lo repara |
 
-Objetivos, juzgados por incidente: cada clave que difiere reparada como mucho 15 s después de que
+Objetivos, evaluados por incidente: cada clave que difiere reparada como mucho 15 s después de que
 acaba el incidente; como mucho un 0.2% de lecturas viejas en los 10 s siguientes; como mucho 150
 entradas de reparación enviadas por clave reparada (desde que empieza el incidente hasta 15 s
 después de que acaba); y como mucho 10.000 unidades de cálculo de hash por segundo en la réplica

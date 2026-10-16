@@ -35,7 +35,7 @@ Cómo habla tu nodo (mira core/net.py):
 
 Guarda tus datos en `self.store`, como {key: (version, value)}: el comprobador mira ahí.
 
-Compruébate:  uv run pytest labs/geo_replication
+Compruébalo:  uv run pytest labs/geo_replication
 Mira una solución (¡después de intentarlo!):  labs/geo_replication/es/reference.py
 """
 
@@ -124,12 +124,12 @@ class RegionNode(Node):
         """Etapa 1. En el primario, cada SHIP_EVERY segundos: envía lo que tiene self.log a cada otra
         región en un solo mensaje, {"type": "replicate", "items": [(key, version, value), ...]} con
         self.send (sin esperar: replicación asíncrona), y vacía el log."""
-        raise NotImplementedError("TODO etapa 1: ship()")
+        raise NotImplementedError("PENDIENTE etapa 1: ship()")
 
     async def on_replicate(self, msg: Message) -> None:
         """Etapa 1. Guarda cada (key, version, value) de msg.body["items"] y responde
         {"type": "replicate_ok"} (la etapa 2 espera esa respuesta; en la etapa 1 nadie la espera)."""
-        raise NotImplementedError("TODO etapa 1: on_replicate()")
+        raise NotImplementedError("PENDIENTE etapa 1: on_replicate()")
 
     # ---- etapa 2: cada región acepta escrituras
 
@@ -137,32 +137,32 @@ class RegionNode(Node):
         """Etapa 2. Envía la escritura a cada otra región a la vez (`self.send_to`, una tarea cada una:
         asyncio.ensure_future) y devuelve True en cuanto una de ellas responda True (usa
         asyncio.as_completed); False si ninguna lo hace. No esperes a la segunda."""
-        raise NotImplementedError("TODO etapa 2: replicate()")
+        raise NotImplementedError("PENDIENTE etapa 2: replicate()")
 
     async def send_to(self, region: str, key: str, version: float, value: int) -> bool:
         """Etapa 2. Una escritura a una región: un rpc {"type": "replicate", "items": [(key, version,
         value)]} con timeout=TIMEOUT. True si respondió. Si no (TimeoutError o RPCError), guarda una
         pista, self.hints[region][key] = (version, value) (salvo que ya tenga una más nueva), y
         devuelve False."""
-        raise NotImplementedError("TODO etapa 2: send_to()")
+        raise NotImplementedError("PENDIENTE etapa 2: send_to()")
 
     async def hand_off(self) -> None:
         """Etapa 2. Cada HAND_OFF segundos: por cada región con pistas, `self.spawn(self.hand_over(
         region, dict(hints)))` (una copia: pueden llegar pistas nuevas mientras tanto)."""
-        raise NotImplementedError("TODO etapa 2: hand_off()")
+        raise NotImplementedError("PENDIENTE etapa 2: hand_off()")
 
     async def hand_over(self, region: str, items: dict[str, tuple[float, int]]) -> None:
         """Etapa 2. Envía las pistas en un rpc {"type": "replicate", "items": [...]} con
         timeout=HAND_OFF_TIMEOUT. Si respondió, olvida cada pista que siga siendo la que enviaste."""
-        raise NotImplementedError("TODO etapa 2: hand_over()")
+        raise NotImplementedError("PENDIENTE etapa 2: hand_over()")
 
     async def on_fetch(self, msg: Message) -> None:
         """Etapa 2. Responde {"type": "fetch_ok", "version": version, "value": value} desde self.store
         ((0, None) si no tienes la clave)."""
-        raise NotImplementedError("TODO etapa 2: on_fetch()")
+        raise NotImplementedError("PENDIENTE etapa 2: on_fetch()")
 
     async def fetch(self, key: str, token: float) -> tuple[float, int] | None:
         """Etapa 2. Pide key a las otras regiones a la vez (un rpc {"type": "fetch", "key": key} a cada
         una, timeout=TIMEOUT). Devuelve (version, value) de la primera respuesta con valor cuya
         versión sea al menos token, después de guardarla aquí también; None si ninguna la tiene."""
-        raise NotImplementedError("TODO etapa 2: fetch()")
+        raise NotImplementedError("PENDIENTE etapa 2: fetch()")

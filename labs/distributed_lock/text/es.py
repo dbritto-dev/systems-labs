@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Cerrojo distribuido"
-SUMMARY = "Los procesos toman un cerrojo antes de escribir un informe compartido. Aguanta dueños congelados, muertos y tardíos."
+SUMMARY = "Los workers toman un cerrojo antes de escribir un informe compartido. Aguanta dueños congelados, muertos y tardíos."
 PARAMS = {"rate": "trabajos por segundo (cada uno toma el cerrojo y escribe el informe)"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -29,20 +29,20 @@ CAUSES = {
 
 STAGES = [
     StageText("Cerrojo simple",
-              "Reto: el cerrojo nunca caduca: un dueño congelado o muerto bloquea todo. Ponle un plazo.",
-              "Etapa 1: un plazo (LEASE) que caduca, renovado por su dueño"),
-    StageText("Plazos",
+              "Reto: el cerrojo nunca caduca: un dueño congelado o muerto bloquea todo. Usa concesiones.",
+              "Etapa 1: una concesión (LEASE) que vence, renovada por su dueño"),
+    StageText("Concesiones",
               "Reto: un dueño congelado despierta, cree que aún tiene el cerrojo y escribe. Frénalo.",
               "Etapa 2: tokens de vallado, que comprueba el almacenamiento"),
-    StageText("Plazos + tokens de vallado",
-              "Resuelto: un dueño muerto bloquea un plazo como mucho, y lo tardío rebota en el almacén.",
+    StageText("Concesiones + tokens de vallado",
+              "Resuelto: un dueño muerto bloquea una concesión, no más; lo tardío rebota en el almacén.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
     "corrupt": GoalText("Corruptas = 0", "tokens de vallado"),
-    "stuck": GoalText("Atasco ≤ 5s", "un plazo que caduque"),
-    "done": GoalText("Trabajos hechos ≥ 80%", "renueva; suelta lo perdido"),
+    "stuck": GoalText("Atasco ≤ 5s", "una concesión que venza"),
+    "done": GoalText("Hechos ≥ 80%", "renueva; suelta el perdido"),
 }
 
 LEGEND = {"holder": "dueño del cerrojo", "frozen": "congelado", "down": "muerto / aislado",
@@ -100,17 +100,17 @@ STRINGS = {
 
 LESSON = Lesson(
     title="Cerrojo distribuido",
-    one_liner="Un cerrojo necesita un plazo, para que un dueño muerto no bloquee para siempre, y un token de vallado, para que uno tardío no escriba.",
+    one_liner="Un cerrojo necesita una concesión, para que un dueño muerto no bloquee para siempre, y un token de vallado, para que uno tardío no escriba.",
     learn=(
-        "Un cerrojo distribuido deja que un solo proceso a la vez haga algo: regenerar un informe, ejecutar "
-        "una tarea programada una sola vez, ser dueño de un fragmento de los datos. Lo reparte un servicio de cerrojos (ZooKeeper, etcd, "
+        "Un cerrojo distribuido deja que un solo worker a la vez haga algo: regenerar un informe, ejecutar "
+        "una tarea programada una sola vez, ser dueño de un fragmento. Lo reparte un servicio de cerrojos (ZooKeeper, etcd, "
         "Consul, Redis, una fila de una base de datos).",
         "Un cerrojo que nunca caduca se atasca en cuanto su dueño muere, se congela o pierde la red: nadie "
-        "distingue un dueño muerto de uno lento. Por eso los cerrojos tienen un plazo (un lease): el "
+        "distingue un dueño muerto de uno lento. Por eso los cerrojos son concesiones (leases): el "
         "servicio recupera el cerrojo pasado un TTL, y un dueño que necesita más tiempo lo renueva.",
-        "Un plazo no basta. El dueño puede quedarse en pausa más que el TTL (una pausa de recolección de "
+        "Una concesión no basta. El dueño puede quedarse en pausa más que el TTL (una pausa de recolección de "
         "basura, una migración de máquina virtual, memoria pasada a disco) o su escritura puede quedarse en "
-        "la red; mientras, el plazo caduca y otro proceso toma el cerrojo. El primero sigue, seguro de que aún lo tiene, y su "
+        "la red; mientras, la concesión vence y otro worker toma el cerrojo. El primero sigue, seguro de que aún lo tiene, y su "
         "escritura cae encima de datos más nuevos. Mirar el reloj antes de escribir no ayuda: la pausa puede "
         "llegar justo después de mirarlo.",
         "Los tokens de vallado (fencing tokens) lo arreglan donde ocurre el daño. Cada concesión trae un número que solo "
@@ -119,16 +119,16 @@ LESSON = Lesson(
         "frenar una escritura tardía.",
         "'How to do distributed locking', de Martin Kleppmann, lo argumenta contra Redlock: para la "
         "corrección necesitas vallado (y un servicio de cerrojos con consenso); si solo quieres eficiencia "
-        "(no hacer dos veces el mismo trabajo), basta un plazo simple.",
+        "(no hacer dos veces el mismo trabajo), basta una concesión simple.",
     ),
     watch_for=(
         "Cerrojo simple: un dueño congelado pone el cerrojo en rojo; el Atasco sube toda la pausa, y una caída bloquea para siempre.",
-        "Plazos: el cerrojo vuelve en ~2 s; pero cuando el proceso congelado despierta, su escritura estalla en rojo junto al almacenamiento.",
-        "Plazos + vallado: la misma escritura tardía estalla en naranja: rechazada, porque su token es más viejo.",
+        "Concesiones: el cerrojo vuelve en ~2 s; pero cuando el worker congelado despierta, su escritura estalla en rojo junto al almacenamiento.",
+        "Concesiones + vallado: la misma escritura tardía estalla en naranja: rechazada, porque su token es más viejo.",
         "Escritura tardía: la escritura demorada se arrastra en naranja claro hasta el almacenamiento, mucho después de que su trabajo se rindiera.",
     ),
     build=(
-        ("etcd (Go): un plazo, un cerrojo, y su revisión como token de vallado",
+        ("etcd (Go): una concesión, un cerrojo, y su revisión como token de vallado",
          "s, _ := concurrency.NewSession(cli, concurrency.WithTTL(10)) // se renueva mientras vive el proceso\n"
          "m := concurrency.NewMutex(s, \"/locks/report\")\n"
          "if err := m.Lock(ctx); err != nil { return err }\n"
@@ -140,7 +140,7 @@ LESSON = Lesson(
          "etcdctl lock --ttl=10 /locks/nightly-report ./regenerate-report.sh"),
     ),
     checklist=(
-        "Decide para qué es el cerrojo: eficiencia (basta un plazo) o corrección (necesitas vallado).",
+        "Decide para qué es el cerrojo: eficiencia (basta una concesión) o corrección (necesitas vallado).",
         "Ponle un TTL a cada cerrojo, renuévalo mientras trabajas y para si falla una renovación.",
         "Reparte un token que solo crezca (revisión de etcd, zxid de ZooKeeper) y envíalo con cada escritura.",
         "Haz que el almacenamiento rechace una escritura con un token más viejo que el último que vio.",
@@ -150,7 +150,7 @@ LESSON = Lesson(
     refs=(
         Ref("Martin Kleppmann: How to do distributed locking",
             "https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html",
-            "Plazos, pausas de recolección de basura y tokens de vallado; por qué Redlock no es seguro para la corrección."),
+            "Concesiones, pausas de recolección de basura y tokens de vallado; por qué Redlock no es seguro para la corrección."),
         Ref("Salvatore Sanfilippo: Is Redlock safe?",
             "http://antirez.com/news/101",
             "La respuesta del autor de Redis: el otro lado del debate."),
@@ -159,18 +159,18 @@ LESSON = Lesson(
             "SET NX PX con un TTL, y el algoritmo Redlock."),
         Ref("Google: The Chubby lock service",
             "https://research.google/pubs/the-chubby-lock-service-for-loosely-coupled-distributed-systems/",
-            "Cerrojos de grano grueso con plazos, y secuenciadores: tokens de vallado en producción."),
-        Ref("etcd: API (plazos)",
+            "Cerrojos de grano grueso con concesiones, y secuenciadores: tokens de vallado en producción."),
+        Ref("etcd: API (concesiones)",
             "https://etcd.io/docs/v3.5/learning/api/",
-            "Plazos con TTL, renovaciones y revisiones que solo crecen."),
+            "Concesiones con TTL, renovaciones y revisiones que solo crecen."),
         Ref("ZooKeeper: recetas (cerrojos)",
             "https://zookeeper.apache.org/doc/current/recipes.html",
             "Cerrojos con nodos efímeros secuenciales, que desaparecen con la sesión."),
     ),
     try_next=(
         "Haz la etapa 1 en labs/distributed_lock/es/main.py y mira cómo el Atasco se queda por debajo de 5 s en la primera pausa.",
-        "Mira al proceso congelado despertar al final: ¿dónde cae su escritura?",
+        "Mira al worker congelado despertar al final: ¿dónde cae su escritura?",
         "Haz la etapa 2 y mira la misma escritura estallar en naranja en vez de rojo.",
-        "Prueba un LEASE de 0.3 s: ¿qué les pasa a los trabajos que tardan más que su plazo?",
+        "Prueba un LEASE de 0.3 s: ¿qué les pasa a los trabajos que tardan más que su concesión?",
     ),
 )

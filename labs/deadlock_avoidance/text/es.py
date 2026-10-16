@@ -8,15 +8,15 @@ SUMMARY = "Cada transferencia bloquea dos cuentas. Que nunca se esperen unas a o
 PARAMS = {"rate": "transferencias por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
-VERBS = {"payout": "PAGOS", "refunds": "REEMB", "slow": "LENTO", "batch": "LOTE", "calm": "CALMA"}
+VERBS = {"payout": "PAGOS", "refunds": "REEMB.", "slow": "LENTO", "batch": "LOTE", "calm": "CALMA"}
 CAUSES = {
     "month_end": "el pago de fin de mes liquida a todos los comercios a la vez",
-    "weekly_payout": "el pago semanal empieza en plena hora punta de ventas",
+    "weekly_payout": "el pago semanal empieza en pleno pico de ventas",
     "instant_payouts": "una función nueva de pagos al instante envía el dinero en cuanto llega",
     "reserve_release": "se liberan las reservas retenidas a los comercios",
     "cancelled_sale": "se cancela una venta relámpago: se reembolsa cada pedido mientras los compradores siguen comprando",
     "double_charge": "un error cobró dos veces; soporte reembolsa a compradores que siguen comprando",
-    "event_cancelled": "se cancela un concierto: la ticketera reembolsa a sus compradores",
+    "event_cancelled": "se cancela un concierto: el vendedor de entradas reembolsa a sus compradores",
     "chargebacks": "una red de tarjetas envía una ola de contracargos contra un comercio",
     "audit_disk": "el disco del registro de auditoría se atasca de vez en cuando",
     "audit_failover": "la base de datos de auditoría pasa a su réplica",
@@ -72,11 +72,11 @@ STRINGS = {
     "tile_p99": "p99",
     "tile_retries": "Reint.",
     "bar_asked": "Pedidas",
-    "bar_done": "Respond.",
+    "bar_done": "Hechas",
     "bar_retries": "Reint.",
     "title": "Transferencias",
     "head_deadlock": "Interbloqueo x{n}: espera circular",
-    "head_frozen": "Congelado: sin conexiones libres",
+    "head_frozen": "Congelado: sin workers libres",
     "head_retries": "{n} reintentos en 1 s",
     "head_payout": "Pago masivo: en ambos sentidos",
     "head_refunds": "Reembolsos: flujo al revés",
@@ -85,14 +85,14 @@ STRINGS = {
     "head_ok": "Todas obtienen sus bloqueos",
     # los dibujos
     "state_deadlock": "INTERBLOQUEO x{n}",
-    "state_frozen": "CONGELADO: SIN CONEXIONES",
+    "state_frozen": "CONGELADO: SIN WORKERS",
     "state_waiting": "{n} ESPERAN BLOQUEOS",
     "state_payout": "PAGO MASIVO",
     "state_refunds": "REEMBOLSOS",
     "state_slow": "AUDITORÍA LENTA",
     "state_batch": "LOTES",
     "pic_state": "{n} esperan: {state}",
-    "note": "Los puntos son una muestra de transferencias, más lentas (estético).",
+    "note": "Los puntos son una muestra de transferencias, más lentas (decorativo).",
 }
 
 LESSON = Lesson(
@@ -100,15 +100,15 @@ LESSON = Lesson(
     one_liner="Dos transferencias que bloquean las mismas dos cuentas en orden contrario pueden esperarse "
               "para siempre; un orden global de bloqueo lo hace imposible.",
     learn=(
-        "Una transferencia bloquea las dos cuentas para que nadie las escriba entre medias. Si las bloquea "
+        "Una transferencia bloquea las dos cuentas para que nadie las escriba en medio. Si las bloquea "
         "en el orden de la petición (origen y luego destino), A→B y B→A pueden obtener cada una su primer "
         "bloqueo y esperar el de la otra: un interbloqueo. Hacen falta cuatro cosas (Coffman, 1971): "
         "bloqueos exclusivos, retener uno mientras esperas otro, que nadie te lo quite, y que las esperas "
         "formen un ciclo.",
         "Sin un detector de interbloqueos, las dos transferencias esperan para siempre. Peor aún: cada "
         "transferencia que toca A o B espera detrás de ellas reteniendo su propio primer bloqueo, y la "
-        "pila llega a las cuentas más activas hasta que todas las conexiones del servicio quedan "
-        "atascadas: se congela.",
+        "pila llega a las cuentas más activas hasta que todos los workers del servicio quedan "
+        "atascados: se congela.",
         "Los timeouts de bloqueo rompen el retener y esperar: abandona una espera tras poco tiempo, "
         "libera todo, espera un backoff con jitter y vuelve a intentarlo. Nada se congela, pero cada "
         "timeout tira trabajo, y con mucha contención también salta en esperas que solo eran largas. Los "
@@ -127,7 +127,7 @@ LESSON = Lesson(
     ),
     watch_for=(
         "Orden de la petición: durante el pago masivo, un ciclo rojo en el dibujo del clúster; luego la "
-        "puerta se cierra y el indicador del servidor se llena: todas las conexiones están atascadas.",
+        "puerta se cierra y el indicador del servidor se llena: todos los workers están atascados.",
         "Timeouts y reintento: aparecen ciclos que se rompen en una fracción de segundo, pero los "
         "reintentos naranjas llenan los carriles, y el p99 y los reintentos pasan sus límites.",
         "Un solo orden: nunca se forma un ciclo; las flechas entre cuentas son cortas y blancas.",
@@ -161,7 +161,7 @@ LESSON = Lesson(
         "Cuenta los interbloqueos, el tiempo esperando bloqueos y los timeouts, y alerta con ellos.",
     ),
     refs=(
-        Ref("Wikipedia: Bloqueo mutuo",
+        Ref("Wikipedia: Interbloqueo",
             "https://es.wikipedia.org/wiki/Bloqueo_mutuo",
             "Las cuatro condiciones de Coffman, y cómo prevenirlo, evitarlo y detectarlo."),
         Ref("PostgreSQL: Explicit locking, deadlocks",
@@ -176,9 +176,9 @@ LESSON = Lesson(
         Ref("Linux kernel: lockdep",
             "https://www.kernel.org/doc/html/latest/locking/lockdep-design.html",
             "Un validador que comprueba que cada bloqueo se toma siempre en el mismo orden (en inglés)."),
-        Ref("Wikipedia: Problema de la cena de los filósofos",
-            "https://es.wikipedia.org/wiki/Problema_de_la_cena_de_los_fil%C3%B3sofos",
-            "El interbloqueo clásico, y la solución por orden de los recursos."),
+        Ref("AWS Builders' Library: Timeouts, retries and backoff with jitter",
+            "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/",
+            "Por qué los reintentos necesitan backoff y jitter (en inglés)."),
     ),
     try_next=(
         "Haz la etapa 1 en labs/deadlock_avoidance/es/main.py y mira cómo el congelamiento se vuelve reintentos.",

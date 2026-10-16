@@ -9,7 +9,7 @@ hace 8 a la vez (~400 lecturas/s); por encima de eso las lecturas hacen cola, y 
 llena rechaza lecturas.
 
 El incidente es un **vaciado de la caché**: en momentos al azar, como en producción, un
-despliegue, un reinicio por falta de memoria o una conmutación a una réplica fría dejan la
+despliegue, un reinicio por falta de memoria o un failover a una réplica fría dejan la
 caché vacía. El primero siempre es a las 0:20. La ejecución nunca se reinicia, así que la
 caché se vuelve a llenar (o provoca una estampida) por sí sola.
 

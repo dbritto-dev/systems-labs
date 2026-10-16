@@ -83,7 +83,7 @@ class HedgeBudget:
         self.tokens = float(max_tokens)
 
     def deposit(self) -> None:
-        raise NotImplementedError("TODO etapa 2: HedgeBudget.deposit")
+        raise NotImplementedError("PENDIENTE etapa 2: HedgeBudget.deposit")
 
     def try_withdraw(self) -> bool:
-        raise NotImplementedError("TODO etapa 2: HedgeBudget.try_withdraw")
+        raise NotImplementedError("PENDIENTE etapa 2: HedgeBudget.try_withdraw")

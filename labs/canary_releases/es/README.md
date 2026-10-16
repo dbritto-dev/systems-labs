@@ -36,7 +36,7 @@ LABS_LANG=es uv run pytest labs/canary_releases            # x = aún no, X = he
 
 | Etapa | En `es/main.py` | Lo que ves (el primer despliegue, la versión lenta) |
 |---|---|---|
-| 0 Todo a la vez (dada) | `decide` devuelve 1.0 | le llega a cada usuario: el 25% de todas las peticiones dañadas durante 2 minutos (p99 ~330 ms en vez de ~160 ms), hasta la reversión a mano |
+| 0 Todo a la vez (dada) | `decide` devuelve 1.0 | le llega a cada usuario: el 25% de todas las peticiones dañadas durante 2 minutos (p99 ~330 ms en vez de ~160 ms), hasta la vuelta atrás a mano |
 | 1 Canario fijo | `fixed_canary(m)`: 5%, revierte por encima del 5% de errores, a todas partes tras 60 s | un hilo morado a una instancia; sin errores, a los 60 s se activa: 11-12% dañadas. Revierte unas caídas en bucle en 5 s, pero deja activarse la mayoría de las regresiones de errores (9 de 14) y de los fallos en /pay (18 de 19), y revierte 24 de 25 versiones buenas publicadas con una dependencia inestable |
 | 2 Canario por etapas | `z_score`, `worse(canary, baseline)`, `ramp(m)`: errores y lentas frente a la base, en total y por ruta, al menos 5 respuestas malas y z > 4, etapas 5% → 25% → 50% → 100% de 20 s y 200 muestras | la versión lenta se revierte desde el 5% a los 5 s (0.04-0.1% dañadas); las buenas llegan al 100% en ~65 s, con o sin dependencia inestable; cada versión mala se revierte (el fallo en /pay al 25%) |
 

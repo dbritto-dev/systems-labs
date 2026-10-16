@@ -33,9 +33,9 @@ STAGES = [
 
 GOALS = {
     "fresh": GoalText("Al día ≥ 95%", "replica cada escritura"),
-    "answered": GoalText("Respondidas ≥ 99%", "no esperes a otro nodo"),
-    "caught_up": GoalText("Recuperado ≥ 99%", "reenvía hasta que confirmen"),
-    "g1b": GoalText("Sin lecturas G1b", "replica txns enteras"),
+    "answered": GoalText("Responde ≥ 99%", "no esperes a otro nodo"),
+    "caught_up": GoalText("Recupera ≥ 99%", "reenvía hasta que confirmen"),
+    "g1b": GoalText("Sin lect. G1b", "replica txns enteras"),
 }
 
 LEGEND = {"up_to_date": "al día", "behind": "atrasado", "g1b_read": "lectura G1b", "transaction": "transacción",
@@ -52,7 +52,7 @@ STRINGS = {
     # el panel
     "tile_fresh": "Al día",
     "tile_g1b": "G1b",
-    "tile_answers": "Servido",
+    "tile_answers": "Resp.",
     "messages": "Mensajes",
     "bar_clients": "Clientes",
     "bar_nodes": "Nodos",

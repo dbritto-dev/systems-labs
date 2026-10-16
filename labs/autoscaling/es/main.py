@@ -10,7 +10,7 @@ Cada 10 s el escenario llama a tu `Autoscaler.desired(metrics)`: devuelves cuán
 instancias debe tener la flota, y arranca o termina instancias hasta llegar ahí (entre
 MIN_INSTANCES y MAX_INSTANCES). Una instancia nueva ARRANCA durante 20-35 s (la pagas, no
 sirve nada) y luego sirve mientras SE CALIENTA (cachés vacías, el JIT en frío: 2x más lenta
-al principio, caliente a los 20 s). El coste son instancias-segundo: cada instancia que
+al principio, caliente a los 20 s). El costo son instancias-segundo: cada instancia que
 tienes, arrancando o no. Ahora mismo la flota es fija: `desired` devuelve lo que ya tienes.
 
 De vez en cuando, como en producción: el tráfico da un PICO (un anuncio en la tele, una
@@ -106,7 +106,7 @@ class Autoscaler:
         Pista: añade (t, want); haz popleft mientras self.wants[0][0] <= t - STABILISE;
         devuelve el máximo de las recomendaciones.
         """
-        raise NotImplementedError("TODO etapa 2: Autoscaler.stabilised(t, want)")
+        raise NotImplementedError("PENDIENTE etapa 2: Autoscaler.stabilised(t, want)")
 
 
 def cpu_step(cpu: float, instances: int) -> int:
@@ -120,7 +120,7 @@ def cpu_step(cpu: float, instances: int) -> int:
     añade instancias que nadie necesita; mientras un despliegue reinicia instancias en frío,
     su CPU también sube.
     """
-    raise NotImplementedError("TODO etapa 1: cpu_step(cpu, instances)")
+    raise NotImplementedError("PENDIENTE etapa 1: cpu_step(cpu, instances)")
 
 
 def target_tracking(m: Metrics) -> int:
@@ -139,4 +139,4 @@ def target_tracking(m: Metrics) -> int:
 
     Pista: max(MIN_INSTANCES, math.ceil(m.rps / TARGET_RPS)).
     """
-    raise NotImplementedError("TODO etapa 2: target_tracking(m)")
+    raise NotImplementedError("PENDIENTE etapa 2: target_tracking(m)")

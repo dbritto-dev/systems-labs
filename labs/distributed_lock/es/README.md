@@ -23,10 +23,10 @@ LABS_LANG=es uv run pytest labs/distributed_lock            # x = aún no, X = h
 | Etapa | En `es/main.py` | Qué ves |
 |---|---|---|
 | 0 Cerrojo simple (dado) | el cerrojo se tiene hasta que se suelta | un dueño congelado atasca todos los trabajos durante toda la pausa (~10.8 s); uno caído o aislado, para siempre |
-| 1 Plazos (leases) | el cerrojo caduca `LEASE` (2 s) después de darlo o de la última renovación; el dueño renueva cada `LEASE / 3` | atascos de 2.4–4.2 s; pero cuando el dueño congelado despierta, su escritura cae sobre datos más nuevos: 1 escritura corrupta por pausa o escritura tardía |
-| 2 Plazos + tokens de vallado (fencing tokens) | cada concesión trae un token uno mayor; las escrituras lo llevan; el almacenamiento rechaza uno más viejo | la misma escritura tardía se rechaza: 0 escrituras corruptas, atascos acotados, ~100% de trabajos hechos |
+| 1 Concesiones (leases) | el cerrojo caduca `LEASE` (2 s) después de darlo o de la última renovación; el dueño renueva cada `LEASE / 3` | atascos de 2.4–4.2 s; pero cuando el dueño congelado despierta, su escritura cae sobre datos más nuevos: 1 escritura corrupta por pausa o escritura tardía |
+| 2 Concesiones + tokens de vallado (fencing tokens) | cada concesión trae un token uno mayor; las escrituras lo llevan; el almacenamiento rechaza uno más viejo | la misma escritura tardía se rechaza: 0 escrituras corruptas, atascos acotados, ~100% de trabajos hechos |
 
-Metas, juzgadas por incidente: escrituras corruptas = 0 (desde 15 s antes hasta 10 s después),
+Objetivos, evaluados por incidente: escrituras corruptas = 0 (desde 15 s antes hasta 10 s después),
 atasco ≤ 5 s (el tramo más largo con trabajos esperando y ninguno terminando, desde su inicio
 hasta 10 s después), y trabajos hechos ≥ 80% (de los pedidos en ese tramo; un cliente se rinde
 a los 10 s).

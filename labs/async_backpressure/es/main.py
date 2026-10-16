@@ -88,13 +88,13 @@ class Credits:
         self._waiters: deque[tuple[int, asyncio.Future]] = deque()
 
     def try_take(self, n: int) -> bool:
-        raise NotImplementedError("TODO etapa 2: Credits.try_take(n)")
+        raise NotImplementedError("PENDIENTE etapa 2: Credits.try_take(n)")
 
     async def take(self, n: int) -> None:
-        raise NotImplementedError("TODO etapa 2: Credits.take(n)")
+        raise NotImplementedError("PENDIENTE etapa 2: Credits.take(n)")
 
     def grant(self, n: int) -> None:
-        raise NotImplementedError("TODO etapa 2: Credits.grant(n)")
+        raise NotImplementedError("PENDIENTE etapa 2: Credits.grant(n)")
 
 
 async def take_batch(queue: asyncio.Queue, most: int) -> list[Event]:
@@ -113,7 +113,7 @@ async def take_batch(queue: asyncio.Queue, most: int) -> list[Event]:
     Pista: batch = list(await queue.get()); while len(batch) < most and not queue.empty():
     batch += queue.get_nowait(). Luego, si es demasiado largo, devuelve batch[most:] y córtalo.
     """
-    raise NotImplementedError("TODO etapa 2: take_batch(queue, most)")
+    raise NotImplementedError("PENDIENTE etapa 2: take_batch(queue, most)")
 
 
 async def write(io: Services, batch: list[Event]) -> None:
@@ -165,7 +165,7 @@ class Pipeline:
             mientras, guarda el origen). La reserva es lo que los deja entrar mientras el destino
             está caído unos segundos.
         """
-        raise NotImplementedError("TODO etapa 2: Pipeline.admit(chunk)")
+        raise NotImplementedError("PENDIENTE etapa 2: Pipeline.admit(chunk)")
 
     async def source(self) -> None:
         while True:

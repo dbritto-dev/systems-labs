@@ -27,7 +27,7 @@ LABS_LANG=es uv run pytest labs/overload            # x = aún no, X = hecho
 | 3 LIFO adaptativo | `newest_first`: `overloaded(queue_len)` (cola > 20) | respuestas en ~20 ms incluso con 2.5x el tráfico |
 
 Objetivos, evaluados en cada incidente: base correcta (antes); la cola se queda en ≤ 250
-(durante); pérdida < 5% del trabajo (durante y 5 s después); goodput ≥ 80% de lo posible
+(durante); desperdicio < 5% del trabajo (durante y 5 s después); goodput ≥ 80% de lo posible
 (la capacidad del servidor, o lo que pidieron los usuarios si es menos) (durante); mediana
 de respuesta < 300 ms (durante); recuperado en 5 s (después: 3 s seguidos con ≥ 90% de los
 primeros intentos respondidos a tiempo).

@@ -48,7 +48,7 @@ LEGEND = {"idle": "en reposo", "fast_call": "llamada rápida", "waits_worker": "
           "workers": "workers", "incident": "incidente"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     # el dibujo de clúster: la topología bajo la cuadrícula
     "topology": "servicio → {a} y {b}",
     # las dependencias (barras: 10 letras como máximo)
@@ -75,7 +75,7 @@ STRINGS = {
     # el dibujo relay: el breaker y el bulkhead de nuestro servicio, debajo (~14 letras como máximo)
     "relay_closed": "breaker cerrado",
     "relay_open": "breaker abierto",
-    "relay_half_open": "medio abierto",
+    "relay_half_open": "semiabierto",
     "relay_bulkhead": "bulkhead lleno",
     "relay_full": "sin workers",
     # errores en tu código

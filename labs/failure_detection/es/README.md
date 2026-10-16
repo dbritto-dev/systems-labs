@@ -28,12 +28,12 @@ LABS_LANG=es uv run pytest labs/failure_detection            # x = aún no, X = 
 | 1 Phi accrual | `phi(intervals, elapsed)`: juzga cada silencio por la historia de ese par | caídas halladas en menos de un segundo, enlaces que pierden tolerados; pero 28 mensajes por nodo y segundo, y una partición parcial aún entierra un nodo |
 | 2 SWIM | ping a un par por periodo, `ping_req` a través de K ayudantes, sospecha antes de matar | pocos mensajes por nodo; los sondeos indirectos rodean los enlaces rotos |
 
-Objetivos, evaluados por incidente: una caída se declara muerta en 2.5 s como mucho (por algún
+Objetivos, evaluados por incidente: un nodo caído se declara muerto en 2.5 s como mucho (por algún
 nodo sano), ningún nodo sano se declara muerto desde 15 s antes del incidente hasta 5 s después,
 y cada nodo envía menos de 10 mensajes por segundo (en los 15 s anteriores).
 
 Dos dibujos (tecla `v`): **clúster**, cada nodo del color que le da el clúster (azul vivo, naranja
-sospechoso, rojo declarado muerto, gris caído pero aún sin notar), los sondeos en azul, los
+sospechoso, rojo declarado muerto, gris caído pero aún sin detectar), los sondeos en azul, los
 sondeos indirectos en naranja claro, los mensajes perdidos en rojo; y **carriles**, lo que ven los
 clientes: verde las respuestas del nodo de casa, naranja claro tras pasar a otro nodo porque el de
 casa está muerto, naranja oscuro tras un cambio inútil porque declararon muerto a un nodo sano,

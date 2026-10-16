@@ -12,9 +12,9 @@ VERBS = {"slow": "LENTA", "fast": "RÁPIDA", "big": "LARGAS", "normal": "NORMAL"
 CAUSES = {
     "backup": "una copia de seguridad nocturna lee todas las tablas",
     "noisy_disk": "un vecino ruidoso satura el disco",
-    "zone_failover": "la primaria pasó a otra zona",
+    "zone_failover": "el primario hizo failover a otra zona",
     "vacuum": "un vacuum largo corre sobre la tabla de pedidos",
-    "flash_sale": "unas rebajas relámpago: cada tienda tiene muchos más pedidos",
+    "flash_sale": "una oferta relámpago: cada tienda tiene muchos más pedidos",
     "bulk_import": "un comercio importó sus pedidos de golpe",
     "holiday_orders": "temporada de fiestas: las listas de pedidos son largas",
     "newsletter": "acaba de salir el boletín",
@@ -98,9 +98,9 @@ LESSON = Lesson(
     ),
     watch_for=(
         "N+1: puntos naranja intenso, ~21 consultas por página; con la BD lenta se llenan sus 8 conexiones.",
-        "Agrupadas: 2 consultas por página y la BD casi parada, pero cada página necesita 2 viajes lentos.",
+        "Agrupadas: 2 consultas por página y la BD casi en reposo, pero cada página necesita 2 viajes lentos.",
         "Con JOIN: 1 consulta por página; aunque la BD vaya lenta, una página tarda un solo viaje.",
-        "Las páginas largas (unas rebajas) castigan más al N+1: las consultas crecen con la lista.",
+        "Las páginas largas (una oferta) castigan más al N+1: las consultas crecen con la lista.",
     ),
     build=(
         ("Django: carga anticipada",
@@ -116,7 +116,7 @@ LESSON = Lesson(
     ),
     checklist=(
         "Cuenta las consultas por petición en los tests; falla el test si una lista hace una consulta por elemento.",
-        "Carga los datos relacionados por adelantado (JOIN o IN) siempre que pintes una lista.",
+        "Carga los datos relacionados por adelantado (JOIN o IN) siempre que muestres una lista.",
         "Mira los viajes, no solo el tiempo de cada consulta: una consulta rápida enviada 100 veces es una página lenta.",
         "Pagina las listas largas: N crece con los datos.",
         "En GraphQL o resolvers anidados, agrupa por petición con un DataLoader.",

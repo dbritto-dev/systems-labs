@@ -11,7 +11,7 @@ INCIDENT = IncidentText("Clave caliente", "la clave caliente", "la próxima clav
 VERBS = {"viral": "VIRAL", "link": "CLICS", "sale": "OFERTA", "bot": "BOT", "calm": "CALMA"}
 CAUSES = {
     "celebrity_post": "una famosa la compartió con 80 millones de seguidores",
-    "viral_video": "un vídeo que contiene se está haciendo viral",
+    "viral_video": "un video que contiene se está haciendo viral",
     "live_vote": "un programa de televisión pide darle me gusta para votar",
     "breaking_news": "es la primera publicación sobre una noticia de última hora",
     "newsletter": "un boletín con 2 millones de lectores la enlaza",
@@ -31,7 +31,7 @@ CAUSES = {
 STAGES = [
     StageText("Hash por clave",
               "Reto: una clave caliente satura su partición y las demás esperan. Reparte sus escrituras.",
-              "Etapa 1: reparte las escrituras de las claves calientes en subclaves"),
+              "Etapa 1: reparte las claves calientes en subclaves"),
     StageText("Claves repartidas",
               "Reto: las claves siguen repartidas para siempre: cada lectura suma todas sus subclaves.",
               "Etapa 2: reparte solo en caliente; caché de lecturas; reúne al enfriar"),
@@ -53,7 +53,7 @@ LEGEND = {"cool": "bajo 50%", "busy": "cargada", "melting": "sobre 90%", "reques
           "throttled": "rechazada", "limit": "capacidad"}
 
 STRINGS = {
-    "fan_counters": "Counters",
+    "fan_counters": "Contadores",
     "fan_part": "p{p} {util:.0%}",
     "fan_hot": "p{p} calor",
     # incidentes
@@ -103,9 +103,9 @@ LESSON = Lesson(
         "Un almacén repartido por hash(clave) pone cada clave en una partición. Así las claves quedan "
         "repartidas por igual, y con muchas claves de popularidad modesta la carga también. Pero todo el "
         "tráfico de una clave cae siempre en la misma partición: cuando una publicación se hace viral o un "
-        "bot machaca un id, esa partición rechaza peticiones y da timeouts mientras las otras cinco esperan. "
+        "bot machaca un id, esa partición rechaza peticiones y da timeouts mientras las otras cinco están ociosas. "
         "Añadir particiones no ayuda: la clave sigue en una de ellas.",
-        "Repartir las escrituras divide un contador caliente en N subclaves, clave#1 ... clave#N, puestas en "
+        "Repartir las escrituras (salting) divide un contador caliente en N subclaves, clave#1 ... clave#N, puestas en "
         "particiones distintas. Cada incremento va a una subclave al azar, así que las escrituras se reparten "
         "N veces. Una lectura ahora tiene que leer cada subclave y sumarlas. Si se olvida una, se pierden "
         "incrementos.",
@@ -115,7 +115,7 @@ LESSON = Lesson(
         "enfríe vuelve a juntar las subclaves en la clave (deja de escribir en ellas, espera a las escrituras "
         "en vuelo y mueve sus cuentas).",
         "Las lecturas calientes piden otro remedio: una caché pequeña delante del almacén, solo para claves "
-        "calientes, con un TTL corto. Una cuenta de medio segundo de antigüedad vale para un contador de me "
+        "calientes, con un TTL corto. Una cuenta de medio segundo de antigüedad sirve para un contador de me "
         "gusta, y la partición pasa de cuatrocientas lecturas por segundo a dos.",
     ),
     watch_for=(

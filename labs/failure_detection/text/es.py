@@ -28,7 +28,7 @@ CAUSES = {
 
 STAGES = [
     StageText("Timeout fijo",
-              "Reto: un timeout de 1 s entierra nodos sanos tras enlaces que pierden. Aprende cada par.",
+              "Reto: un timeout de 1 s entierra nodos sanos tras enlaces que pierden. Mide cada enlace.",
               "Etapa 1: phi accrual: juzga un silencio por la historia de cada par"),
     StageText("Phi accrual",
               "Reto: latidos a todos los pares cuestan 28 msgs/s por nodo. Sondea de uno en uno.",
@@ -40,11 +40,11 @@ STAGES = [
 
 GOALS = {
     "detect": GoalText("Hallada ≤ 2.5 s", "phi accrual: adapta por par"),
-    "false": GoalText("Muertes falsas = 0", "phi, luego sondeo indirecto"),
+    "false": GoalText("Muertes falsas 0", "phi, luego sondeo indirecto"),
     "msgs": GoalText("Msgs/nodo/s < 10", "SWIM: sondea un par"),
 }
 
-LEGEND = {"alive": "vivo", "suspect": "sospechoso", "dead": "declarado muerto", "crashed": "caído, sin ver",
+LEGEND = {"alive": "vivo", "suspect": "sospechoso", "dead": "declarado muerto", "crashed": "caído, sin detectar",
           "probe": "latido o sondeo", "indirect": "sondeo indirecto", "dropped": "perdido", "limit": "límite"}
 
 STRINGS = {
@@ -59,7 +59,7 @@ STRINGS = {
     "healed": "{node} vuelve a llegar a todos",
     "warn_false": "muertes falsas: {nodes}",
     # objetivos
-    "no_crash": "sin caída",
+    "no_crash": "no cayó",
     "never": "nunca",
     # el panel
     "tile_found": "Hallada",
@@ -70,8 +70,8 @@ STRINGS = {
     "messages": "Mensajes",
     "limit": "10/nodo",
     "chart_limit": "10/nodo",
-    "head_false": "{node} muerto, pero está vivo",
-    "head_unfound": "{node} caído {s:.1f} s: sin notar",
+    "head_false": "{node} dado por muerto, pero vivo",
+    "head_unfound": "{node} caído {s:.1f} s: sin detectar",
     "head_found": "{node} caído: hallado en {s:.1f} s",
     "head_slow": "{node} lento, sigue vivo",
     "head_lossy": "{node} pierde, sigue vivo",
@@ -102,9 +102,9 @@ LESSON = Lesson(
               "enterrar a los vivos.",
     learn=(
         "Un nodo no distingue un par caído de uno lento, ni de un enlace roto: solo ve silencio. Un detector "
-        "de fallos convierte el silencio en un veredicto, y todo detector cambia lo rápido que halla una "
-        "caída por lo a menudo que declara muerto a un nodo sano.",
-        "Un timeout fijo de latidos elige un punto de ese intercambio para todos los enlaces: corto, y los "
+        "de fallos convierte el silencio en un veredicto, y todo detector equilibra lo rápido que halla una "
+        "caída con lo a menudo que declara muerto a un nodo sano.",
+        "Un timeout fijo de latidos elige un punto de ese equilibrio para todos los enlaces: corto, y los "
         "enlaces que pierden mensajes entierran nodos sanos; largo, y cada caída se halla tarde.",
         "El detector phi accrual (Hayashibara y otros; lo usan Cassandra y Akka) guarda los intervalos "
         "recientes entre los latidos de cada par y dice lo improbable que es el silencio actual, según ellos. "
@@ -138,7 +138,7 @@ LESSON = Lesson(
     ),
     checklist=(
         "Mide los intervalos entre latidos de cada enlace antes de elegir un timeout: importa la cola, no la media.",
-        "Nunca dejes que el silencio de un solo observador decida: pregunta a otros (sondeos indirectos).",
+        "Nunca dejes que el silencio de un solo observador decida: pregunta a otros (sondeos indirectos) o espera a que coincidan.",
         "Sospecha antes de declarar muerto, y deja que el nodo sospechoso lo desmienta.",
         "Cuenta los mensajes: los latidos de todos a todos crecen con el cuadrado del clúster.",
         "Alerta de las muertes falsas (nodos declarados muertos que vuelven vivos), no solo de las reales.",
@@ -162,7 +162,7 @@ LESSON = Lesson(
     ),
     try_next=(
         "Mira la etapa 0 y luego pon TIMEOUT = 3.0 en labs/failure_detection/es/main.py: ¿qué le pasa a Hallada?",
-        "Haz la etapa 1 (phi) y espera una partición parcial: ¿a quién declaran muerto, y quién?",
+        "Haz la etapa 1 (phi) y espera una partición parcial: ¿a quién declaran muerto, y quién lo hace?",
         "Haz la etapa 2 y mira cómo los sondeos indirectos rodean los enlaces rotos.",
     ),
 )

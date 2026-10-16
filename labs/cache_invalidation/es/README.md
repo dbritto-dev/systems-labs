@@ -29,7 +29,7 @@ LABS_LANG=es uv run pytest labs/cache_invalidation             # x = aún no, X 
 | 1 Escribir y luego borrar | `update`: `db.write` y luego `cache.delete` | nada sin guardar, pero los rellenos lentos reponen precios viejos tras el borrado (rellenos rojos en el dibujo del clúster): 6–85 lecturas viejas, 2–3 claves viejas que duran todo el TTL (5 min) |
 | 2 Rellenos con concesión | `read`: `lease_get` y, al fallar, `lease_set(key, record, token, TTL)`; `TTL = 30` | esos mismos rellenos tardíos se rechazan (naranja): 0 lecturas viejas, 0 claves viejas, ~90% de aciertos, ~90 lecturas de BD/s como mucho; todos los objetivos OK |
 
-Objetivos, juzgados por incidente: aciertos ≥ 85% (los 15 s anteriores), lecturas que sirvieron un
+Objetivos, evaluados por incidente: aciertos ≥ 85% (los 15 s anteriores), lecturas que sirvieron un
 precio que nunca se guardó = 0 y lecturas viejas = 0 (una lectura es vieja si empezó más de 0,5 s
 después de confirmar al cliente una escritura y devolvió algo más antiguo; para las lecturas que
 empiezan durante el incidente), claves viejas en la caché = 0 (se mira cada segundo, durante el

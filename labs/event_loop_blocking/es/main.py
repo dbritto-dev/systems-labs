@@ -18,7 +18,7 @@ es siempre un lote de fotos a la 0:20.
 Haz las etapas en orden, en este archivo:
 
   Etapa 1  Delega: `await to_thread(call)` en vez de `call()`. El bucle queda libre, pero toda
-           llamada va al grupo por defecto: 8 hilos, un solo GIL para la CPU, una cola sin límite.
+           llamada va al pool por defecto: 8 hilos, un solo GIL para la CPU, una cola sin límite.
   Etapa 2  Acótalo: la CPU a un ProcessPool (un proceso por núcleo), la E/S bloqueante a su propio
            ThreadPool, cada uno con un límite de cola: si está llena, lanza Overloaded (un 503 ahora
            es mejor que un timeout después). Y un vigilante que mide el retardo del bucle y lo publica.
@@ -26,7 +26,7 @@ Haz las etapas en orden, en este archivo:
 Lo que tienes (mira labs/event_loop_blocking/api.py):
   call()                     ejecuta aquí mismo una llamada bloqueante: todo el bucle espera
   call.cpu, call.name        trabajo de CPU (resize, report) o E/S bloqueante (db, http)
-  await to_thread(call)      el grupo de hilos por defecto del bucle (DEFAULT_THREADS hilos, cola sin límite)
+  await to_thread(call)      el pool de hilos por defecto del bucle (DEFAULT_THREADS hilos, cola sin límite)
   ThreadPool(n), ProcessPool(n), await pool.run(call), pool.waiting, pool.running
   raise Overloaded(...)      el manejador responde 503 al instante
   report_lag(seconds), now()
@@ -77,22 +77,22 @@ class Service:
         return call()
 
     async def offload(self, call):
-        """Etapa 2. Ejecuta la llamada en el grupo hecho para su tipo de trabajo, o recházala al instante.
+        """Etapa 2. Ejecuta la llamada en el pool hecho para su tipo de trabajo, o recházala al instante.
 
         La CPU (call.cpu) va a self.cpu, un proceso por núcleo: cada proceso tiene su propio GIL, así
         que 4 redimensionados corren a la vez. La E/S bloqueante va a self.io: sus hilos pasan el
-        tiempo esperando a la red, así que caben muchos. Dos grupos son también dos compartimentos
-        estancos: una base de datos lenta llena el grupo de E/S, no el que redimensiona imágenes.
+        tiempo esperando a la red, así que caben muchos. Dos pools son también dos
+        bulkheads: una base de datos lenta llena el pool de E/S, no el que redimensiona imágenes.
 
-        Acota cada cola: si ese grupo ya tiene CPU_QUEUE (para CPU) o IO_QUEUE (para E/S) llamadas
+        Acota cada cola: si ese pool ya tiene CPU_QUEUE (para CPU) o IO_QUEUE (para E/S) llamadas
         esperando, `raise Overloaded(...)`. Sin límite, en una ráfaga la cola crece mientras dure,
-        cada llamada en ella espera más que el usuario (que se va a los 5 s), y el grupo hace igual
+        cada llamada en ella espera más que el usuario (que se va a los 5 s), y el pool hace igual
         todo ese trabajo para nadie.
 
         Pista: pool, limit = (self.cpu, CPU_QUEUE) if call.cpu else (self.io, IO_QUEUE); if
         pool.waiting >= limit: raise Overloaded(call.name); return await pool.run(call).
         """
-        raise NotImplementedError("TODO etapa 2: Service.offload(call)")
+        raise NotImplementedError("PENDIENTE etapa 2: Service.offload(call)")
 
     async def watchdog(self) -> None:
         """Etapa 2. Mide el retardo del bucle de eventos para siempre, y publícalo.
@@ -105,4 +105,4 @@ class Service:
         Pista: while True: t = now(); await asyncio.sleep(WATCH_EVERY);
         report_lag(now() - t - WATCH_EVERY).
         """
-        raise NotImplementedError("TODO etapa 2: Service.watchdog()")
+        raise NotImplementedError("PENDIENTE etapa 2: Service.watchdog()")

@@ -26,17 +26,17 @@ LABS_LANG=es uv run pytest labs/chain_replication            # x = aún no, X = 
 |---|---|---|
 | 0 Primario-respaldo (dada) | la cabeza aplica una escritura, responde enseguida y la envía a los respaldos cada 0,5 s; las lecturas van a cualquier réplica | lecturas viejas aunque nada falle (de 3 a 7 en la ventana del primer incidente); más tarde, una caída de la cabeza pierde escrituras confirmadas |
 | 1 Cadena | `on_put` numera la escritura, `on_write` aplica en orden de seq, `apply` la pasa (o, en la cola, responde y confirma), `on_ack` olvida; `read_from` devuelve la cola | nada viejo, nada perdido; cuando cae `n1` la cabeza sigue enviando a `n2`, que espera para siempre las escrituras que `n1` se llevó: ninguna escritura vuelve a salir bien (15 s sin escribir) |
-| 2 Cadena + reparación | `chain_changed`: una cabeza nueva descarta su hueco, una cola nueva responde lo que envió, un nodo con sucesor nuevo reenvía lo enviado y no confirmado; la cola guarda lo que aplica mientras un nodo la copia | `n0` reenvía a `n2` y las escrituras atascadas tras `n1` terminan (~1,2 s, ninguna falla); `n1` copia la cola y entra como cola; todas las metas OK |
+| 2 Cadena + reparación | `chain_changed`: una cabeza nueva descarta su hueco, una cola nueva responde lo que envió, un nodo con sucesor nuevo reenvía lo enviado y no confirmado; la cola guarda lo que aplica mientras un nodo la copia | `n0` reenvía a `n2` y las escrituras atascadas tras `n1` terminan (~1,2 s, ninguna falla); `n1` copia la cola y entra como cola; todos los objetivos OK |
 
-Metas, juzgadas por incidente: lecturas viejas = 0 (desde 15 s antes hasta que el nodo vuelve),
-pérdidas = 0 (escrituras confirmadas que no tiene ningún nodo vivo de la cadena, hasta 5 s después),
+Objetivos, evaluados por incidente: lecturas viejas = 0 (desde 15 s antes hasta que el nodo vuelve),
+escrituras perdidas = 0 (confirmadas, pero no las tiene ningún nodo vivo de la cadena, hasta 5 s después),
 sin escribir ≤ 3 s (segundos en los que salió bien menos del 90% de las escrituras, desde su inicio
 hasta 5 s después), al día = 4 (réplicas en la cadena, vivas, con cada escritura confirmada hace más
 de un segundo, 5 s después) y p99 de escritura ≤ 500 ms (los 15 s de antes).
 
 Una lectura es *vieja* cuando devuelve un valor más antiguo que una escritura confirmada antes de
 que empezara, o que una lectura que terminó antes de que empezara (un valor que alguien vio no puede
-desaparecer). El verificador lee el `self.store` de cada nodo cada 250 ms, fuera de la red.
+desaparecer). El comprobador lee el `self.store` de cada nodo cada 250 ms, fuera de la red.
 
 - **Por qué la cola.** Una escritura se confirma solo cuando la tiene la cola, y pasó por cada nodo
   por el camino: así cada nodo tiene cada escritura confirmada, y la cola no tiene nada que no esté

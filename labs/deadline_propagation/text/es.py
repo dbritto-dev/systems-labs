@@ -5,7 +5,7 @@ from core.lessons import Lesson, Ref
 
 TITLE = "Propagación del plazo"
 SUMMARY = "Cuatro servicios en cadena siguen trabajando cuando el usuario ya se fue. Pasa el plazo y salta lo tardío."
-PARAMS = {"rate": "peticiones de usuarios por segundo", "connections": "conexiones de la base de datos"}
+PARAMS = {"rate": "peticiones de usuarios por segundo", "connections": "conexiones de la base de datos (su pool)"}
 
 INCIDENT = IncidentText("Lentitud", "la lentitud", "la próxima lentitud")
 VERBS = {"slow": "LENTA", "fast": "RÁPIDA"}
@@ -15,7 +15,7 @@ CAUSES = {
     "degraded_replica": "lecturas desviadas a una réplica degradada",
     "gc_storm": "una tormenta de GC en los nodos de la base de datos",
     "vacuum": "una tarea de mantenimiento que satura los discos",
-    "cold_cache": "una caché de búferes en frío tras una conmutación por error",
+    "cold_cache": "una caché de búferes en frío tras un failover",
 }
 
 STAGES = [
@@ -32,7 +32,7 @@ STAGES = [
 
 GOALS = {
     "baseline": GoalText("Base correcta", "handle debe devolver \"ok\""),
-    "waste": GoalText("Derroche ≤ 5%", "salta el trabajo vencido"),
+    "waste": GoalText("Desperdicio ≤ 5%", "salta el trabajo vencido"),
     "served": GoalText("Servidas ≥80% máx", "falla rápido si ya venció"),
     "overrun": GoalText("Exceso p99 <10ms", "pasa el plazo hacia abajo"),
 }
@@ -41,7 +41,7 @@ LEGEND = {"idle": "en reposo", "waiting": "esperando", "waiting_long": "esperand
           "failed": "fallida", "abandoned": "se fue, aún en proceso", "incident": "incidente"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     "note_chart": "La gráfica: consultas a la BD por segundo; en rojo, las de usuarios que ya se fueron.",
     # los servicios (barras: 10 letras como máximo)
     "hop_gateway": "Pasarela",
@@ -56,18 +56,18 @@ STRINGS = {
     "fast_again": "la BD vuelve a ir rápida",
     "warn_waste": "la mayoría de las consultas son de usuarios que ya se fueron",
     # el panel
-    "tile_waste": "Derroche",
+    "tile_waste": "Desperd.",
     "tile_served": "Servidas",
     "tile_overrun": "Exceso",
     "at_hops": "Peticiones",
     "at_hops_sub": "en cada servicio ahora",
     "head_waste": "La BD atiende a quien ya se fue",
-    "head_slow": "La BD va lenta; nada se derrocha",
+    "head_slow": "BD lenta; sin desperdicio",
     "head_backlog": "La BD volvió; vacía lo atrasado",
     "head_back": "La BD vuelve a ir rápida",
     "head_calm": "Todo responde rápido",
     # errores en tu código
-    "stuck": "una petición lleva más de {seconds:.0f} s ocupando un trabajador: ¿handle espera algo que nunca termina?",
+    "stuck": "una petición lleva más de {seconds:.0f} s ocupando un worker: ¿handle espera algo que nunca termina?",
 }
 
 LESSON = Lesson(
@@ -78,7 +78,7 @@ LESSON = Lesson(
         "rinde a los 2 s, pero nadie se lo dice a los servicios. Si cada salto tiene su propio timeout "
         "de 2 s, contado desde que ÉL llamó, los timeouts no suman lo mismo que el del usuario: un "
         "salto que recibió la petición tarde (tras una cola) sigue esperando mucho después de que el "
-        "usuario se fue, ocupando un trabajador.",
+        "usuario se fue, ocupando un worker.",
         "Peor aún, el final de la cadena nunca se entera de que nadie espera. Cuando la base de datos "
         "se vuelve lenta, se forma una cola delante de ella, y ejecuta cada consulta de esa cola, "
         "también las de usuarios que se fueron hace segundos. Ese trabajo desperdiciado le quita "

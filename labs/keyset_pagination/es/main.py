@@ -1,10 +1,10 @@
 """Laboratorio keyset_pagination: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
-Una API lista un muro: publicaciones, de la más nueva a la más vieja, 20 por página. Los clientes
+Una API lista un feed: publicaciones, de la más nueva a la más vieja, 20 por página. Los clientes
 lo recorren: personas que bajan por él (unas pocas páginas cada una) y procesos de sincronización
 que recorren la tabla entera (un indexador de búsqueda, exportaciones). Mientras tanto se siguen
 escribiendo publicaciones arriba y borrando en cualquier parte. Ahora mismo una página es
-LIMIT 20 OFFSET n, y el cursor es el desplazamiento n: cuando se escribe una publicación por encima del
+LIMIT 20 OFFSET n, y el cursor es el offset n: cuando se escribe una publicación por encima del
 lector, todas las filas bajan un puesto y la página siguiente repite una; cuando se borra una,
 otra se salta. Y OFFSET no puede ir directo: la página 1.000 lee 20.020 filas para devolver 20.
 
@@ -52,7 +52,7 @@ def encode_cursor(post: Post) -> str:
     """
     # Etapa 2: data = json.dumps({"t": post.created_at, "id": post.id}).encode()
     #          return base64.urlsafe_b64encode(data).decode()
-    raise NotImplementedError("TODO etapa 2: encode_cursor(post)")
+    raise NotImplementedError("PENDIENTE etapa 2: encode_cursor(post)")
 
 
 def decode_cursor(cursor: str) -> tuple[int, int]:
@@ -66,11 +66,11 @@ def decode_cursor(cursor: str) -> tuple[int, int]:
     # Etapa 2: try: base64.urlsafe_b64decode, json.loads, toma d["t"] y d["id"]; comprueba que
     #          ambos son enteros (isinstance(v, int) and not isinstance(v, bool)); ante cualquier
     #          error, lanza BadCursor.
-    raise NotImplementedError("TODO etapa 2: decode_cursor(cursor)")
+    raise NotImplementedError("PENDIENTE etapa 2: decode_cursor(cursor)")
 
 
 class FeedAPI:
-    """GET /posts?cursor=...: una página del muro, de la más nueva a la más vieja.
+    """GET /posts?cursor=...: una página del feed, de la más nueva a la más vieja.
 
     Contrato:
       - `await api.list_posts(None)` es la primera página; `await api.list_posts(page.next_cursor)`

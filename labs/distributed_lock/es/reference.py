@@ -1,6 +1,6 @@
 """Laboratorio distributed_lock: una solución que funciona (etapa 2). Léela después de intentar main.py.
 
-Plazos (leases): el servicio de cerrojos da el cerrojo por LEASE segundos y lo recupera cuando
+Concesiones (leases): el servicio de cerrojos da el cerrojo por LEASE segundos y lo recupera cuando
 se acaba ese tiempo, así que un dueño que se cayó o quedó aislado bloquea a todos LEASE como
 mucho. El dueño lo renueva cada LEASE / 3 mientras corre su trabajo.
 
@@ -36,7 +36,7 @@ class LockService(Node):
     def __init__(self, node_id: str, node_ids: list[str]) -> None:
         super().__init__(node_id, node_ids)
         self.holder = None  # el trabajo que tiene el cerrojo
-        self.expires = 0.0  # cuándo se acaba su plazo
+        self.expires = 0.0  # cuándo vence su concesión
         self.token = 0  # el token de la última concesión
 
     def free(self) -> bool:
@@ -95,7 +95,7 @@ class Worker(Node):
         return None
 
     async def renew(self, job: int) -> None:
-        """Mantén el plazo mientras corre el trabajo (una renovación rechazada termina el bucle)."""
+        """Mantén la concesión mientras corre el trabajo (una renovación rechazada termina el bucle)."""
         while True:
             await self.sleep(LEASE / 3)
             await self.rpc(LOCK, {"type": "renew", "job": job}, timeout=0.5)

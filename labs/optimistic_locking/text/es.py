@@ -40,11 +40,11 @@ GOALS = {
     "lost": GoalText("Perdidos = 0", "usa compare_and_set"),
     "conflicts": GoalText("409 ≤ 1%", "reintenta: relee y combina"),
     "fast": GoalText("p99 < 500ms", "pon tope al backoff"),
-    "served": GoalText("Atendidas ≥ 98%", "reintenta hasta MAX_TRIES"),
+    "served": GoalText("Servidas ≥ 98%", "reintenta hasta MAX_TRIES"),
 }
 
 LEGEND = {"idle": "en reposo", "first_try": "primer intento", "retries": "reintento 1,2,3",
-          "conflict": "conflicto (409)", "lost": "cambio perdido", "served": "atendida",
+          "conflict": "conflicto (409)", "lost": "cambio perdido", "served": "servida",
           "limit": "usuarios/s", "incident": "incidente"}
 
 STRINGS = {
@@ -63,13 +63,13 @@ STRINGS = {
     "tile_conflicts": "409",
     "tile_retried": "Reint.",
     "bar_users": "Usuarios",
-    "bar_writes": "Escrit.",
+    "bar_writes": "Escrituras",
     "limit": "usuarios/s",
     "head_lost": "{n} cambios perdidos en 10 s",
     "head_conflicts": "{n} respuestas 409 en 10 s",
     "head_flash": "Oferta: casi todo a una fila",
     "head_import": "Una carga escribe filas populares",
-    "head_slow": "BD lenta: más hueco para colarse",
+    "head_slow": "BD lenta: ventana de carrera mayor",
     "head_ok": "Ningún cambio perdido",
     # los dibujos
     "state_lost": "CAMBIOS PERDIDOS",
@@ -77,7 +77,7 @@ STRINGS = {
     "state_hot": "FILA CALIENTE",
     "state_slow": "LENTO",
     "pic_state": "3 servidores → BD de inventario: {state}",
-    "note": "Los puntos son una muestra de escrituras, más lentas (estético).",
+    "note": "Los puntos son una muestra de escrituras, más lentas (decorativo).",
     "subtitle": "por segundo, último 1 s",
     "title": "Escrituras",
     # errores en tu código

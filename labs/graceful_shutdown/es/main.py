@@ -76,7 +76,7 @@ async def drain(server, deadline: float) -> None:
     siguiente instancia vieja recibe SIGTERM en cuanto la nueva está lista, antes de que el
     balanceador le mande nada: durante unos segundos solo sirven 4 de 6 instancias.
     """
-    raise NotImplementedError("TODO etapa 1: drain")
+    raise NotImplementedError("PENDIENTE etapa 1: drain")
 
 
 async def shutdown(server) -> None:
@@ -95,4 +95,4 @@ async def shutdown(server) -> None:
     Pista: esperar exactamente intervalo * umbral no basta: un nodo necesita su 1 s para
     aplicar el cambio, y las comprobaciones de cada nodo llegan cada una en su momento.
     """
-    raise NotImplementedError("TODO etapa 2: shutdown")
+    raise NotImplementedError("PENDIENTE etapa 2: shutdown")

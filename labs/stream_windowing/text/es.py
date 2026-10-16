@@ -19,7 +19,7 @@ CAUSES = {
     "broker_gc": "una pausa larga de GC en el broker de la partición",
     "slow_disk": "un disco lento en el líder de la partición",
     "rebalance": "un reequilibrio del grupo de consumidores",
-    "hot_partition": "una clave muy usada satura la partición",
+    "hot_partition": "una clave caliente satura la partición",
     # el reloj de un productor va atrasado
     "ntp_down": "un grupo de productores no llega al servidor NTP",
     "vm_resume": "máquinas virtuales reanudadas tras una pausa con el reloj viejo",
@@ -57,7 +57,7 @@ LEGEND = {"idle": "en reposo", "on_time": "a tiempo", "late": "tardío (más = m
           "dropped": "descartado / otra ventana", "incident": "incidente"}
 
 STRINGS = {
-    "note_dots": "Los puntos son una muestra, más lentos (estético).",
+    "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     "note_chart": "La gráfica: eventos por segundo según lo que hizo con ellos el procesador.",
     # incidentes
     "title_offline": "Lote tardío",
@@ -107,7 +107,7 @@ LESSON = Lesson(
     learn=(
         "Un procesador de flujos cuenta compras por ventana de 10 segundos para un panel en vivo. "
         "Cada evento lleva su tiempo del evento (cuándo ocurrió la compra); llega al procesador más "
-        "tarde, a través de un registro con particiones: normalmente en menos de un segundo y algo "
+        "tarde, a través de un log con particiones: normalmente en menos de un segundo y algo "
         "desordenado, pero a veces mucho después (teléfonos que estaban sin conexión, una partición "
         "atrasada, un productor con el reloj atrasado, una recarga de datos).",
         "El tiempo de proceso, la ventana abierta cuando el evento LLEGA, es fácil y rápido pero "
@@ -118,9 +118,9 @@ LESSON = Lesson(
         "evento visto menos una cota del desorden (2 s aquí). Cuando la marca de agua pasa el final de "
         "una ventana, emítela. Los eventos detrás de la marca de agua son tardíos: descartarlos "
         "mantiene las ventanas pequeñas y los resultados rápidos, pero pierde datos sin avisar.",
-        "Retraso permitido: guarda cada ventana cerrada un rato más (30 s de marca de agua) y, cuando "
+        "Retraso permitido: guarda cada ventana cerrada un rato más (30 s en tiempo de la marca de agua) y, cuando "
         "un evento tardío cae en ella, emite la cuenta corregida: el panel muestra una corrección. Lo "
-        "que llega aún más tarde va a una salida lateral (un tema de mensajes muertos) para que un "
+        "que llega aún más tarde va a una salida lateral (un topic de mensajes muertos) para que un "
         "proceso por lotes lo concilie, así que nada se descarta sin avisar; y las ventanas que pasan "
         "su retraso se expulsan, así que el estado no crece. Esperar más antes del primer resultado "
         "también sería correcto, pero demasiado lento para un panel en vivo.",

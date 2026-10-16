@@ -107,7 +107,7 @@ pausa/sigue [space] - reinicia [0] - repite [r] - vista [v] - sal [q]
   cerrada, punteada cuando está abierta. Los resultados se desvanecen en la puerta (verde
   servida, rojo fallida). El servidor es una caja con tres bahías de disco y un indicador; su
   estado va centrado debajo. Los puntos son una muestra del tráfico, más lentos para que se
-  vean: esa parte es estética.
+  vean: esa parte es decorativa.
 - **Dibujo (clúster)**, en los laboratorios distribuidos: los nodos en una cuadrícula, los
   mensajes viajando entre ellos, los perdidos en rojo, y una partición como un corte rojo.
 - **Tarjetas**: tres números con sus objetivos. El fondo es verde cuando va bien, naranja
@@ -188,17 +188,17 @@ Datos y mensajería:
 | `keyset_pagination` | los usuarios pasan páginas mientras entran y salen filas | OFFSET → keyset por created_at → cursor opaco (created_at, id) |
 | `optimistic_locking` | muchas peticiones leen, cambian y escriben las mismas filas | gana la última escritura → control de versión → reintento con relectura y backoff con jitter |
 | `zero_downtime_migration` | renombrar una columna mientras corren el código viejo y el nuevo | cambio en el sitio → expandir/contraer → relleno por lotes con freno |
-| `transactional_outbox` | guardar un pedido y anunciarlo; el proceso muere entre medias | doble escritura → bandeja de salida + relé → consumidor idempotente |
+| `transactional_outbox` | guardar un pedido y anunciarlo; el proceso muere entre medias | doble escritura → bandeja de salida + publicador → consumidor idempotente |
 | `message_queue_consumers` | los workers se caen, los trabajos van lentos, llegan mensajes venenosos | confirmar al recibir → confirmar al terminar + latido → backoff + cola de mensajes muertos |
 | `saga_orchestration` | un pedido abarca pagos, inventario y envío; un paso falla | sin deshacer → compensaciones → sagas idempotentes y reanudables |
 | `stream_windowing` | contar eventos por ventana cuando llegan tarde | tiempo de proceso → tiempo del evento + marcas de agua → retraso permitido + correcciones |
-| `webhook_delivery` | los destinos de los clientes se caen, se cuelgan, van lentos o rechazan un evento | enviar una vez → reintentos con backoff → una cola por destino, en orden por clave, con pausa |
+| `webhook_delivery` | los endpoints de los clientes se caen, se cuelgan, van lentos o rechazan un evento | enviar una vez → reintentos con backoff → una cola por endpoint, en orden por clave, con pausa |
 
 Concurrencia (asyncio y cerrojos):
 
 | Laboratorio | Problema | Etapas |
 |---|---|---|
-| `event_loop_blocking` | una llamada bloqueante frena todas las peticiones del bucle | llamadas síncronas → to_thread → grupos de hilos y procesos acotados + vigilante del retardo |
+| `event_loop_blocking` | una llamada bloqueante frena todas las peticiones del bucle | llamadas síncronas → to_thread → pools de hilos y de procesos acotados + vigilante del retardo |
 | `async_backpressure` | un productor rápido y un destino lento: la memoria crece hasta el OOM | colas sin límite → colas acotadas → créditos, lotes adaptativos, descartes contados |
 | `deadlock_avoidance` | las transferencias bloquean dos cuentas y el servicio se congela | bloquear en el orden de la petición → timeouts con reintento → un orden global |
 
@@ -226,10 +226,10 @@ Replicación, particionado y coordinación, sobre la misma red:
 | `merkle_anti_entropy` | las réplicas divergen en silencio: escrituras perdidas, discos malos, copias viejas | sin reparación → barrido completo → árboles de Merkle |
 | `vector_clocks_crdts` | las réplicas aceptan escrituras durante una partición y luego se unen | gana la última escritura → relojes vectoriales → un CRDT (OR-set) |
 | `failure_detection` | detectar un nodo caído; no dar nunca por muerto a uno lento | timeout fijo → phi accrual → SWIM |
-| `distributed_lock` | quien tiene el cerrojo se congela y despierta escribiendo | cerrojo simple → plazos (leases) → tokens de vallado |
-| `two_phase_commit` | una transferencia toca 3 fragmentos; el coordinador se cae | un fragmento cada vez → 2PC → 2PC con registro de decisiones y recuperación |
+| `distributed_lock` | quien tiene el cerrojo se congela y despierta escribiendo | cerrojo simple → concesiones (leases) → tokens de vallado |
+| `two_phase_commit` | una transferencia toca 3 fragmentos; el coordinador se cae | un fragmento cada vez → 2PC → 2PC con log de decisiones y recuperación |
 | `raft_consensus` | elegir un líder; no perder nunca un comando consolidado | elección de líder → replicación del log → seguro (términos, votos al día) |
-| `paxos_consensus` | varios nodos proponen; el líder cae a mitad de ronda | gana la primera propuesta → Paxos por hueco → Multi-Paxos |
+| `paxos_consensus` | varios nodos proponen; el líder cae a mitad de ronda | gana la primera propuesta → Paxos por posición → Multi-Paxos |
 
 ## Estructura
 

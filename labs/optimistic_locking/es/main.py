@@ -54,7 +54,7 @@ def backoff(attempt: int, rng: random.Random) -> float:
     """
     # Etapa 2: return rng.uniform(0, min(CAP, BASE * 2 ** attempt)); mantén pequeño el exponente
     #          (min(attempt, 30)) para que nunca desborde.
-    raise NotImplementedError("TODO etapa 2: backoff(attempt, rng)")
+    raise NotImplementedError("PENDIENTE etapa 2: backoff(attempt, rng)")
 
 
 class StockService:

@@ -2,17 +2,17 @@
 
 *[Read in English](../README.md)*
 
-Una API lista un muro de ~40.000 publicaciones, de la más nueva a la más vieja, 20 por página, a
+Una API lista un feed de ~40.000 publicaciones, de la más nueva a la más vieja, 20 por página, a
 través de tres servidores de API, cada uno con su `FeedAPI.list_posts(cursor)` sobre una misma base
-de datos (4 workers, 10 µs por fila leída). ~10 personas por segundo abren el muro y bajan 1–8
-páginas; un indexador de búsqueda recorre el muro entero, página tras página, y vuelve a empezar al
+de datos (4 workers, 10 µs por fila leída). ~10 personas por segundo abren el feed y bajan 1–8
+páginas; un indexador de búsqueda recorre el feed entero, página tras página, y vuelve a empezar al
 llegar al final. Mientras tanto se escriben ~4 publicaciones por segundo arriba y se borran ~0,5 por
 segundo. Cada página se compara con la verdad: una publicación que existía cuando el cliente empezó
 a recorrer, y sigue existiendo, tiene que salir exactamente una vez. En momentos al azar, como en
 producción, una carga masiva escribe cientos de publicaciones con un solo `created_at` (una
 transacción, un solo `now()`; un CSV; una migración), un momento viral mete 40–120 publicaciones por
 segundo arriba, una purga de spam borra 100–300 publicaciones recientes por segundo, o procesos de
-sincronización (una reindexación, una exportación de un socio) recorren el muro entero a toda
+sincronización (una reindexación, una exportación de un socio) recorren el feed entero a toda
 velocidad. La ejecución nunca se reinicia. El primer incidente es siempre una carga masiva en
 0:20–0:30.
 
@@ -24,11 +24,11 @@ LABS_LANG=es uv run pytest labs/keyset_pagination          # x = todavía no, X 
 
 | Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|
-| 0 OFFSET (dada) | `select(20, offset=n)`, el cursor es el desplazamiento | ~1.000 publicaciones repetidas en la primera carga (morado: lo que se escribe por encima de los lectores baja cada fila un puesto), miles saltadas en una purga (rojo), ~1.500–1.900 filas leídas por página y un p99 del fondo de 70–280 ms (las páginas del indexador leen todo lo que tienen encima) |
+| 0 OFFSET (dada) | `select(20, offset=n)`, el cursor es el offset | ~1.000 publicaciones repetidas en la primera carga (morado: lo que se escribe por encima de los lectores baja cada fila un puesto), miles saltadas en una purga (rojo), ~1.500–1.900 filas leídas por página y un p99 del fondo de 70–280 ms (las páginas del indexador leen todo lo que tienen encima) |
 | 1 Clave sobre `created_at` | `select(20, older_than=ultima.created_at)`, el cursor es ese número | 20 filas por página, p99 del fondo ~3 ms, nada repetido; pero cada recorrido que llega al único `created_at` de la carga salta las publicaciones que no cupieron en su página: ~5.000–8.600 saltadas (rojo), y otra vez cada vez que el indexador pasa por una carga vieja |
 | 2 Clave sobre `(created_at, id)` | `older_than=(created_at, id)` de un `encode_cursor` opaco; `decode_cursor` lanza `BadCursor` | nada saltado ni repetido, 20 filas por página, p99 del fondo ~3 ms; todos los objetivos OK |
 
-Objetivos, juzgados por incidente: base correcta (páginas respondidas antes), saltadas = 0,
+Objetivos, evaluados por incidente: base correcta (páginas respondidas antes), saltadas = 0,
 repetidas = 0, p99 del fondo < 25 ms (la página 10 de un recorrido o más) y filas leídas por página
 ≤ 40 (todo para las páginas pedidas durante el incidente).
 

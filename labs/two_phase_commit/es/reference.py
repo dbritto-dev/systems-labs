@@ -20,7 +20,7 @@ class Coordinator(Node):
         self.active: set[str] = set()  # transferencias que aún reúnen votos (se pierden en una caída)
 
     async def recover(self) -> None:
-        # El registro dice qué transferencias se decidieron "commit": díselo otra vez a cada fragmento.
+        # El log dice qué transferencias se decidieron "commit": díselo otra vez a cada fragmento.
         for txn, decision, shards in self.log.items():
             self.spawn(self.finish(txn, decision, shards))
 
@@ -41,7 +41,7 @@ class Coordinator(Node):
         finally:
             self.active.discard(txn)
         # Una consolidación tiene que llegar a todos; un aborto no (aborto presunto: a un fragmento que
-        # pregunta por una transacción que el registro no conoce se le dice "abort").
+        # pregunta por una transacción que el log no conoce se le dice "abort").
         self.spawn(self.finish(txn, decision, list(writes)))
         return decision == "commit"
 

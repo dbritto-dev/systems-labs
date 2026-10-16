@@ -4,7 +4,7 @@
 
 Un procesador de flujos cuenta compras por ventana de 10 segundos para un panel en vivo (y
 para facturar). Teléfonos y servidores hacen ~40 compras por segundo; cada evento lleva su
-tiempo del evento (cuándo ocurrió la compra) y llega al procesador a través de un registro
+tiempo del evento (cuándo ocurrió la compra) y llega al procesador a través de un log
 con tres particiones, normalmente entre 0.05 y 1.5 s después y algo desordenado. El
 procesador llama a tu `Windower.on_event(event, now)` por cada uno; publicas la cuenta de una
 ventana con `self.sink.emit(start, count)` (emitir otra vez una ventana reemplaza su cuenta:
@@ -36,7 +36,7 @@ llega 32 s después del final de la ventana; guardar todas las ventanas para sie
 `evict()`) también acierta, pero el estado crece sin límite (8 ventanas en el primer veredicto, unas
 50 tras diez minutos).
 
-Objetivos, juzgados por incidente: en calma ≥ 99.9% (los eventos que llegaron en los 20 s
+Objetivos, evaluados por incidente: en calma ≥ 99.9% (los eventos que llegaron en los 20 s
 anteriores, contados en su propia ventana; antes); ventanas exactas ≥ 99% (las ventanas desde
 40 s antes del incidente hasta 10 s después cuya última cuenta coincide con los eventos de ese
 tiempo del evento que llegaron dentro del retraso permitido; después, cuando son definitivas);
@@ -60,7 +60,7 @@ ventanas por tiempo del evento, divididas según lo que pasó con sus eventos; l
 los eventos por segundo de la misma forma.
 
 **Dibujo del clúster.** Pulsa `v` (o `--view cluster`) para ver el canal como nodos en una
-cuadrícula de 3x3: las tres particiones del registro en la columna izquierda (una se vuelve
+cuadrícula de 3x3: las tres particiones del log en la columna izquierda (una se vuelve
 naranja mientras va atrasada), el procesador y el panel arriba, el estado de ventanas del
 procesador y la salida lateral debajo de ellos. Los productores envían eventos a las
 particiones; los eventos siguen hasta el procesador, coloreados según lo tarde que llegan; las

@@ -4,7 +4,7 @@ from core.i18n import GoalText, IncidentText, StageText
 from core.lessons import Lesson, Ref
 
 TITLE = "Paginación por clave"
-SUMMARY = "Los clientes recorren un muro que no para de cambiar. Cada publicación una vez, rápido a cualquier fondo."
+SUMMARY = "Los clientes recorren un feed que no para de cambiar. Cada publicación una vez, rápido a cualquier fondo."
 PARAMS = {"rate": "lectores por segundo"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
@@ -20,12 +20,12 @@ CAUSES = {
     "celebrity": "llega una celebridad y sus fans entran en masa",
     "spam_wave": "moderación quita la ola de spam de anoche",
     "bot_ban": "se bloquea una red de bots y se borran sus publicaciones",
-    "erasure": "se procesan en bloque solicitudes de borrado de cuentas",
+    "erasure": "se procesan en bloque peticiones de borrado de cuentas",
     "takedown": "una retirada legal quita un lote de publicaciones",
     "reindex": "el clúster de búsqueda se reconstruye desde cero",
-    "partner_export": "un socio exporta el muro entero por la API",
+    "partner_export": "un socio exporta el feed entero por la API",
     "warehouse": "el almacén de datos se rellena desde la API",
-    "app_release": "una versión nueva de la aplicación copia el muro para leer sin conexión",
+    "app_release": "una versión nueva de la aplicación copia el feed para leer sin conexión",
 }
 
 STAGES = [
@@ -49,7 +49,7 @@ GOALS = {
 }
 
 LEGEND = {"idle": "en reposo", "cheap": "página ~20 filas", "scans": "filas leídas 10x,100x,1000x",
-          "skipped": "saltadas", "repeated": "repetidas", "served": "atendida",
+          "skipped": "saltadas", "repeated": "repetidas", "served": "servida",
           "limit": "4 workers", "incident": "incidente"}
 
 STRINGS = {
@@ -64,7 +64,7 @@ STRINGS = {
     "viral_end": "se publica al ritmo normal",
     "cleanup_start": "se borran {n:.0f} publicaciones recientes por segundo: {cause}",
     "cleanup_end": "la limpieza ha terminado",
-    "sync_start": "{n:.0f} procesos más recorren el muro entero: {cause}",
+    "sync_start": "{n:.0f} procesos más recorren el feed entero: {cause}",
     "sync_end": "los procesos de sincronización han parado",
     "warn_skipped": "{n:,} publicaciones saltadas",
     "warn_dup": "{n:,} publicaciones mostradas dos veces",
@@ -85,7 +85,7 @@ STRINGS = {
     "head_import": "Un solo created_at para cientos de publicaciones",
     "head_viral": "Llueven publicaciones arriba",
     "head_cleanup": "Se borran publicaciones recientes",
-    "head_sync": "Procesos recorren el muro entero",
+    "head_sync": "Procesos recorren el feed entero",
     "head_ok": "{rows:,} publicaciones; cada página lee ~20",
     "note_chart": "Gráfica: tiempo ocupado de la base de datos, % de 4 workers.",
     # los dibujos

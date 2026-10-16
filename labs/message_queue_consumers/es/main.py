@@ -1,6 +1,6 @@
 """Laboratorio message_queue_consumers: TU ARCHIVO. Edítalo y guarda; la ventana lo vuelve a ejecutar.
 
-Los productores envían ~40 trabajos por segundo a una cola como Amazon SQS. Siete procesos workers
+Los productores envían ~40 trabajos por segundo a una cola como Amazon SQS. Siete procesos worker
 los reciben, seis a la vez cada uno, y llaman a `Consumer.process(msg)` por cada mensaje. Un
 mensaje recibido queda invisible para los demás workers durante VISIBILITY segundos (el timeout
 de visibilidad); si no se borra antes, la cola se lo da a otro worker.
