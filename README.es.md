@@ -24,6 +24,7 @@ LABS_LANG=es uv run pytest                           # x = tu código aún no es
 LABS_SLOW=1 uv run pytest labs/test_long_runs.py     # cada solución, 30 minutos con 3 semillas
 LABS_LANG=es LABS_REFERENCE=1 uv run pytest          # comprueba las soluciones de referencia
 LABS_LANG=es LABS_STRICT=1 uv run pytest             # el control del repo: los tests del código inicial siguen estrictos
+LABS_LANG=es uv run pytest -n auto                   # lo mismo en todos los núcleos (un minuto para todo)
 ```
 
 Con `LABS_LANG=es` en el entorno no hace falta `--lang es`. Más opciones: `--set

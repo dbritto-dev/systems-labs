@@ -24,6 +24,7 @@ uv run python -m live caching --at 90 --size 110x44 --color   # print one frame
 uv run pytest                             # x = your code is not there yet, X = done
 LABS_REFERENCE=1 uv run pytest            # check the reference solutions
 LABS_STRICT=1 uv run pytest               # the repo's own check: starting-code tests stay strict
+uv run pytest -n auto                     # the same on every core (about a minute for everything)
 LABS_LANG=es uv run pytest                # your Spanish files (es/main.py)
 LABS_SLOW=1 uv run pytest labs/test_long_runs.py   # every reference, 30 minutes on 3 seeds
 ```

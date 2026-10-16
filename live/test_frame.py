@@ -1,15 +1,10 @@
-import os
-import pty
-import select
-import sys
-import time
-
 import pytest
 
 from core.testing import build_world
 from live.canvas import Style, plain, vis
 from live.frame import CHART_ROWS, compose, layout
 from live.__main__ import main
+from live.ptyrun import run_in_pty
 
 
 @pytest.fixture(scope="module")
@@ -79,45 +74,11 @@ def test_one_frame_cli(capsys):
 
 
 def test_live_viewer_in_a_pty_quits_cleanly():
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.environ["COLUMNS"], os.environ["LINES"] = "110", "44"
-        os.execv(sys.executable, [sys.executable, "-m", "live", "retry_storm", "--variant", "reference"])
-    import fcntl
-    import struct
-    import termios
-
-    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 44, 110, 0, 0))
-    out = b""
-    deadline = time.monotonic() + 30
-    sent = None  # when the keys went in
-    status = None
-    while time.monotonic() < deadline:
-        r, _, _ = select.select([fd], [], [], 0.1)
-        if r:  # always drain the output, or the viewer blocks writing its frames
-            try:
-                chunk = os.read(fd, 65536)
-            except OSError:
-                chunk = b""
-            out += chunk
-        if sent is None and (b"Behavior:" in out or b"Your stage shows" in out):  # the header is up: the run is in
-            os.write(fd, b" \x1b[C\x1b[A0q")
-            sent = time.monotonic()
-        elif sent is not None and time.monotonic() - sent > 3:
-            os.write(fd, b"q")  # it should have quit: ask again (and fail below if it needed that)
-            sent = time.monotonic()
-        done, code = os.waitpid(pid, os.WNOHANG)
-        if done:
-            status = code
-            break
-    if status is None:  # never let a stuck viewer hang the test run
-        os.kill(pid, 9)
-        os.waitpid(pid, 0)
-    text = out.decode("utf-8", "replace")
-    assert sent is not None and status is not None, text[-500:]
+    status, text = run_in_pty(["-m", "live", "retry_storm", "--variant", "reference"], keys=b" \x1b[C\x1b[A0q",
+                              ready=(b"Behavior:", b"Your stage shows"))
+    assert status == 0, text[-500:]
     assert "\x1b[?1049h" in text and "\x1b[?1049l" in text
     assert "Traceback" not in text
-    assert os.WEXITSTATUS(status) == 0
 
 
 def test_loading_screen_ticks_off_each_step():
@@ -144,50 +105,19 @@ def test_an_error_before_the_first_minute_says_where_to_fix_it():
     assert "Edit labs/retry_storm/main.py:38" in text and "stopped" in text.splitlines()[0]
 
 
-def _run_in_pty(argv: list[str], keys: bytes = b"", seconds: float = 20) -> tuple[int | None, str]:
-    """Run the viewer in a pseudo-terminal, drain its output, type `keys` once the header is up."""
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.execv(sys.executable, [sys.executable, "-m", "live", *argv])
-    import fcntl
-    import struct
-    import termios
-
-    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 44, 110, 0, 0))
-    out, typed, status = b"", not keys, None
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        r, _, _ = select.select([fd], [], [], 0.1)
-        if r:
-            try:
-                out += os.read(fd, 65536)
-            except OSError:
-                pass
-        if not typed and (b"Behavior:" in out or b"Your stage shows" in out):
-            os.write(fd, keys)
-            typed = True
-        done, code = os.waitpid(pid, os.WNOHANG)
-        if done:
-            status = code
-            break
-    if status is None:
-        os.kill(pid, 9)
-        os.waitpid(pid, 0)
-    return status, out.decode("utf-8", "replace")
-
-
 def test_a_recorded_session_replays_by_itself(tmp_path):
     script = tmp_path / "keys.jsonl"
     script.write_text('{"t": 0.4, "key": "space"}\n{"t": 0.8, "key": "up"}\n{"t": 1.2, "key": "q"}\n')
-    status, text = _run_in_pty(["retry_storm", "--variant", "reference", "--replay", str(script)])
-    assert status is not None and os.WEXITSTATUS(status) == 0, text[-500:]  # it quit on the replayed q
+    status, text = run_in_pty(["-m", "live", "retry_storm", "--variant", "reference", "--replay", str(script)])
+    assert status == 0, text[-500:]  # it quit on the replayed q
     assert "Traceback" not in text
 
 
 def test_recording_writes_every_key_with_its_time(tmp_path):
     log = tmp_path / "rec.jsonl"
-    status, text = _run_in_pty(["retry_storm", "--variant", "reference", "--record", str(log)], keys=b"v q")
-    assert status is not None and os.WEXITSTATUS(status) == 0, text[-500:]
+    status, text = run_in_pty(["-m", "live", "retry_storm", "--variant", "reference", "--record", str(log)],
+                              keys=b"v q", ready=(b"Behavior:", b"Your stage shows"))
+    assert status == 0, text[-500:]
     import json
 
     keys = [json.loads(line)["key"] for line in log.read_text().splitlines()]

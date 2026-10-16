@@ -1,7 +1,4 @@
-import os
-import pty
 import subprocess
-import sys
 import time
 
 from live.canvas import BLUE, RED, WHITE, Canvas, Style, vis
@@ -88,20 +85,10 @@ print("bye")
 
 
 def test_terminal_enters_and_leaves_alternate_screen_in_a_pty():
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.execv(sys.executable, [sys.executable, "-c", SCRIPT])
-    out = b""
-    while True:
-        try:
-            chunk = os.read(fd, 4096)
-        except OSError:
-            break
-        if not chunk:
-            break
-        out += chunk
-    os.waitpid(pid, 0)
-    text = out.decode()
+    from live.ptyrun import run_in_pty
+
+    status, text = run_in_pty(["-c", SCRIPT])
+    assert status == 0, text[-500:]
     assert "\x1b[?1049h" in text and "\x1b[?1049l" in text
     assert text.index("\x1b[?1049h") < text.index("hello") < text.index("\x1b[?1049l")
     assert "Traceback" not in text and "bye" in text
