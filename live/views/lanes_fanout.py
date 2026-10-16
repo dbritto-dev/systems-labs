@@ -53,12 +53,13 @@ class FanoutView(View):
 def draw_fanout(cv: Canvas, make) -> None:
     st = Stage.on(cv)
     fr = make(st.n)
-    lx1 = (cv.cols - (3 if fr.vertical else LABEL_COLS + 1)) * 2  # the small servers: their right edge ...
+    label_cols = LABEL_COLS if cv.cols < 64 else 14  # a wide picture has room for longer names ("p1 hot 98%")
+    lx1 = (cv.cols - (3 if fr.vertical else label_cols + 1)) * 2  # the small servers: their right edge ...
     lx0 = lx1 - (18 if fr.vertical else 12)  # ... and left edge (wider when the names stand beside them)
     xg = st.gx + (lx0 - st.gx) * 0.3  # the door
     xm = xg + (lx0 - 10 - xg) * 0.55  # the relay's centre
     rl = fr.relay
-    leaves = Leaves(fr.leaves, lx0, lx1, xm + 10, fr.vertical)  # the lines leave the relay at xm + 10
+    leaves = Leaves(fr.leaves, lx0, lx1, xm + 10, fr.vertical, label_cols=label_cols)  # the lines leave the relay at xm + 10
     draw_parts(st, [
         UsersGrid(fr.users),
         Wire(st.gx + 2, xg - 2), Wire(xg + 2, xm - 9),  # users → door → relay

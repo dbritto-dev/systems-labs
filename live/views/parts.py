@@ -245,6 +245,7 @@ class Leaves:
     x1: float
     sx: float
     vertical: bool = False
+    label_cols: int = LABEL_COLS  # room for each name, right of its server (the view widens it when it can)
     mids: list[float] = field(default_factory=list)  # filled when drawn: each one's middle, for FanHops
 
     def boxes(self, st: Stage) -> list[tuple[float, float]]:
@@ -298,7 +299,7 @@ class Leaves:
                 for k, ch in enumerate(word):
                     cv.text(top_row + k, self.x1 // 2 + 1, ch, col)
             else:
-                cv.text(min(h - 2, int(ym // 4)), self.x1 // 2 + 2, text[:LABEL_COLS - 1], col)
+                cv.text(min(h - 2, int(ym // 4)), self.x1 // 2 + 2, text[:self.label_cols - 1], col)
 
 
 @dataclass(slots=True)
