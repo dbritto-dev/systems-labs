@@ -1,12 +1,14 @@
-"""The pictures for lab unique_id_generation."""
+"""The pictures for lab unique_id_generation: the five nodes (peers: on a pentagon, with the links they use, if
+any; cluster: on a grid), and the clients' view (lanes)."""
 
 from __future__ import annotations
 
-from live.adapters.common import client_lanes, every, message_gauge
+from live.adapters.common import client_lanes, every, link_list, message_gauge, peer_gauge, peer_traffic
 from live.canvas import BLUE, EXTRA2, GREEN, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_peers import Leaf, PeersAdapter, PeersFrame
 
 HOP = 0.1  # a client request or reply takes about this long on the wire
 DROP_FADE = 0.6
@@ -64,9 +66,6 @@ class UniqueIdsCluster(ClusterAdapter):
 GAUGE_MAX = 200  # messages per second between nodes that fill the cluster's gauge
 
 
-
-
-
 @adapts("unique_id_generation", "lanes")
 class UniqueIdsLanes(LaneAdapter):
     """The clients' view: echo and generate requests; the door is the network, red for duplicate ids."""
@@ -96,3 +95,62 @@ class UniqueIdsLanes(LaneAdapter):
             state = (words["connected"], GREEN)
         return LaneFrame(users=waiting, flights=flights, outcomes=outcomes, closed=split, fill=fill, gauge=gauge,
                          outline=RED if split or dups else EXTRA2 if skew is not None else OUTLINE, state=state)
+
+
+# ---------------------------------------------------------------- the peers picture: the pentagon, and the clients
+
+IDS_MAX = 15  # ids a node hands out per second that fill its gauge (~5 a second each: 30 requests among five)
+
+
+@adapts("unique_id_generation", "peers")
+class UniqueIdsPeers(PeersAdapter):
+    """The clients (the users, and the door: the network, shut during a partition; an answer is green, red for a
+    duplicate id or no answer) and the five nodes on a pentagon. Requests fly from the door to a node in white,
+    and the reply back to it green (red for a duplicate or a failure). A box's outline is blue, orange while its
+    clock is stepped back ("n3 clock −2s"), red for a moment after it handed out a duplicate ("n1 dup!"); its
+    gauge is the ids it hands out a second. A link is drawn only while nodes talk over it (asking a leader for
+    the next number); with Snowflake ids there are none: each node makes ids on its own. A partition cuts the
+    links in use between the two sides (and, with no links, cuts nothing: the lesson)."""
+
+    def frame(self, variant: str, t: float, users: int) -> PeersFrame:
+        from labs.unique_id_generation import lab
+        from labs.unique_id_generation.scenario import GENERATE
+        from live.worlds.unique_id_generation import (
+            MSG_ARRIVED, MSG_DEST, MSG_SENT, MSG_SRC, OP_DUP, OP_END, OP_KIND, OP_NODE, OP_OK, OP_START,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return PeersFrame()
+        lane = UniqueIdsLanes(w).frame(variant, t, users)  # the users, the door, the answers and the state
+        flights, drops, recent = peer_traffic(run, t, (MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED), lambda m: BLUE)
+        skew = w.skewed_at(variant, t)
+        dup, ids = set(), [0] * lab.NODES
+        span = run.max_dur.get("ops", 0.0)
+        for o in run.rows("ops", t - max(1.0, DUP_FLASH) - span - 0.01, t + 1e-9):
+            if o[OP_DUP] and o[OP_END] <= t < o[OP_END] + DUP_FLASH:
+                dup.add(o[OP_NODE])
+            if o[OP_KIND] == GENERATE and o[OP_OK] and t - 1 <= o[OP_END] <= t:
+                ids[o[OP_NODE]] += 1
+            if o[OP_START] <= t < o[OP_START] + HOP:  # the request on its way
+                flights.append((-1, o[OP_NODE], (t - o[OP_START]) / HOP, WHITE))
+            elif o[OP_END] - HOP <= t < o[OP_END]:  # the reply on its way back
+                colour = RED if o[OP_DUP] or not o[OP_OK] else GREEN
+                flights.append((o[OP_NODE], -1, 1 - (o[OP_END] - t) / HOP, colour))
+        groups = w.groups_at(variant, t)
+        peers = []
+        for i in range(lab.NODES):
+            node = f"n{i}"
+            if i in dup:
+                colour, label = RED, w.s("peer_dup", node=i)
+            elif skew is not None and skew[0] == i:
+                colour, label = EXTRA2, w.s("peer_clock", node=i, seconds=skew[1])
+            else:
+                colour, label = BLUE, node
+            fill, gauge = peer_gauge(ids[i] / IDS_MAX)
+            peers.append(Leaf(label=(label, colour), short=node, tiny=node, fill=fill, gauge=gauge, outline=colour))
+        return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, state=lane.state, peers=peers,
+                          links=link_list(recent), groups=groups,  # only the links in use: those it splits, cut
+                          flights=every(flights, 80), drops=drops)

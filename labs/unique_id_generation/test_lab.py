@@ -144,9 +144,47 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("unique_id_generation", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["peers", "cluster", "lanes"]  # peers first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights
     text, colour = frame.state
     assert text and len(text) <= 13
+
+
+@starting_code
+def test_the_peers_picture_shows_snowflake_ids_need_no_links():
+    from live.canvas import EXTRA2, GREEN, RED, Canvas, Style, plain
+    from live.views import adapter_for
+    from live.views.lanes_peers import draw_peers
+
+    def picture(v, t: float) -> str:
+        adapter = adapter_for(build_world("unique_id_generation", v, 1))
+        cv = Canvas(60, 24)
+        draw_peers(cv, lambda n: adapter.frame(v, t, n))
+        return "\n".join(plain(line) for line in cv.render(Style("none")))
+
+    def peers(v, times=tuple(k / 4 for k in range(0, 240))):
+        world = build_world("unique_id_generation", v, 1)
+        assert world.view == "peers"
+        return world, [adapter_for(world).frame(v, t, 90) for t in times]
+
+    def replies(frames) -> set:
+        return {c for f in frames for _, b, _, c in f.flights if b == -1}
+
+    world, given = peers("main")
+    assert replies(given) == {RED} and not any(f.links for f in given)  # the starting code makes no ids
+    world, solved = peers("reference")
+    assert replies(solved) == {GREEN}
+    assert not any(f.links for f in solved)  # Snowflake ids: no node asks another, there is no link at all
+    assert any(p.fill > 0 for f in solved for p in f.peers)  # yet every node hands out ids
+    during = solved[100]  # 0:25, in the first incident: n3's clock stepped back
+    n3 = during.peers[3]
+    assert n3.outline == EXTRA2 and n3.label[0] == world.s("peer_clock", node=3, seconds=2.0)
+    assert during.groups is not None and "✕" not in picture("reference", 25.0)  # n3 moved: nothing to cut
+    _, leader = peers(module(Leader))  # stage 1, asking n0 for the next number: a star of links from n0 ...
+    assert all(0 in (a, b) for f in leader for a, b, _ in f.links) and any(len(f.links) == 4 for f in leader)
+    assert "✕" in picture(module(Leader), 25.0)  # ... and n3's, cut off from n0
+    world, counter = peers(module(Counter))  # a counter per node: duplicates
+    dups = [p for f in counter for i, p in enumerate(f.peers) if p.label[0] == world.s("peer_dup", node=i)]
+    assert dups and all(p.outline == RED for p in dups)

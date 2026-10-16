@@ -109,7 +109,7 @@ def shade(keys: int):
 
 class MerkleWorld(World):
     id = "merkle_anti_entropy"
-    view = "cluster"  # replicas turning orange, and the repair traffic between them, is the lesson
+    view = "peers"  # replicas turning orange, and the repair traffic on the links between them, is the lesson
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(BLUE, "in_sync", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "diverged", "◉"), (RED, "down", "◉"),
               (WHITE, "request"), (BLUE, "replication"), (EXTRA2, "repair"), (RED, "dropped")]

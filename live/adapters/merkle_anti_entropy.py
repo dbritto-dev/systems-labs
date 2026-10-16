@@ -1,12 +1,14 @@
-"""The pictures for lab merkle_anti_entropy: the replicas drifting apart and repairing, and the clients' reads."""
+"""The pictures for lab merkle_anti_entropy: the replicas drifting apart and repairing (peers: on a square, the
+links between them; cluster: on a grid), and the clients' reads (lanes)."""
 
 from __future__ import annotations
 
-from live.adapters.common import client_lanes, every
+from live.adapters.common import LINK_RECENT, client_lanes, every, link_list, peer_traffic
 from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, ORANGE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_peers import LINE, Leaf, PeersAdapter, PeersFrame
 
 DROP_FADE = 0.6  # seconds a dropped message stays on screen
 MAX_FLIGHTS = 80
@@ -55,17 +57,19 @@ class MerkleCluster(ClusterAdapter):
         flights = repair[:MAX_FLIGHTS // 2]  # repair first: it is the lesson
         flights += every(replication, (MAX_FLIGHTS - len(flights)) // 2)
         flights += every(clients, min(MAX_CLIENTS, MAX_FLIGHTS - len(flights)))
-        groups = None
-        total = sum(diverged)
-        if cut is not None:
-            groups = [0 if i == cut[1] else 1 for i in range(len(nodes))]
-            word = w.s("state_down", node=f"n{cut[1]}") if cut[0] == "down" else w.screen.STATES["partitioned"]
-            state = (word, RED)
-        elif total:
-            state = (w.s("state_diverged", n=total), ORANGE)
-        else:
-            state = (w.s("state_sync"), GREEN)
-        return ClusterFrame(nodes=nodes, groups=groups, flights=flights, drops=every(drops, 30), state=state)
+        groups = None if cut is None else [0 if i == cut[1] else 1 for i in range(len(nodes))]
+        return ClusterFrame(nodes=nodes, groups=groups, flights=flights, drops=every(drops, 30),
+                            state=_replicas_state(w, cut, sum(diverged)))
+
+
+def _replicas_state(w, cut, total: int) -> tuple:
+    """The words under the replicas: one down or cut off, how many keys differ, or in sync."""
+    if cut is not None:
+        word = w.s("state_down", node=f"n{cut[1]}") if cut[0] == "down" else w.screen.STATES["partitioned"]
+        return word, RED
+    if total:
+        return w.s("state_diverged", n=total), ORANGE
+    return w.s("state_sync"), GREEN
 
 
 # ---------------------------------------------------------------- the lanes picture: the clients' view
@@ -110,3 +114,76 @@ class MerkleLanes(LaneAdapter):
         return LaneFrame(users=waiting, flights=flights, outcomes=outcomes,
                          door_color=ORANGE if total else None, fill=fill,
                          gauge=EXTRA2 if fill > 0.5 else BLUE, outline=RED if stale else OUTLINE, state=state)
+
+
+# ---------------------------------------------------------------- the peers picture: the square, and the clients
+
+WHOLE_RANGE = 5_000  # entries past which a repair message is a key range, not a few leaves: deep orange
+
+
+def _link_repair_colour(entries: int):
+    """A repair message on a link: light a few hashes, mid a few leaves' keys (a Merkle walk sends a few
+    thousand at most), deep a whole range or more (a full scan sends all 20,000 versions every round)."""
+    return EXTRA1 if entries <= 50 else EXTRA2 if entries <= WHOLE_RANGE else EXTRA3
+
+
+@adapts("merkle_anti_entropy", "peers")
+class MerklePeers(PeersAdapter):
+    """The clients (the users, and the door: orange while some replica holds older versions; a read is green
+    fresh, red stale) and the four replicas on a square (standing on a corner). A box's outline is what it misses: blue when it holds
+    the latest of every key, deeper orange the more keys it lacks ("n1 −340"), red while down ("n2 down"). Its
+    gauge is the hashing it does a second against the 10,000 goal (orange past it). A link is drawn while it
+    carries something: blue replication batches, orange repair (deeper the more entries a message carries: a
+    full scan is a deep orange stream, a Merkle walk a short, lighter burst). The links of a replica
+    that is down or cut off are cut (a red ✕), what is sent over them lost half way."""
+
+    def frame(self, variant: str, t: float, users: int) -> PeersFrame:
+        from labs.merkle_anti_entropy import lab
+        from live.worlds.merkle_anti_entropy import (MSG_ARRIVED, MSG_DEST, MSG_ENTRIES, MSG_REPAIR, MSG_SENT,
+                                                    MSG_SRC, OP_NODE, OP_START, diverged_at, shade)
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return PeersFrame()
+        lane = MerkleLanes(w).frame(variant, t, users)  # the users, the door, the answers
+        diverged = diverged_at(run, t)
+        cut = w.cut_at(variant, t)
+        flights, drops, recent = peer_traffic(
+            run, t, (MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED),
+            lambda m: _link_repair_colour(m[MSG_ENTRIES]) if m[MSG_REPAIR] else BLUE, most=10_000)
+        depth = (EXTRA1, EXTRA2, EXTRA3)
+        for m in run.rows("msgs", t - LINK_RECENT, t + 1e-9):  # a link that carried repair shows it, deepest
+            if m[MSG_REPAIR]:
+                key = (min(m[MSG_SRC], m[MSG_DEST]), max(m[MSG_SRC], m[MSG_DEST]))
+                c = _link_repair_colour(m[MSG_ENTRIES])
+                if recent.get(key) not in depth or depth.index(recent[key]) < depth.index(c):
+                    recent[key] = c
+        repair = [f for f in flights if f[3] != BLUE]
+        shown = every(repair, MAX_FLIGHTS // 2)  # repair first: it is the lesson
+        shown += every([f for f in flights if f[3] == BLUE], (MAX_FLIGHTS - len(shown)) // 2)
+        clients = [(-1, o[OP_NODE], (t - o[OP_START]) / CLIENT_FLY, WHITE)
+                   for o in run.rows("ops", t - CLIENT_FLY, t + 1e-9)]
+        shown += every(clients, min(MAX_CLIENTS, MAX_FLIGHTS - len(shown)))
+        groups = None if cut is None else [0 if i == cut[1] else 1 for i in range(len(diverged))]
+        stale = lane.state[0] == w.s("lanes_stale")  # a stale read just now: the clients see it
+        state = lane.state if stale else _replicas_state(w, cut, sum(diverged))
+        s = int(t)
+        peers = []
+        for i, keys in enumerate(diverged):
+            node = f"n{i}"
+            colour = shade(keys)
+            if cut is not None and cut[1] == i:
+                down = cut[0] == "down"
+                colour = RED if down else colour
+                label, words = w.s("peer_down" if down else "peer_cut", node=node), RED
+            elif keys:
+                label, words = w.s("peer_missing", node=node, n=keys), colour
+            else:
+                label, words = node, colour
+            k = sum(run.series(f"hash{i}", s - 1, s)) / lab.HASH_MAX
+            peers.append(Leaf(label=(label, words), short=node, tiny=node, fill=min(1.0, k),
+                              gauge=EXTRA2 if k > 1 else BLUE, outline=colour))
+        return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, state=state, peers=peers,
+                          links=link_list(recent, groups, LINE), groups=groups, flights=shown, drops=drops)

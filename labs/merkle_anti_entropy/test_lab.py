@@ -217,7 +217,7 @@ def test_both_pictures_show_the_replicas_and_the_clients():
 
     for v in ("main", "reference"):
         world = world_of(v)
-        assert views_for(world) == ["cluster", "lanes"] and world.view == "cluster"  # cluster first
+        assert views_for(world) == ["peers", "cluster", "lanes"]  # peers first: it opens with it
         set_view(world, "cluster")
         during = adapter_for(world).frame(v, 25.0)
         assert during.groups == [1, 1, 0, 1] and during.nodes[2] == RED  # n2 is down ...
@@ -236,4 +236,48 @@ def test_both_pictures_show_the_replicas_and_the_clients():
         lanes = [adapter_for(world).frame(v, t, 100) for t in range(40, 55)]
         assert all(len(f.state[0]) <= 13 for f in lanes)
         assert any(c == RED for f in lanes for c, _ in f.outcomes) is (v == "main")  # stale reads
-        set_view(world, "cluster")
+        set_view(world, "peers")
+
+
+@starting_code
+def test_the_peers_picture_shows_the_replica_down_its_links_cut_and_the_repair_on_them():
+    from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for
+    from live.worlds.merkle_anti_entropy import diverged_at
+
+    def peers(v, times):
+        world = world_of(v) if isinstance(v, str) else build_world(LAB, v, 1)
+        assert world.view == "peers"
+        return world, [adapter_for(world).frame(v, t, 90) for t in times]
+
+    for v in ("main", "reference"):
+        world, (during,) = peers(v, [25.0])
+        n2 = during.peers[2]
+        assert n2.outline == RED and n2.label[0] == world.s("peer_down", node="n2")
+        assert during.groups == [1, 1, 0, 1]
+        assert {(0, 2), (1, 2), (2, 3)} <= {(a, b) for a, b, _ in during.links}  # its three links, cut
+        assert "✕" in "\n".join(plain(line) for line in compose(world, v, 25.0, 92, 30))
+    repair = (EXTRA1, EXTRA2, EXTRA3)
+    after = [k / 4 for k in range(124, 140)]  # 0:31 to 0:35, once n2 is back
+    _, given = peers("main", after)
+    _, solved = peers("reference", after)
+    _, scan = peers(FULL, after)
+    missing = diverged_at(world_of("main").runs["main"], after[0])[2]
+    assert missing > 300 and given[0].peers[2].label[0] == world.s("peer_missing", node="n2", n=missing)
+    assert given[0].peers[2].outline in repair  # back, missing the writes it slept through
+    assert not any(c in repair for f in given for _, _, c in f.links)  # the starting code never repairs ...
+    _, late = peers("main", [50.0])
+    assert late[0].peers[2].outline in repair  # ... so n2 stays behind
+    _, late = peers("reference", [50.0])
+    assert [p.outline for p in late[0].peers] == [BLUE] * 4  # repaired
+
+    def touching(frames, colours) -> bool:  # a link to n2 in one of these colours
+        return any(c in colours and 2 in (a, b) for f in frames for a, b, c in f.links)
+
+    assert touching(solved, repair) and not touching(solved, (EXTRA3,))  # Merkle: a short, light burst to n2
+    assert sum(touching([f], (EXTRA3,)) for f in scan) >= len(scan) // 4  # a full scan: a deep orange stream
+    _, calm = peers("reference", [k / 2 for k in range(10, 36)])  # 0:05 to 0:18: hashing under the goal
+    assert any(p.fill > 0 for f in calm for p in f.peers) and all(p.fill < 1 for f in calm for p in f.peers)
+    _, rebuild = peers(REBUILD, [k / 2 for k in range(10, 36)])
+    assert any(p.fill == 1.0 and p.gauge == EXTRA2 for f in rebuild for p in f.peers)  # rebuilding: far over it

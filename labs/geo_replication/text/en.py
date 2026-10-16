@@ -96,6 +96,12 @@ STRINGS = {
     "lanes_cut": "{name} CUT OFF",
     "lanes_busy": "{name} AT {util:.0%}",
     "lanes_far": "p99 {p99}",
+    # the peers picture: under each region, short; on each link, its one-way latency
+    "peer_down": "{name} down",
+    "peer_cut": "{name} cut off",
+    "peer_behind": "{name} −{n}",
+    "peer_ms": "{ms:.0f}ms",
+    "note_regions": "Regions: us, eu, ap; on each link, the one-way latency over the ocean.",
     # errors in your code
     "no_store": "RegionNode must keep its data in self.store, as {key: (version, value)}: the checker looks there",
 }

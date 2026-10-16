@@ -90,7 +90,7 @@ def _stale_colour(stale: int) -> tuple[int, int, int]:
 
 class TxnWorld(World):
     id = "transactions"
-    view = "cluster"
+    view = "peers"  # the node cut off, its links cut, and how far behind it falls
     stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
     legend = [(BLUE, "up_to_date", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "g1b_read", "◉"),
               (WHITE, "transaction"), (BLUE, "replication"), (RED, "dropped"), (RED, "partition", "┆")]

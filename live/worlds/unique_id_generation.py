@@ -132,7 +132,7 @@ VERB_KEYS = {"split": ("split", "heal"), "clock": ("clock", "sync"), "migrate": 
 
 class UniqueIdsWorld(World):
     id = "unique_id_generation"
-    view = "cluster"
+    view = "peers"  # the links the nodes need to talk over, or (with Snowflake ids) none at all
     stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
     legend = [(BLUE, "node", "◉"), (EXTRA2, "clock_back", "◉"), (RED, "duplicate", "◉"),
               (WHITE, "request"), (GREEN, "reply"), (RED, "partition", "┆")]

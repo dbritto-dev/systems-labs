@@ -67,6 +67,8 @@ STRINGS = {
     "no_store": "TxnNode must keep its key/value store in self.store (a dict)",
     # the lanes picture (the clients' view): states under the cluster, at most 13 letters
     "lanes_g1b": "G1b READ",
+    # the peers picture: under a node that just served an intermediate read
+    "peer_g1b": "n{node} G1b",
 }
 
 LESSON = Lesson(

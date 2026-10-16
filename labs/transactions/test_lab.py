@@ -2,7 +2,7 @@ import itertools
 
 from core.contract import load
 from core.net import Node
-from core.testing import build_world, variant, your_code
+from core.testing import build_world, starting_code, variant, your_code
 from labs.transactions import scenario
 
 code = load("transactions", variant(), scenario.NAMES)
@@ -155,9 +155,44 @@ def test_a_second_picture_shows_what_the_clients_see():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("transactions", "reference", 1)
-    assert views_for(world) == ["cluster", "lanes"]  # cluster first: it opens with it
+    assert views_for(world) == ["peers", "cluster", "lanes"]  # peers first: it opens with it
     set_view(world, "lanes")
     frame = adapter_for(world).frame("reference", 25.0, 90)  # in the middle of the first incident
     assert frame.users or frame.flights
     text, colour = frame.state
     assert text and len(text) <= 13
+
+
+@starting_code
+def test_the_peers_picture_shows_the_node_cut_off_and_who_replicates():
+    from live.canvas import BLUE, EXTRA2, RED, plain
+    from live.frame import compose
+    from live.views import adapter_for
+
+    def peers(v, times):
+        world = build_world("transactions", v, 1)
+        assert world.view == "peers"
+        return world, [adapter_for(world).frame(v, t, 90) for t in times]
+
+    calm = [k / 2 for k in range(10, 38)]  # 0:05 to 0:19
+    world, given = peers("main", calm)
+    _, solved = peers("reference", calm)
+    assert not any(f.links for f in given)  # the starting code sends nothing to the others ...
+    assert all(p.gauge == EXTRA2 for p in given[-1].peers)  # ... so every node falls behind
+    assert all(len(f.links) == 3 and all(c == BLUE for *_, c in f.links) for f in solved)  # replication
+    assert all(p.fill == 1.0 and p.outline == BLUE for f in solved for p in f.peers)
+    for v in ("main", "reference"):
+        world, (cut,) = peers(v, [25.0])
+        assert cut.groups == [0, 0, 1] and {(0, 2), (1, 2)} <= {(a, b) for a, b, _ in cut.links}  # its links, cut
+        assert cut.peers[2].label == (world.s("state_cut", node=2), RED)
+        assert "✕" in "\n".join(plain(line) for line in compose(world, v, 25.0, 92, 30))
+    _, (cut,) = peers("reference", [25.0])
+    assert any(2 in (a, b) for a, b, _ in cut.drops)  # what it sends is lost half way
+    _, healed = peers("reference", [32.0])
+    assert all(p.fill == 1.0 for p in healed[0].peers)  # caught up after the heal
+
+    world, per_write = peers(PER_WRITE, [k / 10 for k in range(0, 600)])
+    g1b = [p for f in per_write for i, p in enumerate(f.peers) if p.label[0] == world.s("peer_g1b", node=i)]
+    assert g1b and all(p.outline == RED for p in g1b)  # intermediate reads, flashing red
+    burst = max(sum(1 for a, b, *_ in f.flights if 2 in (a, b) and -1 not in (a, b)) for f in per_write[300:310])
+    assert burst > 30  # its re-sends piled up during the cut, and flow once it heals

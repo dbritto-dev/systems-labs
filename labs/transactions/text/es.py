@@ -67,6 +67,8 @@ STRINGS = {
     "no_store": "TxnNode debe guardar su almacén clave/valor en self.store (un dict)",
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_g1b": "LECTURA G1b",
+    # el dibujo de pares: bajo un nodo que acaba de servir una lectura intermedia
+    "peer_g1b": "n{node} G1b",
 }
 
 LESSON = Lesson(

@@ -80,6 +80,9 @@ STRINGS = {
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_dups": "DUPLICADOS",
     "lanes_clock": "DESFASE",
+    # el dibujo de pares: bajo un nodo, corto
+    "peer_clock": "n{node} reloj −{seconds:g}s",
+    "peer_dup": "n{node} ¡duplica!",
 }
 
 LESSON = Lesson(

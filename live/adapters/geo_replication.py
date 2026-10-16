@@ -1,14 +1,16 @@
-"""The pictures for lab geo_replication: cluster (the three regions as columns of nodes, with users'
+"""The pictures for lab geo_replication: peers (the three regions on a triangle, the oceans between them as
+links, the global load balancer as the door), cluster (the three regions as columns of nodes, with users'
 requests and the messages that cross oceans between them) and lanes (the users' view: every
 operation, the global load balancer as the door, the regions as the server)."""
 
 from __future__ import annotations
 
-from live.adapters.common import client_lanes, every, op_id
+from live.adapters.common import client_lanes, every, link_list, op_id, peer_traffic
 from live.canvas import BLUE, EXTRA2, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
+from live.views.lanes_peers import LINE, Leaf, PeersAdapter, PeersFrame
 
 ZONES = 3  # nodes per region: a column each, one row per zone
 USER_FLY = 0.25  # seconds a user's request is shown flying to its region (cosmetic: it takes ~1 ms)
@@ -122,3 +124,63 @@ class GeoReplicationLanes(LaneAdapter):
                          door_color=RED if down else None, fill=fill,
                          gauge=RED if fill >= 0.9 else EXTRA2 if fill >= 0.7 else BLUE,
                          outline=RED if down or not all(o[OP_OK] for o in last) else OUTLINE, state=state)
+
+
+# ---------------------------------------------------------------- the peers picture: the three regions, and the users
+
+
+@adapts("geo_replication", "peers")
+class GeoReplicationPeers(PeersAdapter):
+    """The users, and the door: the global load balancer (red while a region is down and its users are being
+    moved). The three regions on a triangle, us at the top, eu and ap below, each link labelled with its
+    one-way latency over the ocean. A user's request flies from the door to the region that serves it: white
+    to its home region, orange when failed over or retried elsewhere. On the links: orange a request
+    forwarded across an ocean, blue replication. A box's gauge is the region's load against the 320/s it can
+    serve (orange past 70%, red past 90%); its outline is the acknowledged writes it still lacks (blue, then
+    oranges: "eu −120"), red while down ("us down"); a cut-off region's links are cut ("us cut off")."""
+
+    def frame(self, variant: str, t: float, users: int) -> PeersFrame:
+        from labs.geo_replication.api import REGIONS, between
+        from live.worlds.geo_replication import (
+            MSG_ARRIVED, MSG_DEST, MSG_SENT, MSG_SRC, MSG_USER, OP_FIRST, OP_HOME, OP_SERVED, OP_START, REG_BEHIND,
+            REG_CUT, REG_UP, behind_colour,
+        )
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return PeersFrame()
+        lane = GeoReplicationLanes(w).frame(variant, t, users)  # the users, the balancer, the answers, the state
+        flights, drops, recent = peer_traffic(run, t, (MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED),
+                                              lambda m: EXTRA2 if m[MSG_USER] else BLUE, longest=LONGEST,
+                                              most=MAX_MSGS)
+        for o in every(run.rows("ops", t - USER_FLY, t + 1e-9), MAX_USERS):
+            to = o[OP_SERVED] if o[OP_SERVED] >= 0 else o[OP_FIRST]
+            flights.append((-1, to, (t - o[OP_START]) / USER_FLY, WHITE if to == o[OP_HOME] else EXTRA2))
+        sample = w.sample_at(run, t)
+        up = sample[REG_UP] if sample is not None else (True,) * 3
+        cut = sample[REG_CUT] if sample is not None else (False,) * 3
+        behind = sample[REG_BEHIND] if sample is not None else (0,) * 3
+        groups = [1 if c else 0 for c in cut] if any(cut) else None
+        busy = w.busy(run, t)
+        peers = []
+        for i, name in enumerate(REGIONS):
+            outline = behind_colour(behind[i]) if up[i] else RED
+            if not up[i]:
+                label, words = w.s("peer_down", name=name), RED
+            elif cut[i]:
+                label, words = w.s("peer_cut", name=name), RED
+            elif behind[i] > 2:
+                label, words = w.s("peer_behind", name=name, n=behind[i]), outline
+            else:
+                label, words = name, outline
+            fill = max(0.0, min(1.0, busy[i]))
+            peers.append(Leaf(label=(label, words), short=name, tiny=name, fill=fill if up[i] else 0.0,
+                              gauge=RED if fill >= 0.9 else EXTRA2 if fill >= 0.7 else BLUE, outline=outline))
+        links = {(0, 1): LINE, (0, 2): LINE, (1, 2): LINE}  # the three oceans, always there
+        links.update(recent)
+        labels = {(a, b): w.s("peer_ms", ms=between(REGIONS[a], REGIONS[b]) * 1000) for a, b in links}
+        return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
+                          door_color=lane.door_color, state=lane.state, peers=peers, links=link_list(links),
+                          link_labels=labels, groups=groups, flights=every(flights, MAX_MSGS + MAX_USERS),
+                          drops=every(drops, MAX_DROPS))
