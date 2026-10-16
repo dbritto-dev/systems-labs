@@ -324,11 +324,13 @@ def test_the_fanout_picture_shows_each_partition():
         set_view(world, "fanout")
         frame = adapter_for(world).frame(v, t, 100)
         text = "\n".join(plain(line) for line in compose(world, v, t, 92, 30))
-        assert all(leaf.label[0] in text for leaf in frame.leaves) and frame.state[0] in text
+        shown = [leaf.label[0] in text or (leaf.short and leaf.short in text) for leaf in frame.leaves]
+        assert all(shown) and frame.state[0] in text  # each name, or its short form on this small screen
         return frame
 
     given, solved = fan("main", 24.0), fan("reference", 24.0)
-    assert len(given.leaves) == PARTITIONS and given.leaves[hot].label[0] == build_world(LAB, "main", 1).s("fan_hot", p=hot)
+    assert len(given.leaves) == PARTITIONS and given.leaves[hot].short == build_world(LAB, "main", 1).s("fan_hot_short", p=hot)
+    assert given.leaves[hot].label[0].startswith(given.leaves[hot].short)  # "p1 hot 99%", "p1 hot" when cramped
     # Hash by key: the hot partition melts (red), the hot key's requests all go there and some are throttled.
     assert [p for p, leaf in enumerate(given.leaves) if leaf.outline == RED] == [hot]
     assert {j for j, _, c, _ in given.hops if c == PURPLE} == {hot} and any(c == RED for _, _, c, _ in given.hops)

@@ -188,7 +188,8 @@ def test_the_fanout_picture_shows_where_each_read_goes():
         return adapter_for(world).frame(v, t, 100)
 
     given, solved = fan("main", 27.0), fan("reference", 27.0)  # r2 is ~6 s behind (0:20-0:30)
-    assert len(given.leaves) == 5 and all(0 < len(leaf.label[0]) <= 9 for leaf in given.leaves)
+    assert len(given.leaves) == 5 and all(0 < len(leaf.label[0]) <= 13 for leaf in given.leaves)  # wide screens
+    assert all(len(leaf.short or leaf.label[0]) <= 9 for leaf in given.leaves)  # and small ones
     assert "r2" in given.leaves[2].label[0] and given.leaves[2].outline != given.leaves[1].outline  # r2 is behind
     # Reading any replica hands out stale reads from r2 (red); the solution sends hardly any reads there.
     assert any(c == RED and j == 2 for j, _, c, _ in given.hops) and given.relay.outline == RED
