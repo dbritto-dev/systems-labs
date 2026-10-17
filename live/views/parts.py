@@ -443,7 +443,8 @@ class Boxes:
     side of the middle: what goes right keeps to the upper one, what comes back to the lower, so the two
     never mix. Their names go on the two rows under the picture
     (the last one only from column `free_from`, after the state): the full label if it fits, else the
-    short form, else the tiny one."""
+    short form, else the tiny one. A label with a line break ("n0\\nhead") is a name and a word about it,
+    one under the other when both fit, else on one line."""
 
     boxes: list[Leaf]
     x0: float
@@ -509,7 +510,7 @@ class Boxes:
         taken: dict[int, list[tuple[int, int]]] = {r: [] for r in rows}
 
         def place(row: int, word: str, c: int) -> int | None:
-            at = max(lo[row], min(round(c - len(word) / 2), cv.cols - len(word)))
+            at = max(lo[row], min(math.floor(mid - len(word) / 2 + 0.5), cv.cols - len(word)))
             if not word or at + len(word) > cv.cols or not at <= c < at + len(word) + 1:
                 return None  # it does not fit, or it would not stand under its box
             if any(at < b + 1 and a < at + len(word) + 1 for a, b in taken[row]):
@@ -521,6 +522,16 @@ class Boxes:
             if self.dimmed(j):
                 col = mix(col, BG, 0.3)
             c = int((self.xs[j] + 0.5) // 2)  # the column the box's centre is in
+            mid = self.xs[j] / 2 + 0.25  # the box's middle, in columns (a dot sits a quarter into its column)
+            if "\n" in text:  # a name and a word about it (its role): one under the other, when both fit
+                top, sub = text.split("\n", 1)
+                a0, a1 = place(rows[0], top, c), place(rows[1], sub, c)
+                if a0 is not None and a1 is not None:
+                    for row, word, at in ((rows[0], top, a0), (rows[1], sub, a1)):
+                        taken[row].append((at, at + len(word)))
+                        cv.text(row, at, word, col)
+                    continue
+                text = f"{top} {sub}"
             forms = list(dict.fromkeys(w for w in (text, box.short, box.tiny) if w))
             spot = next(((row, word, at) for word in forms for row in rows
                          if (at := place(row, word, c)) is not None), None)

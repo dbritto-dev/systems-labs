@@ -7,7 +7,8 @@ the groups that cannot talk. The clients sit on the left, one on each row of nod
 requests go level along the row to the node (white dots), on a faint line. Every way has two
 lanes, one per direction: what goes right keeps to the top of the row, what comes back to the
 bottom, so the two never mix. A lab can put every node in one row (`columns`), e.g. a chain left to
-right, and write a word under each node (`labels`), e.g. its role.
+right, and write a word under each node (`labels`), e.g. its role (a line break puts a second word
+under the first: "n0\\nhead").
 
 It draws a `ClusterFrame`; a `ClusterAdapter` per lab (live/adapters/<lab>.py) makes one.
 """
@@ -147,9 +148,10 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
     for i, colour in enumerate(fr.nodes):
         r, c = cell(i)
         cv.text(r, c, "◉", colour)
-    for i, (word, colour) in enumerate(fr.labels or []):
-        if i < n and word:
+    for i, (text, colour) in enumerate(fr.labels or []):
+        if i < n and text:
             r, c = cell(i)
-            cv.text(r + 1, max(0, min(cv.cols - len(word), c - len(word) // 2)), word, colour)
+            for k, word in enumerate(text.split("\n")):  # a line break: a name, and a word about it under it
+                cv.text(r + 1 + k, max(0, min(cv.cols - len(word), c - len(word) // 2)), word, colour)
     text, colour = fr.state
     cv.text(cv.rows - 1, max(0, (left + right) // 2 - len(text) // 2), text, colour)

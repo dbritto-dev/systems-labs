@@ -85,7 +85,7 @@ STRINGS = {
     "short_copying": "{node} COPIA",
     "short_short": "{n}/{of} RÉPLICAS",
     # el dibujo del clúster: una palabra bajo cada nodo
-    "role": "{node} {role}",
+    "role": "{node}\n{role}",  # the role under the node's name
     "role_head": "cabeza",
     "role_tail": "cola",
     "role_down": "caído",

@@ -84,7 +84,7 @@ STRINGS = {
     "short_copying": "{node} COPYING",
     "short_short": "{n}/{of} REPLICAS",
     # the cluster picture: a word under each node
-    "role": "{node} {role}",
+    "role": "{node}\n{role}",  # the role under the node's name
     "role_head": "head",
     "role_tail": "tail",
     "role_down": "down",
