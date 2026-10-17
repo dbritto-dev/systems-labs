@@ -39,6 +39,26 @@ def cut_of(run: Run, inc: Incident) -> int | None:
     return scenario.cut_region(inc.kind, hit_of(run, inc))
 
 
+def judged(run: Run, rows: list[tuple]) -> list[tuple]:
+    """The operations judged for latency, like the goal: not those of a region's users that ran while it was
+    down or cut off (and 5 s after: caught by it, or started in it), even once that window is over and they
+    are still in a look-back."""
+    if not rows:
+        return rows
+    first = min(o[OP_START] for o in rows)
+    out = []
+    for inc in reversed(run.incidents):
+        a, b = _window(inc)
+        if b <= first:
+            break
+        cut = cut_of(run, inc)
+        if cut is not None:
+            out.append((a, b, cut))
+    if not out:
+        return rows
+    return [o for o in rows if not any(o[OP_HOME] == cut and a < o[OP_END] and o[OP_START] < b for a, b, cut in out)]
+
+
 # ---------------------------------------------------------------- goals
 
 
@@ -169,8 +189,8 @@ class GeoReplicationWorld(World):
             if o[OP_KIND] == READ:
                 by_second.setdefault(int(o[OP_START]), []).append(o)
         for second, rows in by_second.items():
-            judged = next((i for i in reversed(run.incidents) if i.t0 <= second < _window(i)[1]), None)
-            p99s[second] = worst_p99(rows, READ, cut_of(run, judged) if judged else None)[0]
+            inc = next((i for i in reversed(run.incidents) if i.t0 <= second < _window(i)[1]), None)
+            p99s[second] = worst_p99(rows, READ, cut_of(run, inc) if inc else None)[0]
         # The tile looks 30 s behind the playhead, which seeks KEEP s back: older seconds are never shown.
         # (Seconds are added in time order, so the oldest come first.)
         old = run.end - KEEP - 2 * PIECE
@@ -271,7 +291,7 @@ class GeoReplicationWorld(World):
             text = self.s(f"state_{inc.kind}", **words)
             colour = RED if inc.kind in ("down", "partition") else EXTRA2
         else:
-            p99, _ = worst_p99([o for o in last if o[OP_KIND] == READ], READ, None)
+            p99, _ = worst_p99(judged(run, [o for o in last if o[OP_KIND] == READ]), READ, None)
             text, colour = self.s("state_ok", p99=fmt_ms(p99) if p99 not in (None, math.inf) else "–"), GREEN
         if stale:
             text, colour = f"{text} · {self.s('state_stale', n=stale)}", PURPLE
@@ -282,12 +302,10 @@ class GeoReplicationWorld(World):
     def traffic(self, variant: str, t: float) -> Traffic:
         run = self.runs[variant]
         inc = self.incident_at(variant, t)
-        judged = next((i for i in reversed(run.incidents) if i.t0 <= t < _window(i)[1]), None)
-        cut = cut_of(run, judged) if judged else None  # like the goal: not its users, until it is judged
 
         def p99_of(a: float, b: float) -> float | None:
             rows = [o for o in self.recent(run, b, b - a) if o[OP_KIND] == READ]
-            return worst_p99(rows, READ, cut)[0]
+            return worst_p99(judged(run, rows), READ, None)[0]
 
         def p99_state(v: float | None) -> str:
             return "idle" if v is None else "bad" if v > lab.READ_P99_MAX else "warn" if v > lab.READ_P99_MAX / 2 else "ok"
@@ -341,7 +359,7 @@ class GeoReplicationWorld(World):
             colour = RED if inc.kind in ("down", "partition") else EXTRA2
             return self.s(f"head_{inc.kind}", busiest=REGIONS[hottest], util=busy[hottest], **words), colour
         last = [o for o in self.recent(run, t, 5.0) if o[OP_KIND] == READ]
-        p99, where = worst_p99(last, READ, None)
+        p99, where = worst_p99(judged(run, last), READ, None)
         if p99 is not None and p99 > lab.READ_P99_MAX:
             return self.s("head_far", region=REGIONS[where], p99=fmt_ms(p99) if p99 < math.inf else "∞"), EXTRA2
         return self.s("head_ok", p99=fmt_ms(p99)), MUTED

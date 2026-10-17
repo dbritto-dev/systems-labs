@@ -41,9 +41,11 @@ class PeersFrame(LaneFrame):
     requests: list[tuple[int, float, RGB, bool]] = field(default_factory=list)  # (user, 0..1, colour, big)
     peers: list[Leaf] = field(default_factory=list)
     links: list[tuple[int, int, RGB]] = field(default_factory=list)  # only the links to draw (LINE: plain)
-    link_labels: dict[tuple[int, int], str] = field(default_factory=dict)  # a word on a link, when it fits
+    # A word on a link, when it fits; or (words, colour): the first of the words that fits, longest first.
+    link_labels: dict[tuple[int, int], str | tuple[tuple[str, ...], RGB]] = field(default_factory=dict)
     groups: list[int] | None = None  # a partition: the group of each peer; links between groups are cut
     drops: list[tuple[int, int, float]] = field(default_factory=list)  # (src, dest, 0..1 faded): lost
+    two_way: bool = False  # each link as two lanes, one per direction, so messages each way never mix
 
 
 class PeersAdapter(Adapter):
@@ -80,8 +82,8 @@ def draw_peers(cv: Canvas, make) -> None:
         Door(xg, fr.closed, fr.door_color),
         Flights(fr.requests, xg),
         Outcomes(fr.outcomes, xg),
-        Links(fr.links, ring, fr.groups, fr.drops, fr.link_labels),
+        Links(fr.links, ring, fr.groups, fr.drops, fr.link_labels, fr.two_way),
         ring,
-        PeerHops(fr.flights, ring, xg),  # peer ⇄ peer, and the door → a peer
+        PeerHops(fr.flights, ring, xg, fr.two_way),  # peer ⇄ peer, and the door → a peer
         Caption(*fr.state, ring.centre),  # the state, under the ring
     ])

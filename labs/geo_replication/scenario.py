@@ -53,6 +53,9 @@ SAMPLE = 0.2  # how often the checker looks inside the regions
 LINK_LOSS = 0.1  # share of messages a slow link drops
 SERVICE = 1.0 / CAPACITY
 LINKS = (("us", "eu"), ("us", "ap"), ("eu", "ap"))
+# A user's request forwarded to another region, and that region's answer to it: the rest between regions is
+# the regions' own traffic (replicate and its acks, fetch). The pictures draw the two in different colours.
+USER_TYPES = frozenset({"read", "write", "read_ok", "write_ok", "error"})
 # Where a user's app goes: their own region, then the next one (the load balancer skips a region it
 # knows is down).
 ORDER = {r: [r, FAILOVER[r]] + [x for x in REGIONS if x not in (r, FAILOVER[r])] for r in REGIONS}
@@ -408,7 +411,8 @@ class _Sim:
             net.own, net.other, net.shed = [0] * 3, [0] * 3, [0] * 3
 
     def messages(self, a: float, b: float) -> list[tuple]:
-        """Messages between regions sent in [a, b): (sent, src, dest, arrived or None, a user's request?)."""
+        """Messages between regions sent in [a, b): (sent, src, dest, arrived or None, a user's request or
+        its answer?)."""
         out, keep = [], []
         where = self.net.where
         for d in self.net.log:
@@ -416,7 +420,7 @@ class _Sim:
                 keep.append(d)
                 continue
             if d.sent >= a:
-                out.append((d.sent, where[d.src], where[d.dest], d.arrived, d.type in ("read", "write")))
+                out.append((d.sent, where[d.src], where[d.dest], d.arrived, d.type in USER_TYPES))
         self.net.log[:] = keep
         return out
 
@@ -450,7 +454,7 @@ def stream(variant="main", seed: int = 1, rate: float = 200.0) -> Iterator[dict]
                     # (start, home region, read/write, own profile?, region tried first, region that
                     #  answered or -1, end, answered, missed own write, attempts)
                     "ops": _take(s.ops, 0, a, b),
-                    # (sent, src region, dest region, arrived or None if dropped, a user's request?)
+                    # (sent, src region, dest region, arrived or None if dropped, a user's request or its answer?)
                     "msgs": s.messages(a, b),
                     # (t, up, cut off, load balancer says down, keys behind, busy share, own users'
                     #  requests, other requests, shed, writes with one copy): per region, every 0.2 s

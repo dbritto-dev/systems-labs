@@ -68,7 +68,7 @@ STRINGS = {
     "warn_failed": "{n} operations failed",
     "warn_risk": "{n} acknowledged writes in one region only",
     # the panel
-    "tile_p99": "p99",
+    "tile_p99": "Read p99",
     "tile_stale": "Stale",
     "tile_available": "Served",
     "title": "Regions",
@@ -81,8 +81,8 @@ STRINGS = {
     "head_peak": "{name} peak, {x:.1f}x: {busiest} at {util:.0%}",
     "head_far": "Users in {region} wait {p99} for a read (p99)",
     "head_ok": "Every region reads at home: p99 {p99}",
-    "note_nodes": "Nodes: one column per region (us, eu, ap), three zones each.",
-    "note_chart": "Chart: operations/s: fast, slow, missed own write, failed.",
+    "note_nodes": "Columns: us, eu, ap; rows: their three zones.",
+    "note_chart": "Chart: operations per second, by outcome.",
     # the cluster picture: the state under the regions
     "state_down": "{name} DOWN · its users → {to}",
     "state_partition": "{name} CUT OFF",
@@ -101,7 +101,8 @@ STRINGS = {
     "peer_cut": "{name} cut off",
     "peer_behind": "{name} −{n}",
     "peer_ms": "{ms:.0f}ms",
-    "note_regions": "Regions: us, eu, ap; on each link, the one-way latency over the ocean.",
+    "peer_ms_way": "{ms:.0f}ms one way",
+    "note_regions": "On each link: its one-way latency.",
     # errors in your code
     "no_store": "RegionNode must keep its data in self.store, as {key: (version, value)}: the checker looks there",
 }

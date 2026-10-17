@@ -247,6 +247,15 @@ def stat_rows(stats: list[tuple[str, str, RGB]], width: int, style: Style) -> li
     return rows + ([cur] if cur else [])
 
 
+def fit_words(s: str, n: int) -> str:
+    """s in at most n characters, cut at a word with "…" when it is longer (never mid-word)."""
+    if len(s) <= n:
+        return s
+    cut = s[: max(0, n - 1)]
+    space = cut.rfind(" ")
+    return (cut[:space] if space > n // 2 else cut).rstrip(" ,;:·—-") + "…"
+
+
 def legend_rows(items: list[tuple], width: int, style: Style) -> list[str]:
     """The colour key, packed into as few rows as fit. An item is (colour or [colours], name) or
     (colour, name, glyph)."""
@@ -326,7 +335,7 @@ def panel(world, v: str, t: float, width: int, height: int, style: Style) -> lis
     tr = world.traffic(v, t)
     lines = world.goal_lines(v, t)
     legend = legend_rows(world.legend, width - 1, style)
-    notes = [" " + style.paint(note[:width - 1], MUTED) for note in world.legend_notes()]
+    notes = [" " + style.paint(fit_words(note, width - 1), MUTED) for note in world.legend_notes()]
 
     memo: dict = {}  # the parts every layout shares, built once
 

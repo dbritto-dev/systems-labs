@@ -10,7 +10,7 @@ import textwrap
 
 from core.i18n import screen_text
 from live.canvas import BLUE, DIM, EXTRA2, GREEN, INK, LIMIT, MUTED, PURPLE, RED, RGB, Canvas, Style, vis
-from live.panel import EMPTY, panel, split_row
+from live.panel import EMPTY, fit_words, panel, split_row
 from live.views import render
 from live.worlds.base import clock
 
@@ -195,15 +195,6 @@ def split_error(error: str) -> tuple[str, str]:
     head = screen_text().EDIT_HERE.split("{where}")[0]  # "edit " / "edita "
     message, sep, where = error.partition(f"  ({head}")
     return (message, where.rstrip(")")) if sep else (error, "")
-
-
-def fit_words(s: str, n: int) -> str:
-    """s in at most n characters, cut at a word with "…" when it is longer (never mid-word)."""
-    if len(s) <= n:
-        return s
-    cut = s[: max(0, n - 1)]
-    space = cut.rfind(" ")
-    return (cut[:space] if space > n // 2 else cut).rstrip(" ,;:·—-") + "…"
 
 
 def help_card(width: int, height: int, style: Style) -> list[str]:

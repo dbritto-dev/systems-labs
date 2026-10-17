@@ -68,7 +68,7 @@ STRINGS = {
     "warn_failed": "{n} operaciones fallaron",
     "warn_risk": "{n} escrituras confirmadas en una sola región",
     # el panel
-    "tile_p99": "p99",
+    "tile_p99": "Lect. p99",
     "tile_stale": "Viejas",
     "tile_available": "Éxito",
     "title": "Regiones",
@@ -81,8 +81,8 @@ STRINGS = {
     "head_peak": "pico en {name}, {x:.1f}x: {busiest} al {util:.0%}",
     "head_far": "Los usuarios de {region} esperan {p99} por lectura (p99)",
     "head_ok": "Cada región lee en casa: p99 {p99}",
-    "note_nodes": "Nodos: una columna por región (us, eu, ap), tres zonas cada una.",
-    "note_chart": "Gráfica: operaciones/s: rápidas, lentas, sin lo propio, fallidas.",
+    "note_nodes": "Columnas: us, eu, ap; filas: sus tres zonas.",
+    "note_chart": "Gráfica: operaciones por segundo, por resultado.",
     # el dibujo del clúster: el estado bajo las regiones
     "state_down": "{name} CAÍDA · sus usuarios → {to}",
     "state_partition": "{name} AISLADA",
@@ -101,7 +101,8 @@ STRINGS = {
     "peer_cut": "{name} aislada",
     "peer_behind": "{name} −{n}",
     "peer_ms": "{ms:.0f}ms",
-    "note_regions": "Regiones: us, eu, ap; en cada enlace, la latencia de ida por el océano.",
+    "peer_ms_way": "{ms:.0f}ms de ida",
+    "note_regions": "En cada enlace: su latencia de ida.",
     # errores en tu código
     "no_store": "RegionNode debe guardar sus datos en self.store, como {key: (version, value)}: el comprobador mira ahí",
 }

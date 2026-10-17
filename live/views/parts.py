@@ -685,17 +685,34 @@ class PeerRing:
                 cv.text(s.name_row, s.name_col, s.name, peer.label[1])
 
 
+LANE = 3  # dots between a link's middle and each of its two lanes, when it has two
+
+
+def lane(ends: tuple[tuple[float, float], tuple[float, float]], off: float):
+    """The same segment moved `off` dots to the right of its direction (y grows down): with two lanes, what
+    goes a → b keeps to its right, and what comes back to its own right, so the two never mix."""
+    import math
+
+    (x0, y0), (x1, y1) = ends
+    n = math.hypot(x1 - x0, y1 - y0) or 1.0
+    nx, ny = -(y1 - y0) / n * off, (x1 - x0) / n * off
+    return (x0 + nx, y0 + ny), (x1 + nx, y1 + ny)
+
+
 @dataclass(slots=True)
 class Links:
     """The links between peers: dotted lines from box edge to box edge, LINE-coloured unless the picture gives
     a colour; a red ✕ at the middle of a link between different `groups` (a partition cuts it); and the
-    messages lost on a link, red, stopped short of its middle, fading."""
+    messages lost on a link, red, stopped short of its middle, fading. With `two_way`, each link is two
+    lanes, one per direction (see `lane`), and a lost message stops on its own."""
 
     links: list[tuple[int, int, RGB]]
     ring: PeerRing
     groups: list[int] | None = None
     drops: list[tuple[int, int, float]] = field(default_factory=list)  # (src, dest, 0..1 faded)
-    labels: dict[tuple[int, int], str] = field(default_factory=dict)  # a word at a link's middle, if it fits
+    # A word at a link's middle, if it fits; or (words, colour): the first of the words that fits, longest first.
+    labels: dict[tuple[int, int], str | tuple[tuple[str, ...], RGB]] = field(default_factory=dict)
+    two_way: bool = False
 
     def ends(self, st: Stage, a: int, b: int) -> tuple[tuple[float, float], tuple[float, float]] | None:
         spots = self.ring.place(st)
@@ -712,14 +729,16 @@ class Links:
             ends = self.ends(st, a, b)
             if ends is None:
                 continue
-            (x0, y0), (x1, y1) = ends
             plain = col == LINE
             gap = 3 if plain else 2
-            steps = max(1, int(math.hypot(x1 - x0, y1 - y0) / gap))
-            for s in range(steps + 1):
-                cv.dot(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, col, 0 if plain else 1)
+            for (x0, y0), (x1, y1) in ((lane(ends, LANE), lane(ends, -LANE)) if self.two_way else (ends,)):
+                steps = max(1, int(math.hypot(x1 - x0, y1 - y0) / gap))
+                for s in range(steps + 1):
+                    cv.dot(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, col, 0 if plain else 1)
         for a, b, fade in self.drops:
             ends = self.ends(st, a, b)
+            if ends is not None and self.two_way:
+                ends = lane(ends, LANE)
             if ends is not None:
                 (x0, y0), (x1, y1) = ends
                 cv.blob(x0 + (x1 - x0) * 0.4, y0 + (y1 - y0) * 0.4, mix(RED, BG, max(0.0, min(1.0, fade))), 7, 1)
@@ -737,16 +756,19 @@ class Links:
                         cv.text(r, c, CUT, RED)
                         taken.add((r, c))
                         break
-        for (a, b), word in self.labels.items():  # a word on a link, where it does not cover anything
+        for (a, b), label in self.labels.items():  # a word on a link, where it does not cover anything
             ends = self.ends(st, a, b)
-            if ends is None or not word:
+            if ends is None:
                 continue
+            words, colour = ((label,), OUTLINE) if isinstance(label, str) else label
             (x0, y0), (x1, y1) = ends
-            r, c = int((y0 + y1) / 2) // 4, round((x0 + x1) / 4 - len(word) / 2)
-            cells = {(r, c + k) for k in range(-1, len(word) + 1)}
-            if 0 <= r <= st.body1 and 0 <= c and c + len(word) <= cv.cols and not cells & taken:
-                cv.text(r, c, word, OUTLINE)
-                taken |= cells
+            for word in filter(None, words):
+                r, c = int((y0 + y1) / 2) // 4, round((x0 + x1) / 4 - len(word) / 2)
+                cells = {(r, c + k) for k in range(-1, len(word) + 1)}
+                if 0 <= r <= st.body1 and 0 <= c and c + len(word) <= cv.cols and not cells & taken:
+                    cv.text(r, c, word, colour)
+                    taken |= cells
+                    break
 
 
 @dataclass(slots=True)
@@ -757,6 +779,7 @@ class PeerHops:
     hops: list[tuple[int, int, float, RGB]]  # (src, dest, 0..1, colour)
     ring: PeerRing
     door: float  # the door's x, in dots
+    two_way: bool = False  # each on its direction's lane of the link (see Links)
 
     def draw(self, st: Stage) -> None:
         spots = self.ring.place(st)
@@ -770,6 +793,7 @@ class PeerHops:
                 (x0, y0), (x1, y1) = spots[a].edge(dx, dy), (dx, dy)
             else:
                 sa, sb = spots[a], spots[b]
-                (x0, y0), (x1, y1) = sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)
+                ends = sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)
+                (x0, y0), (x1, y1) = lane(ends, LANE) if self.two_way else ends
             p = max(0.0, min(1.0, p))
             st.cv.blob(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, col, 6, 1)

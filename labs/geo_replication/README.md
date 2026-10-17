@@ -29,12 +29,19 @@ uv run pytest labs/geo_replication             # x = not yet, X = done
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
 Spanish comments and hints.
 
-Two pictures (`v` switches): **cluster** (it opens with this one) shows the regions side by side,
-us, eu and ap, as columns of three nodes (their zones), coloured by how many acknowledged writes the
+Three pictures (`v` switches): **peers** (it opens with this one) shows the three regions on a
+triangle, us at the top, each link labelled with its one-way latency; the users come in through the
+global load balancer on the left (red while a region is down), and a user's request flies to the
+region that serves it: white at home, orange elsewhere. On the links, each direction on its own
+lane (keeping right): orange a request forwarded across an ocean and its answer, blue replication
+(its acks and fetches too). A region's gauge is its load against the 320/s it can serve; its
+outline and the word under it say how many acknowledged writes it lacks (`eu −120`), or that it is
+down or cut off. **cluster** shows the regions side by side, us, eu and ap (named under each
+column), as columns of three nodes (their zones), coloured by how many acknowledged writes the
 region still lacks: blue up to date, oranges behind, red down; a cut-off region is fenced by a red
 dashed line. Users' requests fly in from the left: white to their own region, orange to another.
-Between the regions, at their real speed: orange a user's request forwarded across an ocean, blue
-replication; a message the network dropped dies half way in red. **lanes** shows every operation on
+Between the regions, at their real speed: orange a user's request forwarded across an ocean and its
+answer, blue replication; a message the network dropped dies half way in red. **lanes** shows every operation on
 the left, the global load balancer as the door (red while a region is down) and the regions as the
 server, its gauge the busiest region's load; answers are green (fast), orange (slow: it crossed an
 ocean or waited for a retry), purple (a read that missed the user's own write) or red (failed).

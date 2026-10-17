@@ -251,11 +251,19 @@ def test_the_peers_picture_shows_the_oceans_and_the_region_cut_off():
     for v in ("main", "reference"):
         world, (cut,) = peers(v, [25.0])
         assert [p.short for p in cut.peers] == ["us", "eu", "ap"]
-        assert set(cut.link_labels.values()) == {"70ms", "100ms", "150ms"}
+        assert {words[-1] for words, _ in cut.link_labels.values()} == {"70ms", "100ms", "150ms"}
+        assert cut.link_labels[1, 2][0][0] == world.s("peer_ms_way", ms=150)  # the long form, where it fits
         assert cut.groups == [1, 0, 0] and cut.peers[0].label == (world.s("peer_cut", name="us"), RED)
         assert cut.peers[0].outline != RED  # cut off, not down
         text = "\n".join(plain(line) for line in compose(world, v, 25.0, 110, 44))
         assert "✕" in text and "150ms" in text  # us's two oceans cut; eu–ap still there
+    # A slow link (seed 1: us–eu +240 ms at 3:09.5–3:17.3) shows its latency now, in orange; the others do not change.
+    world = build_world(LAB, "reference", 4)
+    inc = world.incident_at("reference", 192.0)
+    assert inc is not None and inc.kind == "slow" and (world.names(inc)["a"], world.names(inc)["b"]) == ("us", "eu")
+    slow = adapter_for(world).frame("reference", 192.0, 90).link_labels
+    assert slow[0, 1] == ((world.s("peer_ms_way", ms=310), "310ms"), EXTRA2)
+    assert slow[0, 2][0][-1] == "100ms" and slow[1, 2][0][-1] == "150ms" and slow[0, 2][1] != EXTRA2
     world, given = peers("main", calm)
     _, solved = peers("reference", calm)
     behind = [p for f in given[4:] for p in f.peers[1:]]  # one primary in us: eu and ap lag behind it
