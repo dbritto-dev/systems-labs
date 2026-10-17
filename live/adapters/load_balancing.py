@@ -1,6 +1,7 @@
 """The pictures for lab load_balancing: cluster (the 4 balancers on the top row, the 8 servers below,
-every request flying from a balancer to the server it picked) and lanes (users → the balancers as the
-door → the fleet of servers)."""
+every request flying from a balancer to the server it picked), lanes (users → the balancers as the
+door → the fleet of servers), relay (the balancers as a server of their own, the fleet as one) and
+fan-out (the balancers in the middle, each of the 8 servers on its own on the right)."""
 
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
+from live.views.lanes_fanout import FanoutAdapter, FanoutFrame, Leaf
 from live.views.lanes_relay import Relay, RelayAdapter, RelayFrame
 
 QUEUE_FULL = 4 * WORKERS  # requests in flight on one server that fill the gauge
@@ -149,3 +151,44 @@ class LoadBalancingRelay(RelayAdapter):
             fill=busiest / QUEUE_FULL, gauge=gauge, outline=PURPLE if sick >= 0 else OUTLINE,
             state=_state(w, run, t, sick, timeouts), relay=relay, hops=hops,
         )
+
+
+@adapts("load_balancing", "fanout")
+class LoadBalancingFanout(FanoutAdapter):
+    """The relay picture with the fleet opened up: users → the door → the 4 balancers (their gauge is how much
+    one of them herds, orange when it does) → each of the 8 servers on its own, s0 ... s7, its gauge its queue
+    (requests in flight against 4x its workers: blue while its workers keep up, then oranges, red full), the
+    slow one purple ("s2 slow"). Each request flies from the balancers to the very server it was sent to,
+    white (big and purple to the slow one); one still waiting sits by its server, orange the longer it waits;
+    a timeout comes back from its server in red. Herding shows as most requests flying to one server."""
+
+    def frame(self, variant: str, t: float, users: int) -> FanoutFrame:
+        from live.worlds.load_balancing import REQ_END, REQ_OK, REQ_SERVER, REQ_SICK, REQ_START
+
+        w = self.world
+        run = w.runs.get(variant)
+        if run is None:
+            return FanoutFrame()
+        relay = LoadBalancingRelay(w).frame(variant, t, users)  # the users, the door, the balancers, the state
+        hops = []
+        for r in every([r for r in just_sent(run, "requests", t) if t - r[REQ_START] >= FLY / 2], 2 * FLIGHTS):
+            hops.append((r[REQ_SERVER], 2 * (t - r[REQ_START]) / FLY - 1, PURPLE if r[REQ_SICK] else WHITE, False))
+        for r in every([r for r in run.active("requests", t, REQ_END) if r[REQ_START] < t - FLY], FLIGHTS):
+            waited = t - r[REQ_START]  # still waiting: it sits by its server
+            hops.append((r[REQ_SERVER], 0.92, EXTRA1 if waited < 0.5 else EXTRA2 if waited < 0.8 else EXTRA3, False))
+        failed = [r for r in just_ended(run, "requests", REQ_END, t) if not r[REQ_OK]]
+        for r in every(failed, OUTCOMES):  # a timeout: back from its server, red
+            hops.append((r[REQ_SERVER], (t - r[REQ_END]) / BACK, RED, True))
+        sick = w.sick_at(run, t)
+        leaves = []
+        for i, n in enumerate(w.loads_at(run, t)):
+            fill = min(1.0, n / QUEUE_FULL)
+            gauge = RED if n >= QUEUE_FULL else _load_colour(n)
+            if i == sick:
+                leaves.append(Leaf(label=(w.s("fan_slow", n=i), PURPLE), fill=fill, gauge=gauge, outline=PURPLE))
+            else:
+                leaves.append(Leaf(label=(w.s("fan_server", n=i), WHITE), fill=fill, gauge=gauge,
+                                   outline=RED if n >= QUEUE_FULL else OUTLINE))
+        return FanoutFrame(users=relay.users, flights=relay.flights, outcomes=relay.outcomes, closed=relay.closed,
+                           door_color=relay.door_color, state=relay.state, relay=relay.relay, leaves=leaves,
+                           hops=hops)

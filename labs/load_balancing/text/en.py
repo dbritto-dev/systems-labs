@@ -47,6 +47,8 @@ STRINGS = {
     "note_dots": "Dots are a sample, slowed down (cosmetic).",
     # the pictures
     "topology": "4 balancers → 8 servers",
+    "fan_server": "s{n}",
+    "fan_slow": "s{n} slow",
     "lanes_balancers": "4 balancers",
     "state_sick": "{state} s{server}",
     # incidents

@@ -25,6 +25,7 @@ IDLE: RGB = (52, 58, 70)  # a user with nothing in flight
 LINE: RGB = (46, 52, 64)  # the dotted lines requests travel along
 OUTLINE: RGB = (130, 140, 155)  # a server's case
 LABEL_COLS = 10  # room for a small server's name, right of it
+LANE = 3  # dots between a link's middle and each of its two lanes, when it has two
 
 
 TRAIL = (0.035, 0.07)  # how far behind (in 0..1 of the way) the two dots of a moving dot's trail sit
@@ -237,8 +238,10 @@ def draw_leaf(cv: Canvas, x0: float, x1: float, y0: float, y1: float, leaf: Leaf
 
 @dataclass(slots=True)
 class Leaves:
-    """The small servers stacked between x0 and x1, a slanted dotted line from `sx` (on the middle line) to
-    each, and their names: beside them, or top to bottom in capitals when `vertical`."""
+    """The small servers stacked between x0 and x1, a dotted line from `sx` (on the middle line) to each, and
+    their names: beside them, or top to bottom in capitals when `vertical`. The lines are slanted, or with
+    `straight` level: each leaves `sx` at its own server's height and runs straight across to it (for a
+    relay as tall as the column of servers)."""
 
     leaves: list[Leaf]
     x0: float
@@ -246,7 +249,14 @@ class Leaves:
     sx: float
     vertical: bool = False
     label_cols: int = LABEL_COLS  # room for each name, right of its server (the view widens it when it can)
+    straight: bool = False
     mids: list[float] = field(default_factory=list)  # filled when drawn: each one's middle, for FanHops
+    ymid: float = 0.0  # filled when drawn: the middle line, where the lines leave `sx`
+
+    def at(self, ym: float, e: float) -> tuple[float, float]:
+        """The point e (0..1) of the way along the line to the server whose middle is ym."""
+        y0 = ym if self.straight else self.ymid
+        return self.sx + (self.x0 - 3 - self.sx) * e, y0 + (ym - y0) * e
 
     def boxes(self, st: Stage) -> list[tuple[float, float]]:
         """(top dot, bottom dot) of each small server."""
@@ -276,15 +286,17 @@ class Leaves:
                  for lf in self.leaves]
         pick = next((k for k in range(2)
                      if all(f[k] and len(f[k]) <= r1 - r0 + 1 for f, (r0, r1) in zip(forms, rows))), None)
-        self.mids = []
+        self.mids, self.ymid = [round((y0 + y1) / 2) for y0, y1 in boxes], st.ymid
+
+        def dotted(x0: float, y0: float, x1: float, y1: float) -> None:
+            steps = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) / 3))
+            for s in range(steps + 1):
+                cv.dot(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, LINE, 0)
+
         for j, leaf in enumerate(self.leaves):
             y0, y1 = boxes[j]
-            ym = (y0 + y1) / 2
-            self.mids.append(ym)
-            steps = max(1, int((self.x0 - 2 - self.sx) / 3))
-            for s in range(steps + 1):
-                p = s / steps
-                cv.dot(self.sx + (self.x0 - 2 - self.sx) * p, st.ymid + (ym - st.ymid) * p, LINE, 0)
+            ym = self.mids[j]
+            dotted(self.sx, ym if self.straight else st.ymid, self.x0 - 2, ym)
             draw_leaf(cv, self.x0, self.x1, y0, y1, leaf)
             text, col = leaf.label
             if self.vertical:  # one letter a row, in capitals, centred beside the server
@@ -306,21 +318,20 @@ class Leaves:
 
 @dataclass(slots=True)
 class FanHops:
-    """Requests between the relay and a small server, along that server's slanted line (or back)."""
+    """Requests between the relay and a small server, along that server's line (or back)."""
 
     hops: list[tuple[int, float, RGB, bool]]  # (leaf, 0..1, colour, back)
     leaves: Leaves  # drawn first: it knows where each small server sits
 
     def draw(self, st: Stage) -> None:
-        mids, sx, x0 = self.leaves.mids, self.leaves.sx, self.leaves.x0
+        lv = self.leaves
         for j, p, col, back in self.hops:
-            if 0 <= j < len(mids):
-                ym = mids[j]
+            if 0 <= j < len(lv.mids):
+                ym = lv.mids[j]
                 if back:  # on its way back: the same easing and trail, from the small server to the relay
-                    moving_dot(st.cv, lambda e, ym=ym: (sx + (x0 - 3 - sx) * (1 - e), st.ymid + (ym - st.ymid) * (1 - e)),
-                               p, col, 1)
+                    moving_dot(st.cv, lambda e, ym=ym: lv.at(ym, 1 - e), p, col, 1)
                 else:
-                    moving_dot(st.cv, lambda e, ym=ym: (sx + (x0 - 3 - sx) * e, st.ymid + (ym - st.ymid) * e), p, col, 1)
+                    moving_dot(st.cv, lambda e, ym=ym: lv.at(ym, e), p, col, 1)
 
 
 # ---------------------------------------------------------------- fan-in: the small servers all call one store
@@ -345,19 +356,26 @@ class Names:
 
 @dataclass(slots=True)
 class Joins:
-    """A slanted dotted line from each small server (from `starts[j]`, after its name, on its middle) to the
-    store's left edge `x1` on the middle line."""
+    """A dotted line from each small server (from `starts[j]`, after its name, on its middle) to the store's
+    left edge `x1`: slanted to the middle line, or with `straight` level, at the server's own height (for a
+    store as tall as the column of servers)."""
 
     leaves: Leaves  # drawn first: it knows where each small server sits
     starts: list[float]  # where each one's line starts, in dots
     x1: float
+    straight: bool = False
+
+    def end(self, st: Stage, ym: float) -> float:
+        """Where a server's line meets the store: at its own height, or on the middle line."""
+        return ym if self.straight else st.ymid
 
     def draw(self, st: Stage) -> None:
         for ym, x0 in zip(self.leaves.mids, self.starts):
+            y1 = self.end(st, ym)
             steps = max(1, int((self.x1 - x0) / 3))
             for s in range(steps + 1):
                 p = s / steps
-                st.cv.dot(x0 + (self.x1 - x0) * p, ym + (st.ymid - ym) * p, LINE, 0)
+                st.cv.dot(x0 + (self.x1 - x0) * p, ym + (y1 - ym) * p, LINE, 0)
 
 
 @dataclass(slots=True)
@@ -372,7 +390,8 @@ class JoinHops:
         for j, p, col, back in self.hops:
             if 0 <= j < min(len(mids), len(starts)):
                 p = 1 - p if back else p
-                st.cv.blob(starts[j] + (x1 - starts[j]) * p, mids[j] + (st.ymid - mids[j]) * p, col, 6, 1)
+                y1 = self.joins.end(st, mids[j])
+                st.cv.blob(starts[j] + (x1 - starts[j]) * p, mids[j] + (y1 - mids[j]) * p, col, 6, 1)
 
 
 @dataclass(slots=True)
@@ -419,7 +438,10 @@ GAP_SLOTS = 0.5  # the gap before the boxes that are out of the line, in slots
 class Boxes:
     """Small servers in a row, from the door (x0) to x1: segment k runs from box k - 1 (the door when k
     is 0) to box k. Each box is a slot wide: a segment, then the box. The boxes after `gap_after` are
-    out of the line: drawn after a gap, dimmed. Their names go on the two rows under the picture
+    out of the line: drawn after a gap, dimmed. Without `over`, nothing skips boxes and they stand taller.
+    With `two_way`, each segment is two lanes, LANE dots either
+    side of the middle: what goes right keeps to the upper one, what comes back to the lower, so the two
+    never mix. Their names go on the two rows under the picture
     (the last one only from column `free_from`, after the state): the full label if it fits, else the
     short form, else the tiny one."""
 
@@ -428,6 +450,8 @@ class Boxes:
     x1: float
     gap_after: int | None = None
     free_from: int = 0
+    two_way: bool = False
+    over: bool = True  # room above the boxes for the requests that skip some
     xs: list[float] = field(default_factory=list)  # each box's centre (set when made)
     rx: float = 0.0  # half a box's width
 
@@ -448,23 +472,29 @@ class Boxes:
         left = self.x0 + 2 if k == 0 else self.xs[k - 1] + self.rx + 2
         return left, self.xs[k] - self.rx - 3
 
+    def lane_y(self, st: Stage, back: bool) -> float:
+        """The y of the lane a request takes along a segment."""
+        return st.ymid + (LANE if back else -LANE) if self.two_way else st.ymid
+
     def x_of(self, j: int) -> float:
         """Box j's centre (-1: the door)."""
         return self.x0 if j < 0 else self.xs[j]
 
     @staticmethod
-    def span(st: Stage) -> tuple[int, int]:
-        """A box's top and bottom, in dots: room above for the arcs, and a row below for the names."""
-        return st.top + 8, st.bottom - 4
+    def span(st: Stage, over: bool = True) -> tuple[int, int]:
+        """A box's top and bottom, in dots: room above for the requests that skip boxes (when there are
+        any), and a row below for the names."""
+        return st.top + (16 if over else 4), st.bottom - 4
 
     def draw(self, st: Stage) -> None:
         cv = st.cv
-        y0, y1 = self.span(st)
+        y0, y1 = Boxes.span(st, self.over)
         last = self.gap_after if self.gap_after is not None else len(self.boxes) - 1
         for k in range(min(last + 1, len(self.boxes))):  # the dotted line between the door and each box
             a, b = self.seg(k)
-            for x in range(int(a), int(b) + 1, 3):
-                cv.dot(x, st.ymid, LINE, 0)
+            for y in {self.lane_y(st, False), self.lane_y(st, True)}:
+                for x in range(int(a), int(b) + 1, 3):
+                    cv.dot(x, y, LINE, 0)
         for j, box in enumerate(self.boxes):
             outline, gauge = box.outline, box.gauge
             if self.dimmed(j):
@@ -516,48 +546,64 @@ class SegHops:
             if 0 <= k < len(self.boxes.xs):
                 a, b = self.boxes.seg(k)
                 p = 1 - p if back else p
-                st.cv.blob(a + (b - a) * max(0.0, min(1.0, p)), st.ymid, col, 6, 1)
+                st.cv.blob(a + (b - a) * max(0.0, min(1.0, p)), self.boxes.lane_y(st, back), col, 6, 1)
 
 
 @dataclass(slots=True)
 class Skip:
-    """Requests that skip boxes: each pair (from, to) gets a dotted arc over the boxes, on the band
-    above them, and its requests are dots along it (0..1 from `from` to `to`; -1 is the door)."""
+    """Requests that skip boxes fly over them, on two straight lines on the band above the boxes, one per
+    direction (rightward on the upper one, leftward on the lower), so the two never mix: straight up out of
+    `from`, along its line, straight down into `to`. Its requests are dots along that way (0..1 from `from`
+    to `to`; -1 is the door). Only the stretches some pair uses are drawn."""
 
     skips: list[tuple[int, int, float, RGB]]  # (from, to, 0..1, colour)
     boxes: Boxes
 
-    def _arcs(self, st: Stage) -> dict[tuple[int, int], object]:
-        """Each pair's arc, as a function from 0..1 to (x, y): the longer the arc, the higher it stands
-        (so arcs that share an end can be told apart)."""
+    def _leg(self, j: int, right: bool) -> float:
+        """The x of box j's leg up to the line going right (or left): either side of its middle."""
+        return self.boxes.x0 + 3 if j < 0 else self.boxes.x_of(j) + (-2 if right else 2)
+
+    def _paths(self, st: Stage) -> dict[tuple[int, int], list[tuple[float, float]]]:
+        """Each pair's way, as its four corners."""
         n = len(self.boxes.xs)
-        pairs = dict.fromkeys((a, b) for a, b, _, _ in self.skips if -1 <= a < n and -1 <= b < n and a != b)
-        base = Boxes.span(st)[0] - 1
-        most = base - st.top - 1  # the band's height
-        spans = sorted({abs(self.boxes.x_of(b) - self.boxes.x_of(a)) for a, b in pairs})
+        base = Boxes.span(st, self.boxes.over)[0] - 2
         out = {}
-        for a, b in pairs:
-            xa, xb = self.boxes.x_of(a), self.boxes.x_of(b)
-            rank = spans.index(abs(xb - xa))
-            lift = most - (most - 3) * (len(spans) - 1 - rank) / max(1, len(spans) - 1)
-
-            def at(p: float, xa=xa, xb=xb, lift=lift) -> tuple[float, float]:
-                x = xa + (xb - xa) * max(0.0, min(1.0, p))
-                d = min(abs(x - xa), abs(x - xb))
-                return x, base - lift * math.sin(min(1.0, d / 6) * math.pi / 2)
-
-            out[(a, b)] = at
+        for a, b, _, _ in self.skips:
+            if -1 <= a < n and -1 <= b < n and a != b and (a, b) not in out:
+                right = self.boxes.x_of(b) > self.boxes.x_of(a)
+                y = st.top + (3 if right else 8)
+                xa, xb = self._leg(a, right), self._leg(b, right)
+                out[(a, b)] = [(xa, base), (xa, y), (xb, y), (xb, base)]
         return out
 
+    @staticmethod
+    def at(path: list[tuple[float, float]], p: float) -> tuple[float, float]:
+        """The point 0..1 of the way along a path of straight legs, by its length."""
+        legs = list(zip(path, path[1:]))
+        sizes = [abs(x1 - x0) + abs(y1 - y0) for (x0, y0), (x1, y1) in legs]
+        d = sum(sizes) * max(0.0, min(1.0, p))
+        for ((x0, y0), (x1, y1)), size in zip(legs, sizes):
+            if d <= size:
+                k = d / size if size else 1.0
+                return x0 + (x1 - x0) * k, y0 + (y1 - y0) * k
+            d -= size
+        return path[-1]
+
     def draw(self, st: Stage) -> None:
-        arcs = self._arcs(st)
-        for (a, b), at in arcs.items():
-            steps = max(2, int(abs(self.boxes.x_of(b) - self.boxes.x_of(a)) / 3))
-            for s in range(steps + 1):
-                st.cv.dot(*at(s / steps), LINE, 0)
+        paths = self._paths(st)
+        cv = st.cv
+        lines: dict[float, list[float]] = {}  # each line's y: the xs of the legs on it
+        for (xa, base), (_, y), _, (xb, _) in paths.values():
+            lines.setdefault(y, []).extend((xa, xb))
+            for x in (xa, xb):  # the legs, dotted on a grid of their own so shared ones stay one line
+                for yy in range(int(y) + 3, int(base) + 1, 3):
+                    cv.dot(x, yy, LINE, 0)
+        for y, xs in lines.items():
+            for x in range(int(min(xs)), int(max(xs)) + 1, 3):
+                cv.dot(x, y, LINE, 0)
         for a, b, p, col in self.skips:
-            if (a, b) in arcs:
-                st.cv.blob(*arcs[(a, b)](p), col, 6, 1)
+            if (a, b) in paths:
+                cv.blob(*self.at(paths[(a, b)], p), col, 6, 1)
 
 
 def draw_parts(st: Stage, parts: list) -> None:
@@ -684,8 +730,6 @@ class PeerRing:
             if s.name and s.name_row <= st.body1:
                 cv.text(s.name_row, s.name_col, s.name, peer.label[1])
 
-
-LANE = 3  # dots between a link's middle and each of its two lanes, when it has two
 
 
 def lane(ends: tuple[tuple[float, float], tuple[float, float]], off: float):

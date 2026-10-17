@@ -144,7 +144,7 @@ def test_both_pictures():
     from live.views import adapter_for, set_view, views_for
 
     world = build_world("load_balancing", "reference", 1)
-    assert views_for(world) == ["relay", "cluster", "lanes"] and world.view == "relay"  # relay opens first
+    assert views_for(world) == ["relay", "cluster", "fanout", "lanes"] and world.view == "relay"  # relay opens first
     set_view(world, "cluster")
     frame = adapter_for(world).frame("reference", 25.0)
     assert len(frame.nodes) == scenario.BALANCERS + scenario.SERVERS and frame.flights

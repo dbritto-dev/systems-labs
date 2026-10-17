@@ -94,8 +94,8 @@ def draw_fanin(cv: Canvas, make) -> None:
     names = [fit(lf, room) for lf in fr.leaves]
     boxes = [replace(lf, label=("", lf.label[1])) for lf in fr.leaves]  # the names are written by Names
     starts = [(col + len(w) + 1) * 2 if w else col * 2 for w in names]  # each join leaves after its name
-    leaves = Leaves(boxes, g["lx0"], g["lx1"], g["xg"] + 2)
-    joins = Joins(leaves, starts, g["x1"])
+    leaves = Leaves(boxes, g["lx0"], g["lx1"], g["xg"] + 2, straight=True)
+    joins = Joins(leaves, starts, g["x1"], straight=True)
     parts = [
         UsersGrid(fr.users),
         Wire(st.gx + 2, g["xg"] - 2),  # users → door

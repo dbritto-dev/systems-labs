@@ -3,8 +3,10 @@
 Each node is one character, coloured by how far behind it is. Messages are dots moving from
 one node to another at their real speed (~100 ms). A message dropped by a partition stops
 half way and fades out in red. During a partition a red dashed line cuts the grid between
-the groups that cannot talk. Clients sit in a column on the left and send their requests to
-the nodes (white dots). A lab can put every node in one row (`columns`), e.g. a chain left to
+the groups that cannot talk. The clients sit on the left, one on each row of nodes, and their
+requests go level along the row to the node (white dots), on a faint line. Every way has two
+lanes, one per direction: what goes right keeps to the top of the row, what comes back to the
+bottom, so the two never mix. A lab can put every node in one row (`columns`), e.g. a chain left to
 right, and write a word under each node (`labels`), e.g. its role.
 
 It draws a `ClusterFrame`; a `ClusterAdapter` per lab (live/adapters/<lab>.py) makes one.
@@ -17,10 +19,11 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 
 from live.canvas import BG, GREEN, RED, RGB, Canvas, mix
-from live.views.parts import LINE
+from live.views.parts import LINE, lane
 from live.views.base import Adapter, View, register
 
 CLIENT: RGB = (139, 148, 158)
+SIDE = 1.5  # dots between the middle of a node's row and each of its two lanes
 
 
 @dataclass(slots=True)
@@ -75,15 +78,23 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
         row = (top + bottom) / 2 if rows == 1 else top + r * step_r  # a lone row sits mid-height
         return round(row), round(left + c * step_c)
 
-    def centre(i: int) -> tuple[float, float]:  # in dots
-        if i < 0:  # the clients
-            return 2 * 3 + 1, cv.h / 2
+    def centre(i: int) -> tuple[float, float]:  # in dots: between the row's two lanes
         r, c = cell(i)
-        return c * 2 + 1, r * 4 + 2
+        return c * 2 + 1, r * 4 + 1.5
 
-    # The clients, on the left.
-    for k in range(5):
-        cv.text(cv.rows // 2 - 2 + k, 2, "○", CLIENT)
+    client_x = 2 * 2 + 1  # the clients' column, in dots
+
+    def ends(a: int, b: int) -> tuple[tuple[float, float], tuple[float, float]]:
+        """The way from a to b (-1: the clients, on the row of the node they talk to: a level line), on
+        the lane to the left of its direction: what goes right keeps to the top dots of the row and what
+        comes back to the bottom ones, so the two never mix."""
+        pa = (client_x, centre(b)[1]) if a < 0 else centre(a)
+        pb = (client_x, centre(a)[1]) if b < 0 else centre(b)
+        return lane((pa, pb), -SIDE)
+
+    # The clients, on the left: one on each row of nodes, so their requests go level to the node.
+    for r in sorted({cell(i)[0] for i in range(n)}):
+        cv.text(r, 2, "○", CLIENT)
     # A partition: a dashed red cut between neighbouring nodes in different groups.
     if fr.groups is not None:
         for i in range(n):
@@ -100,21 +111,38 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
                             cv.dot(mx, my + k, RED, 3)
                         elif (left - 1) * 2 <= mx + k <= (right + 1) * 2:  # keep off the clients
                             cv.dot(mx + k, my, RED, 3)
+
+    def dotted(a: tuple[float, float], b: tuple[float, float]) -> None:
+        (x0, y0), (x1, y1) = a, b
+        steps = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) / 3))
+        for k in range(1, steps):
+            cv.dot(x0 + (x1 - x0) * k / steps, y0 + (y1 - y0) * k / steps, LINE, 0)
+
     # The links the nodes have (a topology), faint, under everything that moves.
     for a, b in fr.links:
         if 0 <= a < n and 0 <= b < n:
-            (x0, y0), (x1, y1) = centre(a), centre(b)
-            steps = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) / 3))
-            for k in range(1, steps):
-                cv.dot(x0 + (x1 - x0) * k / steps, y0 + (y1 - y0) * k / steps, LINE, 0)
+            dotted(centre(a), centre(b))
+    # The clients' level lines, on the rows they talk to.
+    talked = {(a, b) for a, b, *_ in fr.flights + fr.drops if (a < 0) != (b < 0) and max(a, b) < n}
+    reach: dict[int, int] = {}  # a row: the furthest node on it the clients talk to
+    for a, b in talked:
+        i = max(a, b)
+        r = cell(i)[0]
+        reach[r] = max(reach.get(r, i), i, key=lambda j: cell(j)[1])
+    for i in reach.values():
+        for way in ((-1, i), (i, -1)):
+            dotted(*ends(*way))
     # Messages that were dropped: red, half way, fading.
+    ok = range(-1, n)
     for a, b, fade in fr.drops:
-        (x0, y0), (x1, y1) = centre(a), centre(b)
-        cv.blob((x0 + x1) / 2, (y0 + y1) / 2, mix(RED, BG, fade), 7, 1)
+        if a in ok and b in ok and a != b:
+            (x0, y0), (x1, y1) = ends(a, b)
+            cv.blob((x0 + x1) / 2, (y0 + y1) / 2, mix(RED, BG, fade), 7, 1)
     # Messages in flight.
     for a, b, p, colour in fr.flights:
-        (x0, y0), (x1, y1) = centre(a), centre(b)
-        cv.dot(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, colour, 5)
+        if a in ok and b in ok and a != b:
+            (x0, y0), (x1, y1) = ends(a, b)
+            cv.dot(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, colour, 5)
     # The nodes on top.
     for i, colour in enumerate(fr.nodes):
         r, c = cell(i)
@@ -125,4 +153,3 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
             cv.text(r + 1, max(0, min(cv.cols - len(word), c - len(word) // 2)), word, colour)
     text, colour = fr.state
     cv.text(cv.rows - 1, max(0, (left + right) // 2 - len(text) // 2), text, colour)
-

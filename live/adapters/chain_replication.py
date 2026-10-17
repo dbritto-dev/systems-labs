@@ -141,9 +141,9 @@ class ChainPipeline(PipelineAdapter):
     the right, and the nodes out of it come after a gap, dimmed ("n1 down"). The door shuts while the
     chain reconfigures (a node in it is down, or it has just changed). Writes come in from the clients
     (white) to the head and hop right along the chain (blue); the tail's acknowledgements hop back left
-    (green); reads (grey) fly on an arc from the door to the node `read_from` picks; anything else
+    on a lane of their own (green); reads (grey) fly over the boxes from the door to the node `read_from` picks; anything else
     that skips a node (a primary writing to every backup, a resend round a dead node, the tail's copy
-    to a joining node, light orange) flies on an arc too. A lost message fades red where it was.
+    to a joining node, light orange) flies over them too. A lost message fades red where it was.
     Each box's gauge: the writes it has passed down and not seen acknowledged. Outlines: red down,
     orange slow, light orange while copying."""
 
@@ -221,5 +221,5 @@ class ChainPipeline(PipelineAdapter):
         return PipelineFrame(users=waiting, flights=flights, outcomes=outcomes, closed=down or changed,
                              door_color=RED if down else EXTRA2 if changed else None,
                              boxes=boxes, hops=every(hops, MAX_FLIGHTS), skips=every(skips, MAX_FLIGHTS),
-                             drops=every(drops, 20), gap_after=len(chain) - 1 if out else None,
+                             drops=every(drops, 20), gap_after=len(chain) - 1 if out else None, two_way=True,
                              state=(text, state_colour))

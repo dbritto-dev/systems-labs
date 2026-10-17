@@ -47,6 +47,8 @@ STRINGS = {
     "note_dots": "Los puntos son una muestra, más lentos (decorativo).",
     # los dibujos
     "topology": "4 balanceadores → 8 servidores",
+    "fan_server": "s{n}",
+    "fan_slow": "s{n} lento",
     "lanes_balancers": "4 balanceadores",
     "state_sick": "{state} s{server}",
     # incidentes

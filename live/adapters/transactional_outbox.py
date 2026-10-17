@@ -1,5 +1,5 @@
 """The pictures for lab transactional_outbox: pipeline (the order service, its database, the relay, the
-broker and shipping in a row, the dual write as an arc over them), cluster (the same five, with the
+broker and shipping in a row, the dual write over them), cluster (the same five, with the
 messages between them) and lanes (orders through the order service, the
 door, to its database, the server, whose gauge is the outbox backlog)."""
 
@@ -147,9 +147,9 @@ class OutboxPipeline(PipelineAdapter):
     and the broker delivers to shipping: green when it ships, deep orange when it ships an order a
     second time, red for an order that was never saved, grey when it skips a repeat.
 
-    The dual write (stage 0) publishes from the service straight to the broker: an arc over the
+    The dual write (stage 0) publishes from the service straight to the broker: a line over the
     database and the relay. A lost event (saved, never announced) or a phantom (announced, then
-    rolled back) dies half way along it in red. With an outbox the arc is gone: every event goes
+    rolled back) dies half way along it in red. With an outbox that line is gone: every event goes
     through the database. Gauges: the service's open transactions, the outbox rows not sent yet,
     the rows the relay has in hand, the events the broker holds that shipping has not read. Outlines:
     red when killed or down; the database orange from 50 unsent rows or during a locks incident;

@@ -249,6 +249,6 @@ class AsyncBackpressurePipeline(PipelineAdapter):
         return PipelineFrame(
             users=found, flights=flights, outcomes=outcomes,
             closed=down or paused, door_color=RED if down else EXTRA2 if paused else None,
-            boxes=boxes, hops=hops, drops=drops,
+            boxes=boxes, hops=hops, drops=drops, two_way=True, over=False,
             state=(w.s("pic_state", pct=f"{mem:.0%}", state=state[0]), state[1]),
         )

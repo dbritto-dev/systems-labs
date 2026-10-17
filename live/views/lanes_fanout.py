@@ -59,7 +59,7 @@ def draw_fanout(cv: Canvas, make) -> None:
     xg = st.gx + (lx0 - st.gx) * 0.3  # the door
     xm = xg + (lx0 - 10 - xg) * 0.55  # the relay's centre
     rl = fr.relay
-    leaves = Leaves(fr.leaves, lx0, lx1, xm + 10, fr.vertical, label_cols=label_cols)  # the lines leave the relay at xm + 10
+    leaves = Leaves(fr.leaves, lx0, lx1, xm + 10, fr.vertical, label_cols=label_cols, straight=True)  # the lines leave the relay at xm + 10
     draw_parts(st, [
         UsersGrid(fr.users),
         Wire(st.gx + 2, xg - 2), Wire(xg + 2, xm - 9),  # users → door → relay
