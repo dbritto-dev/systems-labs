@@ -37,7 +37,12 @@ three until 10 s after the incident), throughput ≥ 80% (events written vs what
 slowest service's best if less), and the end-to-end p99 of the events arriving 5–20 s after the
 incident < 1 s (it recovers).
 
-Two pictures: `lanes` (opens first) shows one traced event in ten: it waits (white, then deeper
+Three pictures. `pipeline` (opens first) puts the source and the stages in a row: A parse, B
+enrich, C write, then the sink, each with its gauge (what it holds, as a share of the memory there
+is for events; the sink's is the batch it is writing). Traced events hop along the row on one lane
+and arrive at the sink green; a shed one goes back to the source on the other lane, grey; a lost one
+fades red where it was. Every outline turns orange above 80% of the memory and red while the process
+is down. `lanes` shows one traced event in ten: it waits (white, then deeper
 orange the longer it waits, upstream or in a queue), flies to the door (the source) when it is read,
 and its fate fades there: green written, grey shed (LOW, counted), red lost. The door closes when
 the source stops keeping up (the upstream holds a backlog) and turns red while the process restarts;

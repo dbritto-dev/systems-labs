@@ -93,7 +93,7 @@ Behavior: Retry   → Stage 2: sleep backoff_delay(attempt) between retries
  ○ ○ ○ ○ ●           ┃     │ ▬▬▬   ▓ │      ▍Users  …   ▍Per second  …
                            └─────────┘      ▍Outage #2  ● OK / ● ALERT / ○ WAIT
                               DOWN          ▍Events  NEXT …   legend
- ▁▂▃▅█  chart: last 60 s per second, the limit dashed, incidents shaded
+ ▁▂▃▅█  chart: a bar per second, the limit dashed, incidents shaded
 Edit labs/retry_storm/main.py and save: this window reruns it.
 pause/resume [space] - restart [0] - rerun [r] - view [v] - quit [q]
 ```
@@ -118,8 +118,9 @@ pause/resume [space] - restart [0] - rerun [r] - view [v] - quit [q]
   once it can no longer pass). Nothing is shown before the playhead reaches it.
 - **Events**: newest first, with the latest open alert pinned with its fix, and a
   `NEXT` row naming the next check. Never anything that has not happened yet.
-- **Chart**: the last 60 s, in the picture's colours, the limit dashed, incidents
-  shaded.
+- **Chart**: a bar per second, as many seconds as fit at two columns each (57 s at full
+  width), in the picture's colours, the limit dashed, incidents shaded. It moves a whole
+  second at a time, so a bar keeps its place and its width.
 
 Colours: white = first tries and normal requests; light, mid and deep orange =
 extra work (a retry round, a cache miss, a duplicate load); red = failed; green =
@@ -131,19 +132,23 @@ a lab has more than one), `q` quit, `← →` seek 5 s, `↑ ↓` speed, `d` a d
 ## Labs
 
 There are 45 labs. Each has two pictures, **lanes** (users, a door, a server) and **cluster**
-(nodes and the messages between them), and opens with the one that teaches it best; press
+(nodes and the messages between them; the clients sit at the start of every row and their
+requests go level along it), and opens with the one that teaches it best; press
 `v` to switch. Some have a variation of lanes too: **relay** puts a second server in the
 middle (a balancer, a gateway, a cache, a queue) with requests flying user → door → relay →
-server, and **fan-out** has the relay call a few small servers, each with its own gauge (an
-orchestrator and its services, a coordinator and its shards). **peers** stands the nodes on a
+server, and **fan-out** has the relay call a few small servers, each with its own gauge and a
+level line straight to it (an orchestrator and its services, a coordinator and its shards). **peers** stands the nodes on a
 ring (a pentagon, an octagon), each a small box with its gauge and its name, with the links that
 carry messages right now between them, and a red ✕ on every link a partition cuts. **fan-in**
 puts a column of nodes between the door and the one store they share (a KV store, a database, the
-storage behind a lock), and **pipeline** draws stages in a row, each with its queue, with an arc
-over the top for a step that skips the line (a dual write, a read sent to the tail). `broadcast`
+storage behind a lock), with level lines from the door to each node and on to the store, and
+**pipeline** draws stages in a row, each with its queue and its name under it (and its role under
+that: head, tail), two lanes between stages (what goes on, what comes back), and a straight line over
+the top for a step that skips the line (a dual write, a read sent to the tail). `broadcast`
 keeps the cluster picture: its grid is the real topology, drawn with its links.
 
-Each of these labs opens with that picture.
+Each of these labs opens with that picture. `load_balancing` has a fan-out picture too, a key
+away: each of its 8 servers with its own queue, the slow one purple.
 
 | Picture | Labs |
 |---|---|

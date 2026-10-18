@@ -37,7 +37,12 @@ caudal ≥ 80% (eventos escritos frente a lo que llegó, o lo mejor del servicio
 y el p99 de punta a punta de los eventos que llegan entre 5 y 20 s después del incidente < 1 s (se
 recupera).
 
-Dos dibujos: `lanes` (el primero) muestra uno de cada diez eventos: espera (blanco, luego naranja
+Tres dibujos. `pipeline` (el primero) pone la fuente y las etapas en fila: A analiza, B enriquece,
+C escribe, y luego el destino, cada una con su indicador (lo que tiene, como parte de la memoria que
+hay para eventos; el del destino es el lote que está escribiendo). Los eventos seguidos avanzan por la
+fila en un carril y llegan al destino en verde; uno descartado vuelve a la fuente por el otro carril,
+en gris; uno perdido se desvanece en rojo donde estaba. Cada contorno se pone naranja por encima del
+80% de la memoria y rojo mientras el proceso está caído. `lanes` muestra uno de cada diez eventos: espera (blanco, luego naranja
 más oscuro cuanto más espera, en el origen o en una cola), vuela a la puerta (la fuente) cuando se
 lee, y allí se desvanece con su resultado: verde escrito, gris descartado (LOW, contado), rojo perdido. La
 puerta se cierra cuando la fuente no da abasto (el origen guarda un atraso) y se pone roja mientras

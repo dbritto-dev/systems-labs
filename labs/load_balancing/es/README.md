@@ -41,10 +41,14 @@ hasta el siguiente informe, y se lo mandan todo. Dos opciones al azar nunca elig
 servidor más ocupado, y aun así reparten el resto del tráfico entre todos los que no lo
 están. Prueba con tres opciones: vuelven a ir un poco en manada.
 
-**Los dibujos.** La ventana se abre con el clúster: los 4 balanceadores en la fila de arriba,
-los 8 servidores debajo (azules, y naranjas a medida que crece su cola; el lento, morado), y
-cada petición volando de los usuarios a un balanceador y de ahí al servidor que eligió. Un
-balanceador que va en manada se pone naranja; los timeouts mueren en rojo. Pulsa `v` (o
-`--view lanes`) para ver lo que ven los usuarios: usuarios → los balanceadores (la puerta:
-naranja mientras uno va en manada, cerrada en rojo mientras hay timeouts) → la flota, cuyo
-indicador es la cola del servidor más ocupado.
+**Los dibujos.** La ventana se abre con el relevo: usuarios → la puerta → los 4 balanceadores,
+un servidor por sí mismos cuyo indicador es cuánto va en manada uno de ellos (naranja cuando lo
+hace) → la flota, cuyo indicador es la cola del servidor más ocupado; las peticiones al servidor
+lento vuelan grandes y moradas. Pulsa `v` para los demás. **abanico** abre la flota: cada uno de
+los 8 servidores por separado, `s0` … `s7`, con su cola como indicador (azul mientras sus workers
+dan abasto, luego naranjas, rojo cuando está llena), el lento en morado; cada petición vuela al
+servidor exacto al que se envió y los timeouts vuelven de él en rojo, así la manada se ve como casi
+todas las peticiones volando a un mismo servidor. **clúster** pone los 4 balanceadores en la fila
+de arriba y los 8 servidores debajo, cada petición volando de un balanceador al servidor que
+eligió. **carriles** es lo que ven los usuarios: usuarios → los balanceadores (la puerta: naranja
+mientras uno va en manada, cerrada en rojo mientras hay timeouts) → la flota.

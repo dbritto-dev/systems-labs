@@ -36,8 +36,12 @@ envíos, con 15 s para llegar), eventos fantasma = 0 (publicados para un pedido 
 guardó), enviados dos veces = 0 (durante y 5 s después), y retraso p99 < 3 s (desde que se guarda
 un pedido hasta que envíos lo ve, para los pedidos guardados en los 10 s siguientes).
 
-Primero se abre el dibujo de clúster: arriba el servicio, su base de datos y el publicador; abajo envíos
-y el intermediario. El dibujo de carriles muestra los pedidos en la puerta del servicio de pedidos,
+Primero se abre el dibujo de tubería: el servicio, su base de datos, el publicador, el intermediario
+y envíos en fila, cada uno con su indicador, y cada pedido avanzando por ella. La doble escritura
+(etapa 0) publica desde el servicio directamente al intermediario, por una línea por encima de la
+base de datos y del publicador; un evento perdido o fantasma muere a medio camino en rojo. El dibujo
+de clúster pone arriba el servicio, su base de datos y el publicador; abajo envíos y el
+intermediario. El dibujo de carriles muestra los pedidos en la puerta del servicio de pedidos,
 y la bandeja pendiente como el indicador del servidor. Pulsa `v` para cambiar.
 
 - **¿Por qué no guardar, consolidar y luego publicar?** Solo mueve el hueco. Una muerte después de

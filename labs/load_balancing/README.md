@@ -41,9 +41,13 @@ report, and sends it everything. Two random choices still never pick the busiest
 yet spread the rest of the traffic over every server that is not busy. Try three choices:
 they herd a little again.
 
-**The pictures.** The window opens on the cluster: the 4 balancers on the top row, the 8
-servers below (blue, then orange as their queue grows; the slow one purple), each request
-flying from the users to a balancer and on to the server it picked. A herding balancer turns
-orange; timeouts die in red. Press `v` (or `--view lanes`) for the users' view: users → the
-balancers (the door: orange while one herds, shut red while requests time out) → the fleet,
-whose gauge is the busiest server's queue.
+**The pictures.** The window opens on the relay: users → the door → the 4 balancers, a server
+of their own whose gauge is how much one of them herds (orange when it does) → the fleet, whose
+gauge is the busiest server's queue; requests to the slow server fly big and purple. Press `v`
+for the others. **fan-out** opens the fleet up: each of the 8 servers on its own, `s0` … `s7`,
+its gauge its queue (blue while its workers keep up, then oranges, red when full), the slow one
+purple; every request flies to the very server it was sent to, and timeouts come back from it in
+red, so herding shows as most requests flying to one server. **cluster** puts the 4 balancers on
+the top row and the 8 servers below, each request flying from a balancer to the server it picked.
+**lanes** is the users' view: users → the balancers (the door: orange while one herds, shut red
+while requests time out) → the fleet.

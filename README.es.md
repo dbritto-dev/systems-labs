@@ -93,7 +93,7 @@ Ahora: Reintentos   → Etapa 2: espera backoff_delay(attempt) entre reintentos
  ○ ○ ○ ○ ●           ┃     │ ▬▬▬   ▓ │      ▍Usuarios …  ▍Llamadas …
                            └─────────┘      ▍Caída n.º 2  ● OK / ● ALERTA / ○ ESPERA
                               CAÍDO         ▍Eventos  SIG. …   leyenda
- ▁▂▃▅█  gráfica: los últimos 60 s por segundo, el límite discontinuo, incidentes sombreados
+ ▁▂▃▅█  gráfica: una barra por segundo, el límite discontinuo, incidentes sombreados
 Edita labs/retry_storm/es/main.py y guarda: esta ventana lo vuelve a ejecutar.
 pausa/sigue [space] - reinicia [0] - repite [r] - vista [v] - sal [q]
 ```
@@ -121,8 +121,9 @@ pausa/sigue [space] - reinicia [0] - repite [r] - vista [v] - sal [q]
   ya no puede cumplirse). No se muestra nada antes de que llegue el cabezal.
 - **Eventos**: los más nuevos primero, con la última alerta abierta fijada junto a su
   arreglo, y una fila `SIG.` con la siguiente comprobación. Nunca algo que aún no ha pasado.
-- **Gráfica**: los últimos 60 s, con los colores del dibujo, el límite discontinuo y los
-  incidentes sombreados.
+- **Gráfica**: una barra por segundo, tantos segundos como caben a dos columnas cada uno (57 s
+  a todo el ancho), con los colores del dibujo, el límite discontinuo y los incidentes
+  sombreados. Avanza un segundo entero cada vez, así una barra conserva su sitio y su ancho.
 
 Colores: blanco = primeros intentos y peticiones normales; naranja claro, medio e intenso
 = trabajo extra (una ronda de reintentos, un fallo de caché, una carga duplicada); rojo =
@@ -136,21 +137,25 @@ y se ve mejor desde 110x44.
 ## Laboratorios
 
 Hay 45 laboratorios. Cada uno tiene dos dibujos, **carriles** (usuarios, una puerta, un
-servidor) y **clúster** (nodos y los mensajes entre ellos), y abre con el que mejor lo
+servidor) y **clúster** (nodos y los mensajes entre ellos; los clientes están al principio de cada fila y
+sus peticiones van en línea recta por ella), y abre con el que mejor lo
 explica; pulsa `v` para cambiar. Algunos tienen además una variación de carriles: **relevo**
 pone un segundo servidor en medio (un balanceador, una pasarela, una caché, una cola) y las
 peticiones van usuario → puerta → relevo → servidor; **abanico** hace que el relevo llame a
-varios servidores pequeños, cada uno con su indicador (un orquestador y sus servicios, un
-coordinador y sus fragmentos). **pares** pone los nodos en un anillo (un pentágono, un
+varios servidores pequeños, cada uno con su indicador y una línea recta hasta él (un orquestador
+y sus servicios, un coordinador y sus fragmentos). **pares** pone los nodos en un anillo (un pentágono, un
 octógono), cada uno una caja pequeña con su indicador y su nombre, con los enlaces que llevan
 mensajes en ese momento, y una ✕ roja en cada enlace que corta una partición. **embudo** pone
 una columna de nodos entre la puerta y el único almacén que comparten (un almacén clave-valor, una
-base de datos, el almacenamiento detrás de un cerrojo), y **tubería** dibuja etapas en fila, cada
-una con su cola, con un arco por encima para un paso que se salta la fila (una doble escritura, una
-lectura que va a la cola de la cadena). `broadcast` conserva el dibujo de clúster: su cuadrícula es
+base de datos, el almacenamiento detrás de un cerrojo), con líneas rectas de la puerta a cada nodo y
+de ahí al almacén, y **tubería** dibuja etapas en fila, cada una con su cola y su nombre debajo (y su
+papel debajo del nombre: cabeza, cola), dos carriles entre etapas (lo que avanza, lo que vuelve) y
+una línea recta por encima para un paso que se salta la fila (una doble escritura, una lectura que va
+a la cola de la cadena). `broadcast` conserva el dibujo de clúster: su cuadrícula es
 la topología real, dibujada con sus enlaces.
 
-Cada uno de estos laboratorios abre con ese dibujo.
+Cada uno de estos laboratorios abre con ese dibujo. `load_balancing` tiene además un dibujo de
+abanico, a una tecla: cada uno de sus 8 servidores con su cola, el lento en morado.
 
 | Dibujo | Laboratorios |
 |---|---|

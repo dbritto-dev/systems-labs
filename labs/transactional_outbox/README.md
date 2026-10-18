@@ -37,8 +37,11 @@ lost events = 0 (saved during it, never reached shipping, 15 s to arrive), phant
 (published for an order that was never saved), shipped twice = 0 (during and 5 s after), and lag
 p99 < 3 s (from saving an order to shipping seeing it, for orders saved in the 10 s after).
 
-The cluster picture opens first: the service, its database and the relay on top, shipping and the
-broker below. The lanes picture shows the orders at the order service's door, the outbox backlog
+The pipeline picture opens first: the service, its database, the relay, the broker and shipping in
+a row, each with its gauge, and every order hopping along it. The dual write (stage 0) publishes
+from the service straight to the broker, on a line over the database and the relay; a lost or
+phantom event dies half way along it in red. The cluster picture puts the service, its database and
+the relay on top, shipping and the broker below. The lanes picture shows the orders at the order service's door, the outbox backlog
 as the server's gauge. Press `v` to switch.
 
 - **Why not save, commit, then publish?** It only moves the gap. A kill after the commit and
