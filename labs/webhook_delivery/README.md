@@ -22,13 +22,18 @@ uv run pytest labs/webhook_delivery             # x = not yet, X = done
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
 Spanish comments and hints.
 
-Two pictures (`v` switches): **cluster** (it opens with this one) shows the dispatcher (left,
-middle) between four worker nodes of six workers each, and the 20 endpoints in four columns
-(#1–#5 in the first): attempts fly from the dispatcher through a worker to their endpoint, an
-attempt still waiting for an answer sits by its endpoint, answers fly back green (deep orange
-when out of order), failures die in red, and events given up fly back to the shop in purple. A
-dead endpoint is red, a slow one orange. **lanes** shows every event waiting for delivery as a
-circle, the dispatcher as the door and the 24 workers as the server, its gauge the share busy.
+Three pictures (`v` switches): **fanout** (it opens with this one) shows new events flying from
+the shop to the dispatcher in the middle, its gauge the share of the 24 workers busy (red while half
+of them or more are stuck on one endpoint), and five of the 20 endpoints on the right, the one in
+trouble first. An endpoint is red while down, pink while it hangs, orange while slow, purple while
+it gets malformed events (poison); its gauge is the workers busy with it. Attempts fly white the
+first, oranges for retries; one still waiting for an answer stays near its endpoint; answers fly
+back green (deep orange when out of order), failures die in red. **cluster** shows the dispatcher
+(left, middle) between four worker nodes of six workers each, and the 20 endpoints in four columns
+(#1–#5 in the first), in the same colours; a worker node turns orange as its workers fill up, the
+dispatcher orange, then red, as its backlog grows, and events given up fly back to the shop in
+purple. **lanes** shows every event waiting for delivery as a circle, the dispatcher as the door
+and the 24 workers as the server, its gauge the share busy.
 
 | Stage | In `main.py` | What you see |
 |---|---|---|

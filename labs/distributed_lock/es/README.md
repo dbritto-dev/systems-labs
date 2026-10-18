@@ -39,15 +39,19 @@ la pausa llega justo después de que un worker decide escribir, como lo describe
 La gráfica muestra los mensajes del cerrojo (el sondeo mientras está tomado: una joroba quiere
 decir que los trabajos están atascados) y las escrituras, por segundo.
 
-**Dos dibujos.** Se abre con **clúster**: el servicio de cerrojos (arriba a la izquierda), el
-almacenamiento (abajo a la izquierda) y los workers w1..w4. Los mensajes del cerrojo vuelan en
-azul y las escrituras en blanco (naranja claro mientras una se queda en la red); el dueño es
-verde, un worker congelado naranja (sus escrituras esperan justo a su lado), uno caído o aislado
-rojo. Una escritura tardía que el almacenamiento aceptó estalla en rojo junto a él, una que
-rechazó en naranja; bajo la cuadrícula, el estado y quién recibió el cerrojo por última vez.
-Pulsa `v` (o `--view lanes`) para **carriles**: los trabajos esperan el cerrojo (la puerta,
-cerrada mientras está atascado) delante del almacenamiento; las escrituras tardías llegan en
-rojo (aceptadas) o naranja (rechazadas).
+**Tres dibujos.** Se abre con **embudo**: los trabajos esperan al servicio de cerrojos (la puerta:
+punteada mientras el cerrojo está libre, una barra sólida mientras alguien lo tiene, naranja y luego
+roja mientras está atascado), que da el cerrojo a uno de los workers w1..w4: verde lo tiene, naranja
+está congelado, rojo está muerto, rosa está aislado. Los mensajes del cerrojo vuelan en azul entre
+la puerta y un worker; las escrituras vuelan en blanco al único almacenamiento (naranja claro
+mientras una se queda en la red) y esperan justo al lado de un worker congelado. Una escritura
+tardía que el almacenamiento aceptó estalla en rojo junto a él, una que rechazó en naranja. Bajo la
+puerta está quién tiene el cerrojo (`cerrojo: w3`), bajo el almacenamiento el último token de
+vallado entregado. Pulsa `v` para **clúster**: el servicio de cerrojos (arriba a la izquierda), el
+almacenamiento (abajo a la izquierda) y los workers como nodos, con los mismos colores.
+**carriles** es lo que ven los trabajos: esperan el cerrojo (la
+puerta, cerrada mientras está atascado) delante del almacenamiento; un trabajo terminado es verde,
+uno fallido gris; las escrituras tardías llegan en rojo (aceptadas) o naranja (rechazadas).
 
 Cómo hablan tus nodos está en `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,
 `self.spawn`, `self.now()`, y los manejadores `on_<type>`.

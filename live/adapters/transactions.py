@@ -87,10 +87,10 @@ class TxnPeers(PeersAdapter):
     """The clients (the users, and the door: the network, shut while a node is cut off; an answer is green, red
     when it failed or read an uncommitted write) and the three nodes in a column, every line straight: a level line from the door to each, a vertical
     line between neighbours, a bracket right of them between n0 and n2. A box's outline is how up to
-    date it is: blue, oranges the more keys it is behind, red for a moment when it served an intermediate read
-    ("n1 G1b"), or showed a dirty write ("n1 G0"). Its gauge is its share of fresh keys (within 1 s of the newest value; orange under 95%). A link
-    is drawn while it carries replication (blue); the two links of a node cut off are cut (a red ✕, "n2 cut
-    off"), what is sent over them lost half way; the re-sends that piled up flow once it heals."""
+    date it is: blue, oranges the more keys it is behind; for a moment after an anomaly, its colour: pink a
+    dirty write (G0), yellow an aborted read (G1a), red an intermediate read (G1b), purple a cycle (G1c).
+    Under it, just its name. Its gauge is its share of fresh keys (within 1 s of the newest value; orange under 95%). A link
+    is drawn while it carries replication (blue); the two links of a node cut off are cut (a red ✕), what is sent over them lost half way; the re-sends that piled up flow once it heals."""
 
     def frame(self, variant: str, t: float, users: int) -> PeersFrame:
         from labs.transactions import lab

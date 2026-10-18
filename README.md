@@ -148,6 +148,10 @@ that: head, tail), two lanes between stages (what goes on, what comes back), and
 the top for a step that skips the line (a dual write, a read sent to the tail). `broadcast`
 keeps the cluster picture: its grid is the real topology, drawn with its links.
 
+In every picture a node's colour says what is wrong with it (down, cut off, slow, an anomaly: the
+legend says which colour is which); the words by it are only its name and, when it has one, a number,
+on the line under it in the peers pictures (`n3` / `t4`, `eu` / `−120`).
+
 Each of these labs opens with that picture. `load_balancing` has a fan-out picture too, a key
 away: each of its 8 servers with its own queue, the slow one purple.
 

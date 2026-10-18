@@ -143,8 +143,8 @@ MOST_LINKS = 8  # links drawn besides the flaky ones (the latest to carry a mess
 class FailurePeers(PeersAdapter):
     """The clients (the users, and the door: their router, orange while it avoids a node, red while it still
     sends to a crashed one) and the eight nodes on an octagon. A box's outline is the cluster's view of that
-    node: blue alive, orange suspected, red declared dead, grey crashed and not seen yet; its name says the
-    same in a word ("n2 dead"; "n1 FALSE" when a healthy node was declared dead). Its gauge is the messages it
+    node: blue alive, orange suspected, red declared dead, pink declared dead but alive, grey crashed and not
+    seen yet; under it, just its name. Its gauge is the messages it
     sends per second against the 10/s goal (full and orange past it). The 4 flaky links are always drawn in
     dim orange; the others while they carry a probe (blue), or a ping_req's two hops (light orange); a
     message lost on the way stops short, red."""

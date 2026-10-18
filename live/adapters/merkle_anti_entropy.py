@@ -131,7 +131,8 @@ def _link_repair_colour(entries: int):
 class MerklePeers(PeersAdapter):
     """The clients (the users, and the door: orange while some replica holds older versions; a read is green
     fresh, red stale) and the four replicas on a square (standing on a corner). A box's outline is what it misses: blue when it holds
-    the latest of every key, deeper orange the more keys it lacks ("n1 −340"), red while down ("n2 down"). Its
+    the latest of every key, deeper orange the more keys it lacks (the count under its name: "n1" / "−340"),
+    red while down (just its name). Its
     gauge is the hashing it does a second against the 10,000 goal (orange past it). A link is drawn while it
     carries something: blue replication batches, orange repair (deeper the more entries a message carries: a
     full scan is a deep orange stream, a Merkle walk a short, lighter burst). The links of a replica

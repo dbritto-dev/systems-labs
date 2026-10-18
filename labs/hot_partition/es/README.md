@@ -23,14 +23,19 @@ uv run python -m live hot_partition --lang es --lesson   # el concepto, enlaces 
 LABS_LANG=es uv run pytest labs/hot_partition            # x = aún no, X = hecho
 ```
 
-Dos dibujos (`v` cambia): **clúster** (abre con este) muestra las seis particiones como nodos,
-con un color según su ocupación (azul bajo el 50%, naranjas, rojo sobre el 90%), y cada petición
-al almacén volando a su partición: blanca una normal, morada una sobre la clave caliente, naranja
-una petición de más de una lectura que suma subclaves, azul las que vuelven a juntar subclaves;
-una rechazada muere a medio camino, en rojo. **carriles** muestra las operaciones de los usuarios
-a la izquierda, tu `Counters` como la puerta y el almacén como el servidor, con su indicador la
-ocupación de la partición más cargada; las respuestas son verdes (una petición), naranjas (sumó
-subclaves), azules (de la caché) o rojas (rechazada).
+Tres dibujos (`v` cambia): **abanico** (abre con este) muestra las operaciones de los usuarios
+llegando a tu `Counters` (el relevo en el medio), que envía peticiones a las seis particiones de la
+derecha, p0 … p5, cada una con su ocupación junto a su nombre (`p1 99%`) y en su indicador (naranja
+desde el 70%, rojo desde el 90%, cuando rechaza); la partición de la clave caliente es morada, una
+sobre el 90% roja. Las peticiones vuelan blancas (una normal), moradas (una sobre la clave
+caliente), naranjas (una petición de más de una lectura que suma subclaves) o azules (las que
+vuelven a juntar subclaves); una rechazada se para a medio camino, en rojo. El indicador del relevo
+son las peticiones de suma que hace por segundo. **clúster** muestra las seis particiones como
+nodos, con un color según su ocupación (azul bajo el 50%, naranjas cargada, rojo sobre el 90%), y
+las mismas peticiones volando desde los usuarios. **carriles** muestra las operaciones de los
+usuarios a la izquierda, tu `Counters` como la puerta y el almacén como el servidor, con su
+indicador la ocupación de la partición más cargada; las respuestas son verdes (una petición),
+naranjas (sumó subclaves), azules (de la caché) o rojas (rechazada).
 
 | Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|

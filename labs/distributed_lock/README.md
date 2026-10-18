@@ -39,13 +39,17 @@ decides to write, the way Kleppmann describes it.
 The chart shows the lock messages (polling while the lock is taken: a hump means jobs are
 stuck) and the writes, each second.
 
-**Two pictures.** It opens with **cluster**: the lock service (top left), the storage (bottom
-left) and workers w1..w4. Lock messages fly in blue and writes in white (light orange while one
-sits in the network); the holder is green, a frozen worker orange (its writes wait just outside
-it), a dead or cut-off one red. A late write the storage accepted bursts red by it, one it
-refused bursts orange; under the grid, the state and who got the lock last. Press `v` (or
-`--view lanes`) for **lanes**: jobs wait for the lock (the door, shut while it is stuck) in front
-of the storage; late writes land red (accepted) or orange (refused).
+**Three pictures.** It opens with **fan-in**: jobs wait for the lock service (the door: dotted while
+the lock is free, a solid bar while someone holds it, orange, then red, while it is stuck), which
+hands the lock to one of the workers w1..w4: green holds it, orange is frozen, red is dead, pink is
+cut off. Lock messages fly blue between the door and a worker; writes fly white to the one storage
+(light orange while one sits in the network) and wait just outside a frozen worker. A late write the
+storage accepted bursts red at it, one it refused orange. Under the door is who holds the lock
+(`lock: w3`), under the storage the fencing token handed out last. Press `v` for **cluster**: the
+lock service (top left), the storage (bottom left) and the workers as nodes, in the same colours.
+**lanes** is the jobs' view: jobs wait for the lock (the door,
+shut while it is stuck) in front of the storage; a finished job is green, a failed one grey; late
+writes land red (accepted) or orange (refused).
 
 How your nodes talk is in `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,
 `self.spawn`, `self.now()`, and `on_<type>` handlers.

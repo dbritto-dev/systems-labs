@@ -117,9 +117,9 @@ FLASH = 1.0  # seconds a replica stays red after an add vanished there or a remo
 class CartsPeers(PeersAdapter):
     """The devices (the users, and the door: the replica next to them, orange while the replicas cannot all
     talk) and the five replicas on a pentagon. A box's outline is blue while it holds the same carts as the
-    others, light to deep orange the more carts differ ("n0 12 differ"), red for a moment when an
-    acknowledged add vanished there or a removed item came back; a replica whose clock is off says by how
-    much ("n4 clock +5s"). Its gauge is the gossip it sends per second against its share of the 150/s goal. A
+    others, light to deep orange the more carts differ (the count under its name: "n0" / "12 differ"), red for a
+    moment when an acknowledged add vanished there or a removed item came back; a replica whose clock is
+    off says by how much under its name ("n4" / "clock +5s"). Its gauge is the gossip it sends per second against its share of the 150/s goal. A
     link is drawn while gossip runs along it (blue); a partition cuts every link between the groups (red ✕)
     and drops what is sent across, and once it heals the links light up again with the catching up."""
 

@@ -16,9 +16,14 @@ uv run python -m live kafka_style_log --lesson   # the concept, links and a chec
 uv run pytest labs/kafka_style_log               # x = not yet, X = done
 ```
 
-Two pictures: `cluster` (the default: the nodes and the messages between them) and `lanes`
-(what the clients see: their requests waiting, the network as a door, the cluster as one
-server). Press `v` to switch, or start with `--view lanes`.
+Three pictures: `fanin` (the default: sends, polls and commits come through the network to the
+nodes n0 and n1, each gauge its client operations a second; a node flashes in its anomaly's colour:
+orange a duplicate offset, yellow an offset going back, red a lost write, pink a lost commit; the
+nodes keep the log in lin-kv, purple, orange while it is slow, its gauge its messages a second;
+those messages fly light orange, and a request a node passes to the key's owner flies blue between
+the nodes), `cluster` (the same nodes and colours, and the messages between them) and `lanes` (what
+the clients see: their requests waiting, the network as a door, the cluster as one server). Press
+`v` to switch, or start with `--view lanes`.
 
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
 Spanish comments and hints.

@@ -115,8 +115,8 @@ SENT_MAX = 60  # messages a node sends per second that fill its gauge (a leader 
 @adapts("raft_consensus", "peers")
 class RaftPeers(PeersAdapter):
     """The clients (the users and the door, as in lanes: shut while there is no leader) and the five nodes on
-    a pentagon, outlined by role (green leader, orange candidate, blue follower, grey down), each named with
-    its role and term ("n3 leader t4"), its gauge the messages it sends per second. A link is drawn while it
+    a pentagon, outlined by role (green leader, orange candidate, blue follower, grey down), its term under
+    its name ("n3" / "t4"), its gauge the messages it sends per second. A link is drawn while it
     carries messages: blue AppendEntries, light orange RequestVote. During a partition every link between the
     two sides is drawn and cut (a red ✕): a stale leader cut off on the minority side shows as a second
     "leader" whose links are all cut, its AppendEntries lost half way."""

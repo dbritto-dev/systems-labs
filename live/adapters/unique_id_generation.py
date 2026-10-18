@@ -107,7 +107,8 @@ class UniqueIdsPeers(PeersAdapter):
     """The clients (the users, and the door: the network, shut during a partition; an answer is green, red for a
     duplicate id or no answer) and the five nodes on a pentagon. Requests fly from the door to a node in white,
     and the reply back to it green (red for a duplicate or a failure). A box's outline is blue, orange while its
-    clock is stepped back ("n3 clock −2s"), red for a moment after it handed out a duplicate ("n1 dup!"); its
+    clock is stepped back (by how much under its name: "n3" / "clock −2s"), red for a moment after it
+    handed out a duplicate; its
     gauge is the ids it hands out a second. A link is drawn only while nodes talk over it (asking a leader for
     the next number); with Snowflake ids there are none: each node makes ids on its own. A partition cuts the
     links in use between the two sides (and, with no links, cuts nothing: the lesson)."""

@@ -31,20 +31,22 @@ Tres dibujos (`v` cambia): **pares** (abre con este) muestra las tres regiones e
 arriba, cada enlace con su latencia de ida; los usuarios entran por el balanceador global a la
 izquierda (rojo mientras una región está caída), y la petición de un usuario vuela a la región que
 la atiende: blanca en casa, naranja en otra. En los enlaces, cada sentido por su carril (por la
-derecha): naranja una petición reenviada al otro lado de un océano y su respuesta, azul la replicación
-(también sus confirmaciones y las búsquedas). El indicador de una región es su carga frente a las 320/s
-que puede atender; su borde y la palabra debajo dicen cuántas escrituras confirmadas le faltan
-(`eu −120`), o que está caída o aislada. **clúster** muestra las regiones una al lado de otra, us,
-eu y ap (con su nombre bajo cada columna), como columnas de tres nodos (sus zonas), coloreadas según cuántas escrituras
-confirmadas le faltan a la región: azul al día, naranja atrasada, rojo caída; una región aislada
-queda cercada por una línea roja discontinua. Las peticiones de los usuarios entran desde la
-izquierda: blancas a su propia región, naranjas a otra. Entre regiones, a su velocidad real: naranja
-la petición de un usuario reenviada al otro lado de un océano y su respuesta, azul la replicación; un mensaje que
-la red perdió muere a mitad de camino en rojo. **carriles** muestra cada operación a la izquierda, el
-balanceador global como la puerta (roja mientras una región está caída) y las regiones como el
-servidor, con su indicador en la carga de la región más ocupada; las respuestas son verdes
-(rápidas), naranjas (lentas: cruzaron un océano o esperaron un reintento), moradas (una lectura sin
-la escritura del propio usuario) o rojas (fallidas).
+derecha): naranja una petición reenviada al otro lado de un océano y su respuesta, azul la
+replicación (también sus confirmaciones y las búsquedas). El indicador de una región es su carga
+frente a las 320/s que puede atender; su borde es azul al día, naranja atrasada, rojo caída; si va
+atrasada, la línea bajo su nombre es el número de escrituras confirmadas que le faltan (`eu` con
+`−120` debajo). Una región aislada tiene sus enlaces cortados con una ✕ roja. **clúster** muestra
+las regiones una al lado de otra, us, eu y ap (con su nombre bajo cada columna), como columnas de
+tres nodos (sus zonas), coloreadas según cuántas escrituras confirmadas le faltan a la región: azul
+al día, naranja atrasada, rojo caída; una región aislada queda cercada por una línea roja
+discontinua. Las peticiones de los usuarios entran desde la izquierda: blancas a su propia región,
+naranjas a otra. Entre regiones, a su velocidad real: naranja la petición de un usuario reenviada al
+otro lado de un océano y su respuesta, azul la replicación; un mensaje que la red perdió muere a
+mitad de camino en rojo. **carriles** muestra cada operación a la izquierda, el balanceador global
+como la puerta (roja mientras una región está caída) y las regiones como el servidor, con su
+indicador en la carga de la región más ocupada; las respuestas son verdes (rápidas), naranjas
+(lentas: cruzaron un océano o esperaron un reintento), moradas (una lectura sin la escritura del
+propio usuario) o rojas (fallidas).
 
 | Etapa | En `es/main.py` | Qué ves |
 |---|---|---|

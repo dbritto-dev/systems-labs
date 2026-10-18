@@ -158,7 +158,7 @@ class LoadBalancingFanout(FanoutAdapter):
     """The relay picture with the fleet opened up: users → the door → the 4 balancers (their gauge is how much
     one of them herds, orange when it does) → each of the 8 servers on its own, s0 ... s7, its gauge its queue
     (requests in flight against 4x its workers: blue while its workers keep up, then oranges, red full), the
-    slow one purple ("s2 slow"). Each request flies from the balancers to the very server it was sent to,
+    slow one purple (named s2, no word: its colour says it). Each request flies from the balancers to the very server it was sent to,
     white (big and purple to the slow one); one still waiting sits by its server, orange the longer it waits;
     a timeout comes back from its server in red. Herding shows as most requests flying to one server."""
 

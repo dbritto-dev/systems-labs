@@ -21,14 +21,20 @@ uv run python -m live webhook_delivery --lang es --lesson # el concepto, enlaces
 LABS_LANG=es uv run pytest labs/webhook_delivery          # x = aún no, X = hecho
 ```
 
-Dos dibujos (`v` cambia): **cluster** (abre con este) muestra el despachador (a la izquierda, en
-medio) entre cuatro nodos de seis workers cada uno, y los 20 endpoints en cuatro columnas (#1–#5
-en la primera): los intentos vuelan del despachador a un worker y a su endpoint, un intento que
-aún espera respuesta se queda junto a su endpoint, las respuestas vuelven en verde (naranja
-oscuro si llegan desordenadas), los fallos mueren en rojo y los eventos abandonados vuelven a la
-tienda en morado. Un endpoint muerto es rojo, uno lento naranja. **lanes** muestra cada evento que
-espera entrega como un círculo, el despachador como la puerta y los 24 workers como el servidor,
-con su indicador en la parte ocupada.
+Tres dibujos (`v` cambia): **fanout** (abre con este) muestra los eventos nuevos volando de la
+tienda al despachador en medio, con su indicador en la parte de los 24 workers ocupada (rojo
+mientras la mitad o más están atascados en un endpoint), y cinco de los 20 endpoints a la derecha,
+primero el que tiene problemas. Un endpoint es rojo mientras está caído, rosa mientras se cuelga,
+naranja mientras va lento, morado mientras recibe eventos mal formados (veneno); su indicador son
+los workers ocupados con él. Los intentos vuelan en blanco el primero, en naranjas los reintentos;
+uno que aún espera respuesta se queda cerca de su endpoint; las respuestas vuelven en verde
+(naranja oscuro si llegan desordenadas), los fallos mueren en rojo. **cluster** muestra el
+despachador (a la izquierda, en medio) entre cuatro nodos de seis workers cada uno, y los 20
+endpoints en cuatro columnas (#1–#5 en la primera), con los mismos colores; un nodo de workers se
+vuelve naranja al llenarse sus workers, el despachador naranja y luego rojo al crecer lo atrasado,
+y los eventos abandonados vuelven a la tienda en morado. **lanes** muestra cada evento que espera
+entrega como un círculo, el despachador como la puerta y los 24 workers como el servidor, con su
+indicador en la parte ocupada.
 
 | Etapa | En `main.py` | Lo que ves |
 |---|---|---|

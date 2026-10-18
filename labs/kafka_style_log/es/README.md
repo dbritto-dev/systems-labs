@@ -18,9 +18,15 @@ uv run python -m live kafka_style_log --lang es --lesson   # el concepto, enlace
 LABS_LANG=es uv run pytest labs/kafka_style_log            # x = aún no, X = hecho
 ```
 
-Dos dibujos: `cluster` (el de siempre: los nodos y los mensajes entre ellos) y `lanes`
-(lo que ven los clientes: sus peticiones esperando, la red como una puerta, el clúster como
-un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
+Tres dibujos: `fanin` (el de siempre: los sends, polls y commits llegan por la red a los nodos n0
+y n1, cada indicador sus operaciones de cliente por segundo; un nodo destella del color de su
+anomalía: naranja un offset duplicado, amarillo un offset que retrocede, rojo una escritura
+perdida, rosa un commit perdido; los nodos guardan el log en lin-kv, morado, naranja mientras va
+lento, su indicador sus mensajes por segundo; esos mensajes vuelan en naranja claro, y una petición
+que un nodo pasa al dueño de la clave vuela en azul entre los nodos), `cluster` (los mismos nodos y
+colores, y los mensajes entre ellos) y `lanes` (lo que ven los clientes: sus peticiones esperando,
+la red como una puerta, el clúster como un solo servidor). Pulsa `v` para cambiar, o empieza con
+`--view lanes`.
 
 | Etapa | Reto | En `es/main.py` | Lo que ves |
 |---|---|---|---|

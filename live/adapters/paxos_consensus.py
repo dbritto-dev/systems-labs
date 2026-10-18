@@ -134,8 +134,8 @@ BEHIND = 5  # slots a node may be behind the furthest one before its gauge turns
 class PaxosPeers(PeersAdapter):
     """The clients (the users and the door, as in lanes: shut while they wait and nothing is decided) and the
     five nodes on a pentagon. Outline: green the leader, orange a candidate, deep orange paused, grey down,
-    blue the others, red for 2 s once it decided a slot differently from another node. Each is named with its
-    role and ballot ("n2 leader b7"); its gauge is the slots it has decided against the furthest node (orange
+    blue the others, red for 2 s once it decided a slot differently from another node. Under its name, its
+    ballot ("n2" / "b7"): the colour says the role; its gauge is the slots it has decided against the furthest node (orange
     when it is behind). A link is drawn while it carries messages, in the colour of the latest: purple
     propose, light orange prepare/promise, blue accept, green decide; a lost one stops short, in red; a
     partition cuts every link between the two sides."""

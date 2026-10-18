@@ -69,7 +69,7 @@ class WebhookCluster(ClusterAdapter):
     on to its endpoint (white the first, oranges for retries); an attempt still waiting for an answer sits
     by its endpoint, orange, so workers stuck on a dead endpoint pile up next to it. An answer flies back
     green (deep orange when it came out of order); a failure dies red on the way; an event given up flies
-    back to the shop in purple. An endpoint is red while it is dead (down or hanging), orange while slow,
+    back to the shop in purple. An endpoint is red while down, pink while it hangs, orange while slow,
     purple while it gets malformed events; a worker node turns orange as its six workers fill up; the
     dispatcher turns orange, then red, as its backlog grows.
     """
@@ -183,7 +183,7 @@ class WebhookFanout(FanoutAdapter):
     """New events fly from the shop to the door (white); the dispatcher stands in the middle, its gauge the share
     of the 24 delivery workers busy, red (gauge and outline) while half of them or more are stuck on one
     endpoint. On the right, five of the 20 endpoints (four on a short screen): the one in trouble first (red
-    while down or hanging, orange while slow, purple while it gets malformed events), then the biggest customers.
+    while down, pink while it hangs, orange while slow, purple while it gets malformed events), then the biggest customers.
     Each endpoint's gauge is the workers busy with it (full at half the pool). Attempts fly to their endpoint,
     white the first, oranges for retries; an attempt still waiting for an answer stays near its endpoint, so
     workers stuck on a dead one pile up by it. Answers fly back green (deep orange delivered out of order); a

@@ -155,6 +155,10 @@ una línea recta por encima para un paso que se salta la fila (una doble escritu
 a la cola de la cadena). `broadcast` conserva el dibujo de clúster: su cuadrícula es
 la topología real, dibujada con sus enlaces.
 
+En cada dibujo el color de un nodo dice qué le pasa (caído, aislado, lento, una anomalía: la leyenda
+dice qué color es cuál); las palabras junto a él son solo su nombre y, si lo tiene, un número, en la
+línea de debajo en los dibujos de pares (`n3` / `t4`, `eu` / `−120`).
+
 Cada uno de estos laboratorios abre con ese dibujo. `load_balancing` tiene además un dibujo de
 abanico, a una tecla: cada uno de sus 8 servidores con su cola, el lento en morado.
 

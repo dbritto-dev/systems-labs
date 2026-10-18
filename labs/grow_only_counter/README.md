@@ -18,9 +18,14 @@ uv run python -m live grow_only_counter --lesson   # the concept, links and a ch
 uv run pytest labs/grow_only_counter               # x = not yet, X = done
 ```
 
-Two pictures: `cluster` (the default: the nodes and the messages between them) and `lanes`
-(what the clients see: their requests waiting, the network as a door, the cluster as one
-server). Press `v` to switch, or start with `--view lanes`.
+Three pictures (`v` switches): **fan-in** (it opens with this one) shows adds and reads coming
+through the network (the door, orange while it is slow) to the nodes n0..n2, each gauge its client
+requests a second; a node is blue, and orange, then red, while its reads are off. Each node keeps
+the count in seq-kv (the store, purple, its gauge the requests a second it gets): requests fly to it
+blue, answers come back green, a compare-and-swap that conflicts comes back red. **cluster** shows
+the same three nodes and seq-kv as a fourth, purple node, in the same colours, with client requests
+flying white. **lanes** is what the clients see: their requests waiting, seq-kv as the door (orange
+while it is slow). Start with `--view cluster` or `--view lanes` to open on another.
 
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
 Spanish comments and hints.

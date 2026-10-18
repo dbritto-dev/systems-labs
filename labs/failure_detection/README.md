@@ -34,12 +34,16 @@ Goals, judged per incident: a crash is declared dead within 2.5 s (by some healt
 healthy node is declared dead from 15 s before the incident to 5 s after it, and each node sends
 fewer than 10 messages per second (in the 15 s before it).
 
-Two pictures (key `v`): **cluster**, each node in the colour the cluster gives it (blue alive,
-orange suspected, red declared dead, grey crashed but not noticed yet), probes in blue, indirect
-probes in light orange, lost messages in red; and **lanes**, what the clients see: green answers
-from the home node, light orange after a failover from a dead node, deep orange after a needless
-failover from a healthy node declared dead, red when the home node crashed and the router did not
-know yet.
+Three pictures (key `v`): **peers** (it opens with this one), the clients with their router as the
+door (orange while it avoids a node, red while it still sends to a crashed one) and the eight nodes
+on an octagon, each in the colour the cluster gives it: blue alive, orange suspected, red declared
+dead, pink declared dead but alive, grey crashed but not noticed yet. A node's gauge is the messages
+it sends per second against the 10/s goal (orange past it). The 4 flaky links are always drawn in
+dim orange, the others while they carry a probe (blue) or an indirect probe (light orange); a lost
+message stops short in red. **cluster**, the same nodes and colours on a grid. **lanes**, what the
+clients see: green answers from the home node, light orange after a failover from a dead node, deep
+orange after a needless failover from a healthy node declared dead, red when the home node crashed
+and the router did not know yet.
 
 The checker reads every node's `self.status` every 250 ms, outside the network. The cluster has
 been up for 30 s when the run starts at 0:00, so the detectors have a history to learn from. A

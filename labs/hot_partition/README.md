@@ -24,13 +24,17 @@ uv run pytest labs/hot_partition             # x = not yet, X = done
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
 Spanish comments and hints.
 
-Two pictures (`v` switches): **cluster** (it opens with this one) shows the six partitions as
-nodes, coloured by utilisation (blue under 50%, oranges, red over 90%), with every request to the
-store flying to its partition: white a usual one, purple one on the hot key, orange an extra
-request of a read fanning in over sub-keys, blue folding sub-keys back; a throttled one dies half
-way in red. **lanes** shows the users' operations on the left, your `Counters` as the door and the
-store as the server, its gauge the busiest partition's utilisation; answers are green (one
-request), orange (fanned in), blue (from the cache) or red (throttled).
+Three pictures (`v` switches): **fan-out** (it opens with this one) shows the users' operations
+reaching your `Counters` (the relay in the middle), which sends requests to the six partitions on
+the right, p0 … p5, each with its utilisation beside its name (`p1 99%`) and in its gauge (orange
+from 70%, red from 90%, when it throttles); the hot key's partition is purple, one over 90% red.
+Requests fly white (a usual one), purple (one on the hot key), orange (an extra request of a read
+fanning in over sub-keys) or blue (folding sub-keys back); a throttled one stops half way, red. The
+relay's gauge is the fan-in requests it makes a second. **cluster** shows the six partitions as
+nodes, coloured by utilisation (blue under 50%, oranges busy, red over 90%), with the same requests
+flying from the users to them. **lanes** shows the users' operations on the left, your `Counters` as
+the door and the store as the server, its gauge the busiest partition's utilisation; answers are
+green (one request), orange (fanned in), blue (from the cache) or red (throttled).
 
 | Stage | In `main.py` | What you see |
 |---|---|---|

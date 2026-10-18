@@ -19,9 +19,15 @@ uv run python -m live grow_only_counter --lang es --lesson   # el concepto, enla
 LABS_LANG=es uv run pytest labs/grow_only_counter            # x = aún no, X = hecho
 ```
 
-Dos dibujos: `cluster` (el de siempre: los nodos y los mensajes entre ellos) y `lanes`
-(lo que ven los clientes: sus peticiones esperando, la red como una puerta, el clúster como
-un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
+Tres dibujos (`v` cambia): **embudo** (abre con este) muestra las sumas y lecturas llegando por la
+red (la puerta, naranja mientras va lenta) a los nodos n0..n2, cada indicador sus peticiones de
+cliente por segundo; un nodo es azul, y naranja y luego rojo mientras sus lecturas van mal. Cada
+nodo guarda la cuenta en seq-kv (el almacén, morado, su indicador las peticiones por segundo que
+recibe): las peticiones le llegan en azul, las respuestas vuelven en verde, un compare-and-swap que
+choca vuelve en rojo. **clúster** muestra los mismos tres nodos y seq-kv como un cuarto nodo,
+morado, con los mismos colores, y las peticiones de cliente volando en blanco. **carriles** es lo
+que ven los clientes: sus peticiones esperando, seq-kv como la puerta (naranja mientras va lento).
+Empieza con `--view cluster` o `--view lanes` para abrir con otro.
 
 | Etapa | En `es/main.py` | Lo que ves |
 |---|---|---|

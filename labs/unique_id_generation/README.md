@@ -14,9 +14,14 @@ uv run python -m live unique_id_generation --lesson   # the concept, links and a
 uv run pytest labs/unique_id_generation               # x = not yet, X = done
 ```
 
-Two pictures: `cluster` (the default: the nodes and the messages between them) and `lanes`
-(what the clients see: their requests waiting, the network as a door, the cluster as one
-server). Press `v` to switch, or start with `--view lanes`.
+Three pictures: `peers` (the default: the clients, the network as a door, shut during a
+partition, and the five nodes on a pentagon; a node is blue, orange while its clock is stepped back,
+with how far under its name, red for a moment after it gave a duplicate id; its gauge is the ids it
+hands out a second; requests fly white, replies green, red for a duplicate or a failure; a link is
+drawn only while nodes talk over it, and with Snowflake ids there are none), `cluster` (the same
+nodes and colours, and the messages between them) and `lanes` (what the clients see: their requests
+waiting, the network as a door, the cluster as one server). Press `v` to switch, or start with
+`--view lanes`.
 
 In Spanish (`--lang es` or `LABS_LANG=es`), you edit `es/main.py` instead: the same code, with
 Spanish comments and hints.

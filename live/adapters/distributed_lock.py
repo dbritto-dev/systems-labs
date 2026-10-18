@@ -31,7 +31,7 @@ class DistributedLockCluster(ClusterAdapter):
 
     Lock traffic (acquire, renew, release and their answers) flies in blue; writes fly from a worker to
     the storage in white, light orange while one sits in the network. The holder of the lock is green; a
-    frozen worker is orange and its writes wait just outside it; a crashed or cut-off one is red. A write
+    frozen worker is orange and its writes wait just outside it; a crashed one is red, a cut-off one pink. A write
     from a lost lock that the storage accepted bursts red by it, and orange if the storage refused it.
     """
 
@@ -83,7 +83,7 @@ class DistributedLockCluster(ClusterAdapter):
             nodes[holder[1]] = GREEN
         sick = w.sick_at(variant, t)
         if sick is not None and sick[1] != "delay":
-            nodes[sick[0]] = EXTRA2 if sick[1] == "pause" else RED
+            nodes[sick[0]] = {"pause": EXTRA2, "crash": RED}.get(sick[1], PINK)  # as in the fan-in picture
         text, colour = w.state_at(variant, t)
         lock = w.s("state_lock", worker=w.s("nobody") if holder is None else name(holder[1]))
         return ClusterFrame(nodes=nodes, flights=every(flights, MAX_FLIGHTS), drops=every(drops, 30),
@@ -152,7 +152,7 @@ LANDED = 1.5  # seconds a late write's burst stays at the storage (as long as th
 class DistributedLockFanin(FaninAdapter):
     """Jobs wait (the users) for the lock service (the door: dotted while the lock is free, a solid bar
     while someone holds it, orange, then red, while it is stuck), which hands the lock to one of the
-    workers w1..w4 (green while it holds it, orange while frozen, red when crashed or cut off). Lock
+    workers w1..w4 (green while it holds it, orange while frozen, red when crashed, pink when cut off). Lock
     messages (acquire, renew, release and their answers) fly blue between the door and a worker. Every
     worker writes to the one storage (the store, its gauge the writes it accepts): writes fly white, light
     orange while one sits in the network, and wait just outside a frozen worker. A late write from a lost

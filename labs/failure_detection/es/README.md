@@ -32,12 +32,17 @@ Objetivos, evaluados por incidente: un nodo caído se declara muerto en 2.5 s co
 nodo sano), ningún nodo sano se declara muerto desde 15 s antes del incidente hasta 5 s después,
 y cada nodo envía menos de 10 mensajes por segundo (en los 15 s anteriores).
 
-Dos dibujos (tecla `v`): **clúster**, cada nodo del color que le da el clúster (azul vivo, naranja
-sospechoso, rojo declarado muerto, gris caído pero aún sin detectar), los sondeos en azul, los
-sondeos indirectos en naranja claro, los mensajes perdidos en rojo; y **carriles**, lo que ven los
-clientes: verde las respuestas del nodo de casa, naranja claro tras pasar a otro nodo porque el de
-casa está muerto, naranja oscuro tras un cambio inútil porque declararon muerto a un nodo sano,
-rojo cuando el nodo de casa se cayó y el enrutador aún no lo sabía.
+Tres dibujos (tecla `v`): **pares** (abre con este), los clientes con su enrutador como la puerta
+(naranja mientras evita un nodo, rojo mientras aún envía a uno caído) y los ocho nodos en un
+octógono, cada uno del color que le da el clúster: azul vivo, naranja sospechoso, rojo declarado
+muerto, rosa declarado muerto pero vivo, gris caído pero aún sin detectar. El indicador de un nodo
+son los mensajes que envía por segundo frente al objetivo de 10/s (naranja si lo pasa). Los 4
+enlaces que pierden se dibujan siempre en naranja tenue, los demás mientras llevan un sondeo (azul)
+o un sondeo indirecto (naranja claro); un mensaje perdido se queda a medio camino en rojo.
+**clúster**, los mismos nodos y colores en una cuadrícula. **carriles**, lo que ven los clientes:
+verde las respuestas del nodo de casa, naranja claro tras pasar a otro nodo porque el de casa está
+muerto, naranja oscuro tras un cambio inútil porque declararon muerto a un nodo sano, rojo cuando
+el nodo de casa se cayó y el enrutador aún no lo sabía.
 
 El comprobador lee el `self.status` de cada nodo cada 250 ms, por fuera de la red. El clúster
 lleva 30 s funcionando cuando la ejecución empieza en 0:00, así que los detectores tienen una

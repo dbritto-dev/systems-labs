@@ -119,7 +119,7 @@ class QuorumFanout(FanoutAdapter):
     """The clients and the door as in the lanes picture; in the middle the coordinator (whichever node took
     the request: all five coordinate), its gauge the operations waiting for a quorum, its outline red while
     reads come back stale, orange while operations go unanswered. On the right the five replicas n0..n4,
-    outlined by what they are missing (blue in sync, oranges behind, red down or cut off, orange slow); a
+    outlined by what they are missing (blue in sync, oranges behind, red down, pink cut off, yellow slow); a
     replica's gauge is the keys it is behind on. Messages between nodes fly between the two: an operation's
     requests to the replicas that hold its key (a write white, a read blue), their answers back in green, a
     late write to a replica (read repair, a hint handed off, a retry) in orange; an operation that ended in a

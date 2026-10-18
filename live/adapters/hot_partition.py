@@ -109,7 +109,7 @@ class HotPartitionFanout(FanoutAdapter):
     """Users' operations reach your `Counters` (the door; the relay in the middle) and it sends requests to
     the six partitions on the right, p0 ... p5, each with its gauge: its utilisation against its capacity
     over the last second (orange from 70%, red from 90%, when the partition throttles). The partition the
-    hot key hashes to is named "hot". Each request flies from Counters to its partition: white a usual one,
+    hot key hashes to is purple (its utilisation beside its name, "p1 99%"). Each request flies from Counters to its partition: white a usual one,
     purple one on the hot key (a salted sub-key write lands on another partition), orange an extra request a
     read makes to fan in over sub-keys, blue folding sub-keys back; a throttled one stops half way, red.
     The relay's gauge (orange) is the fan-in requests it makes a second, the price of salting."""
