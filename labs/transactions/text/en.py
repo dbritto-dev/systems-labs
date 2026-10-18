@@ -35,10 +35,11 @@ GOALS = {
     "fresh": GoalText("Fresh ≥ 95%", "replicate every write"),
     "answered": GoalText("Answered ≥ 99%", "never wait for a peer"),
     "caught_up": GoalText("Caught up ≥ 99%", "re-send until acked"),
-    "g1b": GoalText("No G1b reads", "replicate whole txns"),
+    "g0": GoalText("No G0 writes", "one stamp per txn"),
+    "g1b": GoalText("No G1 reads", "replicate whole txns"),
 }
 
-LEGEND = {"up_to_date": "up to date", "behind": "behind", "g1b_read": "G1b read", "transaction": "transaction",
+LEGEND = {"up_to_date": "up to date", "behind": "behind", "g1b_read": "G0/G1 anomaly", "transaction": "transaction",
           "replication": "replication", "dropped": "dropped", "partition": "partition"}
 
 STRINGS = {
@@ -46,17 +47,23 @@ STRINGS = {
     "cut_off": "a node is cut off: {cause}",
     "whole_again": "the network is whole again",
     "warn_g1b": "n{node} showed an intermediate value of key {which}",
+    "warn_g1a": "n{node} showed a value of key {which} written by an aborted transaction",
+    "warn_g1c": "n{node}: two transactions read each other's writes (key {which})",
+    "warn_g0": "n{node} interleaved two transactions' writes (key {which})",
     # goal values
     "none": "none",
     "seen": "{n} seen",
     # the panel
     "tile_fresh": "Fresh",
-    "tile_g1b": "G1b",
+    "tile_g1b": "G0/G1",
     "tile_answers": "Answers",
     "messages": "Messages",
     "bar_clients": "Clients",
     "bar_nodes": "Nodes",
     "head_g1b": "G1b: a reader saw an overwritten value",
+    "head_g1a": "G1a: a reader saw an aborted write",
+    "head_g1c": "G1c: two transactions read each other's writes",
+    "head_g0": "G0: a node interleaved two transactions' writes",
     "head_cut": "n{node} is cut off: replication waits",
     "head_behind": "Some nodes are behind ({fresh:.1%} fresh)",
     "head_ok": "Every node is up to date",
@@ -67,8 +74,11 @@ STRINGS = {
     "no_store": "TxnNode must keep its key/value store in self.store (a dict)",
     # the lanes picture (the clients' view): states under the cluster, at most 13 letters
     "lanes_g1b": "G1b READ",
-    # the peers picture: under a node that just served an intermediate read
-    "peer_g1b": "n{node} G1b",
+    "lanes_g1a": "G1a READ",
+    "lanes_g1c": "G1c READ",
+    "lanes_g0": "G0 WRITE",
+    # the peers picture: under a node that just showed an anomaly
+    "peer_anomaly": "n{node} {kind}",
 }
 
 LESSON = Lesson(

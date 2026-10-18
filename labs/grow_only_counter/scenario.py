@@ -6,8 +6,10 @@ counter's value). The nodes keep nothing that matters in memory: the count lives
 which is sequentially consistent, so a read may return a value up to `stale` seconds old.
 
 Incidents come at random, like in production: bursts of adds (a flash sale, a retry storm
-from a client) and a slow network (a congested link). The first one is always a burst of
-3x the adds at 0:20-0:30.
+from a client), a slow network (a congested link) and partitions, as in Fly.io's
+`--nemesis partition`: one node cut off from the others (it still reaches seq-kv and the
+clients, as in Maelstrom, where services are never partitioned). The first one is always a
+burst of 3x the adds at 0:20-0:30.
 
 For every read the scenario records the band the value must fall in: at least every add
 acknowledged `LAG` seconds before the read started, at most every add sent before it ended.
@@ -45,6 +47,8 @@ KINDS = [
         "flash_sale", "retry_loop", "batch_import")),
     Kind("slow", 0.4, median=10.0, shortest=5.0, longest=20.0, severity=(2.5, 4.0), causes=(
         "congested_link", "noisy_neighbour", "bad_mtu")),
+    Kind("split", 0.4, median=10.0, shortest=5.0, longest=20.0, causes=(
+        "switch_failure", "firewall_rule", "bad_route")),
 ]
 MEAN_GAP = 30.0
 QUIET = 25.0  # calm before the next one: 15 s measured before it, and time to judge the last
@@ -57,6 +61,19 @@ KV_INDEX = NODES  # seq-kv is drawn as one more node
 
 def incidents(seed: int) -> Iterator[Planned]:
     return schedule(seed, FIRST, KINDS, MEAN_GAP, QUIET)
+
+
+def cut_off(inc: Planned, seed: int) -> int:
+    """The node a split cuts off from the other two."""
+    return random.Random(f"{seed}:{inc.t0}:split").randrange(NODES)  # a str seed is stable across runs
+
+
+def groups_for(inc: Planned, seed: int) -> list[list[int]] | None:
+    """Who can still talk to whom during the incident (None: the network is whole)."""
+    if inc.kind != "split":
+        return None
+    alone = cut_off(inc, seed)
+    return [[alone], [i for i in range(NODES) if i != alone]]
 
 
 class CountingKV(KVService):
@@ -146,10 +163,13 @@ class _Sim:
             await asyncio.sleep(inc.t0 - now())
             if inc.kind == "burst":
                 self.burst = inc.severity
+            elif inc.kind == "split":
+                self.net.partition([{self.ids[i] for i in g} for g in groups_for(inc, self.seed)])
             else:
                 self.net.latency = LATENCY * inc.severity
             await asyncio.sleep(inc.t1 - now())
             self.burst, self.net.latency = 1.0, LATENCY
+            self.net.heal()
 
     def banded(self, b: float) -> list[tuple]:
         """Reads that started before b, with the band their value must fall in."""
@@ -238,6 +258,7 @@ def stream(variant="main", seed: int = 1, rate: float = 20.0) -> Iterator[dict]:
                 "start": a,
                 "end": b,
                 "incidents": [(i.t0, i.t1, i.kind, i.severity, i.cause) for i in s.planned if a <= i.t0 < b],
+                "groups": {i.t0: groups_for(i, seed) for i in s.planned if a <= i.t0 < b and i.kind == "split"},
                 "tables": {
                     # (start, kind, node, delta or value read, end, ok, low, high)
                     "ops": _take(s.ops, 0, a, b),

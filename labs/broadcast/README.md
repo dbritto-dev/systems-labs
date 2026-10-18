@@ -26,7 +26,7 @@ Spanish comments and hints.
 | 1 Multi-node | 3b | tell your neighbours about new numbers | numbers spread, but those sent during a partition are lost |
 | 2 Fault tolerant | 3c | re-send until acknowledged | survives partitions, but ~60 msgs/op and ~700 ms |
 | 3 Efficient | 3d | fewer hops (e.g. straight to every node) | < 30 msgs/op, p50 < 400 ms, max < 600 ms |
-| 4 Batched | 3e | many numbers per message | < 20 msgs/op (p50 < 1 s, max < 2 s) |
+| 4 Batched | 3e | many numbers per message | < 20 msgs/op, p50 < 1 s, max < 2 s: slower than stage 3 is fine |
 
 Goals, judged per partition: every node gets every number (measured in the calm before it),
 numbers sent during it are everywhere 5 s after it heals, messages per operation < 30 and < 20,
@@ -34,7 +34,9 @@ and the time until every node has a number (median/max) < 400/600 ms and < 1/2 s
 
 Messages per operation counts messages between nodes, divided by client operations (reads
 included), like Maelstrom's `msgs-per-op`. The checker looks at each node's `self.messages`
-every 20 ms, outside the network, so it never adds traffic.
+every 20 ms, outside the network, so it never adds traffic. The clients check every reply, like
+Maelstrom: a `read_ok` must list every number the node had when the read was sent, and only
+numbers that were broadcast; anything else is a failed read.
 
 How your node talks is in `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,
 `self.every`, `self.spawn`, `self.now()`, and `on_<type>` handlers.

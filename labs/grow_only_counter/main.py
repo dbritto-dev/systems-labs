@@ -3,7 +3,7 @@
 This is Fly.io's Gossip Glomers challenge #4 (https://fly.io/dist-sys/4/), in Python.
 3 nodes take `add` (a delta) and `read` (the total) from clients. The count must live in
 Maelstrom's `seq-kv` service, a key/value store that is *sequentially consistent*: a read
-may return a value up to a second old, though never older than what you wrote yourself.
+may return a value up to half a second old, though never older than what you wrote yourself.
 Right now each node only counts the adds sent to it, in memory.
 
 Do the stages in order, in this file:

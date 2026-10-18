@@ -12,8 +12,8 @@ Do the stages in order, in this file:
            until the other node says it got it (use `await self.rpc(...)` and retry).
   Stage 3  Efficient (3d): under 30 messages per operation, median latency under
            400 ms, max under 600 ms.
-  Stage 4  Batched (3e): under 20 messages per operation (median under 1 s, max under
-           2 s): send many numbers in one message.
+  Stage 4  Batched (3e): under 20 messages per operation: send many numbers in one
+           message. Slower than stage 3 is fine here (median under 1 s, max under 2 s).
 
 How your node talks (see core/net.py):
   self.node_id, self.node_ids      who you are, and every node ("n0" ... "n24")

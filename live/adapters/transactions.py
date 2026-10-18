@@ -66,10 +66,11 @@ class TxnLanes(LaneAdapter):
                                                    lambda o: not o[TXN_OK] or o[TXN_BAD])
         fill, gauge = message_gauge(run, t, GAUGE_MAX)
         split = w.cut_at(variant, t) is not None
-        g1b = bool(run.rows("anomalies", t - 1, t + 1e-9))
+        seen = w.anomalies_at(run, t, 1.0)
+        g1b = bool(seen)
         words = w.screen.STATES
-        if g1b:
-            state = (w.s("lanes_g1b"), RED)
+        if seen:
+            state = (w.s("lanes_" + sorted(seen.values())[-1].lower()), RED)
         elif split:
             state = (words["partitioned"], RED)
         else:
@@ -86,14 +87,14 @@ class TxnPeers(PeersAdapter):
     """The clients (the users, and the door: the network, shut while a node is cut off; an answer is green, red
     when it failed or read an uncommitted write) and the three nodes on a triangle. A box's outline is how up to
     date it is: blue, oranges the more keys it is behind, red for a moment when it served an intermediate read
-    ("n1 G1b"). Its gauge is its share of fresh keys (within 1 s of the newest value; orange under 95%). A link
+    ("n1 G1b"), or showed a dirty write ("n1 G0"). Its gauge is its share of fresh keys (within 1 s of the newest value; orange under 95%). A link
     is drawn while it carries replication (blue); the two links of a node cut off are cut (a red ✕, "n2 cut
     off"), what is sent over them lost half way; the re-sends that piled up flow once it heals."""
 
     def frame(self, variant: str, t: float, users: int) -> PeersFrame:
         from labs.transactions import lab
         from labs.transactions.scenario import TXN_NODE, TXN_START
-        from live.worlds.transactions import ANOM_NODE, MSG_ARRIVED, MSG_DEST, MSG_SENT, MSG_SRC
+        from live.worlds.transactions import MSG_ARRIVED, MSG_DEST, MSG_SENT, MSG_SRC
 
         w = self.world
         run = w.runs.get(variant)
@@ -107,13 +108,13 @@ class TxnPeers(PeersAdapter):
         cut = w.cut_at(variant, t)
         stale = w.stale_at(run, t)
         groups = None if cut is None else [1 if i == cut else 0 for i in range(len(stale))]
-        g1b = {a[ANOM_NODE] for a in run.rows("anomalies", t - 0.5, t + 1e-9)}
+        g1b = w.anomalies_at(run, t, 0.5)
         colours = w.node_colours(run, t)
         peers = []
         for i, behind in enumerate(stale):
             node = f"n{i}"
             if i in g1b:
-                label = w.s("peer_g1b", node=i)
+                label = w.s("peer_anomaly", node=i, kind=g1b[i])
             elif i == cut:
                 label = w.s("state_cut", node=i)
             else:

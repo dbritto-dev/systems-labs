@@ -32,7 +32,7 @@ class ClusterFrame:
     """Everything the cluster view draws at one moment."""
 
     nodes: list[RGB] = field(default_factory=list)  # one colour per node, in grid order
-    groups: list[int] | None = None  # during a partition: the group of each node
+    groups: list[int] | None = None  # during a partition: the group of each node (-1: reaches every group)
     flights: list[tuple[int, int, float, RGB]] = field(default_factory=list)  # (src, dest, 0..1, colour); -1 = clients
     drops: list[tuple[int, int, float]] = field(default_factory=list)  # (src, dest, 0..1 faded)
     state: tuple[str, RGB] = ("CONNECTED", GREEN)  # under the grid
@@ -101,7 +101,8 @@ def draw_cluster(cv: Canvas, fr: ClusterFrame) -> None:
         for i in range(n):
             r, c = divmod(i, side)
             for j, vertical in ((i + 1, True), (i + side, False)):
-                if j >= n or (vertical and c == side - 1) or fr.groups[i] == fr.groups[j]:
+                if j >= n or (vertical and c == side - 1) or fr.groups[i] == fr.groups[j] or -1 in (
+                        fr.groups[i], fr.groups[j]):
                     continue
                 (x0, y0), (x1, y1) = centre(i), centre(j)
                 mx, my = (x0 + x1) / 2, (y0 + y1) / 2

@@ -8,7 +8,9 @@ store that is *sequentially consistent*: a read may return a value up to 0.5 s o
 never older than your own writes. Clients send `add` (a delta) and `read` (the total).
 
 Incidents come at random, like in production: bursts of adds (a flash sale, a client stuck
-in a retry loop) and a slow network. The first one is always a 3x burst at 0:20-0:30.
+in a retry loop), a slow network, and partitions, as in Fly.io's `--nemesis partition`: one
+node cut off from the other two (it still reaches seq-kv, a service, as in Maelstrom). The
+first one is always a 3x burst at 0:20-0:30.
 
 ```
 uv run python -m live grow_only_counter            # watch it; edit main.py and save

@@ -26,17 +26,28 @@ un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
 | Etapa | Reto | En `es/main.py` | Lo que ves |
 |---|---|---|---|
 | 0 Un solo nodo (dada) | 6a | cada nodo tiene su propio almacén | los nodos siempre van atrasados (~45% al día) |
-| 1 Replicado | 6b | envía cada escritura a los demás nodos | al día, pero tras una partición algunas claves nunca se recuperan (~90-95%) |
-| 2 Read uncommitted | 6b + particiones | reenvía hasta que confirmen; gana el sello más nuevo | todos se ponen al día, pero los lectores ven valores intermedios (G1b) |
-| 3 Read committed | 6c | replica transacciones enteras (valores finales), aplicadas de una vez | sin lecturas intermedias, y cada nodo se pone al día |
+| 1 Replicado | 6b, sin particiones | envía cada escritura a los demás nodos | al día, pero tras una partición algunas claves nunca se recuperan (~90-95%), y las escrituras se intercalan (G0) |
+| 2 Read uncommitted | 6b, con particiones | reenvía hasta que confirmen; gana el sello más nuevo (uno por transacción) | todos se ponen al día, sin G0, pero los lectores ven valores intermedios (G1b) |
+| 3 Read committed | 6c | replica transacciones enteras (valores finales), aplicadas de una vez | sin G0 ni G1a, G1b o G1c, y cada nodo se pone al día |
 
 Objetivos, evaluados en cada partición: **al día** ≥ 95% en la calma anterior (la parte de las
 claves, en cada nodo, que está a menos de 1 s del valor más nuevo en cualquier nodo);
 **respondidas** ≥ 99% de las transacciones durante ella; **recuperado** ≥ 99% al día entre 5 y
-10 s después de que termine; **sin lecturas G1b** desde 15 s antes hasta 5 s después.
+10 s después de que termine; **sin escrituras G0** (etapa 2) y **sin lecturas G1** (etapa 3),
+ambas desde 15 s antes hasta 5 s después.
 
-El comprobador mira el `self.store` de cada nodo cada 50 ms, fuera de la red, y revisa cada
-lectura que reciben los clientes: una lectura que devuelve el valor intermedio de otra
-transacción es una G1b. No busca G0 directamente: un único sello por transacción con "gana la
-última escritura" da a cada clave el mismo orden de escrituras en todos los nodos, y eso es lo
-que descarta G0.
+El comprobador mira el `self.store` de cada nodo cada 50 ms, fuera de la red, y comprueba lo que
+prohíben los retos 6b y 6c de Fly.io:
+- **G0, escritura sucia** (read uncommitted ya la prohíbe): anota cada escritura en un almacén
+  en el momento; dos transacciones que escribieron x e y, aplicadas T y luego U en x pero U y
+  luego T en y en algún nodo, intercalaron sus escrituras. Un sello por transacción lo evita.
+- **G1a, lectura abortada**: un nodo puede abortar una transacción (código de error 30,
+  `txn-conflict`); una lectura posterior que devuelva una de sus escrituras es una G1a.
+- **G1b, lectura intermedia**: una lectura que devuelve un valor que otra transacción sobrescribió
+  ella misma.
+- **G1c, flujo circular de información**: dos transacciones que leen cada una la escritura de la
+  otra. Solo se comprueban ciclos de dos, no más largos.
+
+También se comprueba cada respuesta, como Maelstrom: un `txn_ok` debe llevar las mismas
+microoperaciones en orden, con las escrituras repetidas y las lecturas rellenas; si no, cuenta
+como no respondida.

@@ -6,7 +6,7 @@ total en memoria y lo escribe por lotes, una escritura a la vez (para que nunca 
 desordenadas), y confirma una suma cuando ha funcionado una escritura que la incluye.
 
 Una lectura suma la clave de cada nodo. Tu propia clave siempre está al día (seq-kv te enseña
-tus propias escrituras); las demás pueden tener hasta un segundo de retraso, algo que este
+tus propias escrituras); las demás pueden tener hasta medio segundo de retraso, algo que este
 reto permite: el contador solo tiene que acabar cuadrando.
 """
 

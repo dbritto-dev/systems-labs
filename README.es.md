@@ -213,10 +213,17 @@ una red simulada con particiones:
 | Laboratorio | Reto | Etapas |
 |---|---|---|
 | `unique_id_generation` | n.º 1 Echo, n.º 2 IDs únicos | echo → IDs únicos → IDs Snowflake (64 bits, ordenados en el tiempo, resisten saltos de reloj) |
-| `broadcast` | n.º 3 Broadcast | varios nodos → tolerante a fallos → eficiente → por lotes (3b–3e) |
-| `grow_only_counter` | n.º 4 Contador solo creciente | clave compartida → compare-and-swap → una clave por nodo, sobre seq-kv |
-| `kafka_style_log` | n.º 5 Log al estilo Kafka | un nodo → varios nodos con lin-kv → eficiente: un dueño por clave (5a–5c) |
-| `transactions` | n.º 6 Transacciones siempre disponibles | replicado → lectura no confirmada → lectura confirmada (6a–6c) |
+| `broadcast` | n.º 3 Broadcast | varios nodos → tolerante a fallos → eficiente → por lotes: menos mensajes, puede ir más lento (3a dada; 3b–3e) |
+| `grow_only_counter` | n.º 4 Contador solo creciente | clave compartida → compare-and-swap → una clave por nodo, sobre seq-kv, con particiones |
+| `kafka_style_log` | n.º 5 Log al estilo Kafka | un nodo → varios nodos con lin-kv → eficiente: un dueño por clave (5a dada; 5b–5c) |
+| `transactions` | n.º 6 Transacciones siempre disponibles | replicado → lectura no confirmada, sin G0 → lectura confirmada, sin G1a/G1b/G1c (6a dada; 6b–6c) |
+
+Cada etapa se evalúa como el reto de Fly.io: sus números (los < 30 msgs/op y 400/600 ms de 3d, los
+< 20 msgs/op y 1 s/2 s de 3e), sus particiones (n.º 4 y 6b se ejecutan con ellas) y las anomalías que
+buscan los comprobadores de Maelstrom: offsets que se repiten o retroceden (5a), escrituras sucias (G0,
+6b) y lecturas abortadas, intermedias o circulares (G1a, G1b, G1c, 6c). Los clientes además comprueban
+cada respuesta (un `read_ok` debe listar todos los números que tenía el nodo, un `txn_ok` debe
+rellenar cada lectura).
 
 Replicación, particionado y coordinación, sobre la misma red:
 

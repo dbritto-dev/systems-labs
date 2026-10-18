@@ -114,7 +114,43 @@ def test_incidents_are_random_but_the_first_is_a_burst_at_twenty_seconds():
     firsts = [next(scenario.incidents(s)) for s in (1, 2, 9)]
     assert all((i.t0, i.t1, i.kind) == (20.0, 30.0, "burst") for i in firsts)
     later = list(itertools.islice(scenario.incidents(4), 30))
-    assert {i.kind for i in later} == {"burst", "slow"} and all(i.cause for i in later)
+    assert {i.kind for i in later} == {"burst", "slow", "split"} and all(i.cause for i in later)
+
+
+class GossipDeltas(Node):  # no seq-kv: tell the other nodes each add, fire and forget
+    def __init__(self, node_id, node_ids):
+        super().__init__(node_id, node_ids)
+        self.total = 0
+
+    async def on_add(self, msg):
+        self.total += msg.body["delta"]
+        for n in self.node_ids:
+            if n != self.node_id:
+                self.send(n, {"type": "gossip", "delta": msg.body["delta"]})
+        self.reply(msg, {"type": "add_ok"})
+
+    async def on_gossip(self, msg):
+        self.total += msg.body["delta"]
+
+    async def on_read(self, msg):
+        self.reply(msg, {"type": "read_ok", "value": self.total})
+
+
+def test_partitions_cut_one_node_off_like_flys_nemesis():
+    """Like Fly.io's `--nemesis partition`: a split cuts one node off from the others (not from seq-kv).
+    Gossiping adds between nodes then loses the ones sent across the cut: reads stay wrong after it heals,
+    while the reference (state in seq-kv) is right again."""
+    split = next(i for i in scenario.incidents(5) if i.kind == "split")  # seed 5: the second incident, 1:22
+    assert scenario.groups_for(split, 5) and len(min(scenario.groups_for(split, 5), key=len)) == 1
+    from live.worlds.grow_only_counter import GOALS
+
+    gossip = type("GossipDeltas", (), {"CounterNode": GossipDeltas})
+    after = [g.key for g in GOALS].index("after")
+    for v, ok in ((gossip, False), ("reference", True)):
+        world = build_world("grow_only_counter", v, 2, seed=5)
+        run = world.runs[v]
+        k = next(k for k, inc in enumerate(run.incidents) if inc.t0 == split.t0)
+        assert run.settled[k][after].ok is ok, (v, run.settled[k])
 
 
 def test_reads_carry_the_band_they_must_fall_in():

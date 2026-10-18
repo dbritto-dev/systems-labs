@@ -8,7 +8,7 @@ SUMMARY = "Gossip Glomers #4: count adds on 3 stateless nodes with a sequentiall
 PARAMS = {"rate": "client operations per second (60% add, 40% read)"}
 
 INCIDENT = IncidentText("Incident", "the incident", "the next incident")
-VERBS = {"burst": "BURST", "calm": "CALM", "slow": "SLOW", "fast": "FAST"}
+VERBS = {"burst": "BURST", "calm": "CALM", "slow": "SLOW", "fast": "FAST", "split": "SPLIT", "heal": "HEALED"}
 CAUSES = {
     "flash_sale": "a flash sale started",
     "retry_loop": "a client retried every add in a loop",
@@ -16,6 +16,9 @@ CAUSES = {
     "congested_link": "a congested link between racks",
     "noisy_neighbour": "a noisy neighbour saturated the host's network",
     "bad_mtu": "a misconfigured MTU fragmented every packet",
+    "switch_failure": "a top-of-rack switch failed",
+    "firewall_rule": "a new firewall rule blocked traffic between nodes",
+    "bad_route": "a bad route sent one node's traffic nowhere",
 }
 
 STAGES = [
@@ -48,6 +51,8 @@ STRINGS = {
     # incidents
     "title_burst": "Burst",
     "title_slow": "Slow network",
+    "title_split": "Partition",
+    "split_text": "one node is cut off from the other two (it still reaches seq-kv): {cause}",
     "back_to_normal": "back to normal",
     "slow_text": "every message takes {factor:.1f}x longer: {cause}",
     "burst_text": "{factor:.1f}x the adds: {cause}",
@@ -71,12 +76,14 @@ STRINGS = {
     "state_conflicts": "CAS CONFLICTS {share:.0%}",
     "state_burst": "BURST x{factor:.1f}",
     "state_slow": "SLOW NETWORK x{factor:.1f}",
+    "state_split": "SPLIT: {node} CUT OFF",
     "state_off": "READS OFF",
     # errors in your code
     "stuck": "a client request has waited over {seconds:.0f} s: does a handler never reply?",
     # the lanes picture (the clients' view): states under the cluster, at most 13 letters
     "lanes_conflicts": "CONFLICTS",
     "lanes_kv_slow": "KV SLOW",
+    "lanes_split": "PARTITIONED",
     # the fan-in picture: the network (the door), the nodes, seq-kv (the store)
     "fan_network": "network",
     "fan_off": "{node} reads off",

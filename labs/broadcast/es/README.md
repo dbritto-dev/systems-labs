@@ -23,7 +23,7 @@ un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
 | 1 Varios nodos | 3b | cuéntales los números nuevos a tus vecinos | los números se extienden, pero los enviados durante una partición se pierden |
 | 2 Tolerante a fallos | 3c | reenvía hasta que confirmen | aguanta las particiones, pero ~60 msgs/op y ~700 ms |
 | 3 Eficiente | 3d | menos saltos (por ejemplo, directo a cada nodo) | < 30 msgs/op, p50 < 400 ms, máx < 600 ms |
-| 4 Por lotes | 3e | muchos números por mensaje | < 20 msgs/op (p50 < 1 s, máx < 2 s) |
+| 4 Por lotes | 3e | muchos números por mensaje | < 20 msgs/op, p50 < 1 s, máx < 2 s: puede ir más lento que la etapa 3 |
 
 Objetivos, evaluados en cada partición: cada nodo recibe cada número (medido en la calma de
 antes), los números enviados durante la partición están en todas partes 5 s después de que se
@@ -32,7 +32,9 @@ cure, mensajes por operación < 30 y < 20, y el tiempo hasta que cada nodo tiene
 
 Los mensajes por operación cuentan los mensajes entre nodos, divididos por las operaciones de
 los clientes (lecturas incluidas), como el `msgs-per-op` de Maelstrom. El comprobador mira el
-`self.messages` de cada nodo cada 20 ms, fuera de la red, así que nunca añade tráfico.
+`self.messages` de cada nodo cada 20 ms, fuera de la red, así que nunca añade tráfico. Los clientes
+comprueban cada respuesta, como Maelstrom: un `read_ok` debe listar todos los números que el nodo
+tenía cuando se envió la lectura, y solo números difundidos; si no, es una lectura fallida.
 
 Cómo habla tu nodo está en `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,
 `self.every`, `self.spawn`, `self.now()`, y los manejadores `on_<tipo>`.

@@ -29,7 +29,8 @@ Spanish comments and hints.
 | 1 Multi-node | 5b | offsets and messages in lin-kv (a CAS counter per key) | no anomalies, but ~10 msgs/op and p99 sends of 300-700 ms in a burst |
 | 2 Efficient | 5c | fewer round trips (e.g. an owner node per key) | ~1.3 msgs/op, p99 send ~47 ms, even in bursts |
 
-Goals, judged per incident: offsets unique (15 s before it), no lost writes (during),
+Goals, judged per incident: offsets unique and rising (15 s before it; a send never gets an
+offset below one already acknowledged, a poll lists them in order), no lost writes (during),
 committed offsets kept (10 s after), messages per operation < 3 (before; between the nodes
 and lin-kv, divided by client operations), and p99 send < 100 ms (during).
 

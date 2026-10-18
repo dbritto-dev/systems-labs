@@ -28,7 +28,8 @@ un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
 | 1 Multinodo | 5b | offsets y mensajes en lin-kv (un contador CAS por clave) | sin anomalías, pero ~10 msgs/op y p99 de send de 300-700 ms en una avalancha |
 | 2 Eficiente | 5c | menos viajes de ida y vuelta (p. ej. un nodo dueño por clave) | ~1.3 msgs/op, p99 de send ~47 ms, incluso en avalanchas |
 
-Objetivos, evaluados en cada incidente: offsets únicos (15 s antes), ninguna escritura perdida
+Objetivos, evaluados en cada incidente: offsets únicos y crecientes (15 s antes; un send nunca
+recibe un offset menor que uno ya confirmado, un poll los da en orden), ninguna escritura perdida
 (durante), offsets con commit conservados (10 s después), mensajes por operación < 3 (antes;
 entre los nodos y lin-kv, divididos por las operaciones de los clientes), y p99 de send < 100 ms
 (durante).

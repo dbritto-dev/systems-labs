@@ -96,12 +96,73 @@ def test_a_single_node_per_store_never_catches_up():
 
 def test_stage_variants_land_on_their_stage_on_every_partition():
     for v, stage, expected in ((FIRE, 1, [True, True, False]),  # Replicated
-                               (PER_WRITE, 2, [True, True, True, False])):  # Read uncommitted
+                               (PER_WRITE, 2, [True, True, True, True, False])):  # Read uncommitted: no G0
         world = build_world("transactions", v, 3)
         res = results(world, v)
         assert len(res) >= 3, res
         assert all(r[:len(expected)] == expected for r in res), (v.__name__, res)
         assert world.stage_index(v) == stage
+
+
+class AbortButKeep(Single):  # aborts every fifth transaction (error 30), but leaves its writes in the store
+    def __init__(self, node_id, node_ids):
+        super().__init__(node_id, node_ids)
+        self.seen = itertools.count()
+
+    async def on_txn(self, msg):
+        if next(self.seen) % 5 == 0:
+            for op, key, value in msg.body["txn"]:
+                if op == "w":
+                    self.store[key] = value
+            self.reply(msg, {"type": "error", "code": 30, "text": "txn-conflict"})
+        else:
+            self.run(msg)
+
+
+class WritesFirst(Single):  # applies a transaction's writes, waits, then reads: transactions see each other
+    async def on_txn(self, msg):
+        ops = msg.body["txn"]
+        for op, key, value in ops:
+            if op == "w":
+                self.store[key] = value
+        await self.sleep(0.05)
+        self.reply(msg, {"type": "txn_ok", "txn": [[op, key, self.store.get(key) if op == "r" else value]
+                                                   for op, key, value in ops]})
+
+
+def test_the_checker_catches_what_6b_and_6c_forbid():
+    """Fly.io 6b (read uncommitted) forbids G0; 6c (read committed) also G1a, G1b and G1c. Each is caught:
+    per-key messages that arrive in different orders (G0), an aborted transaction whose writes stay (G1a),
+    and two transactions that see each other's writes (G1c). The reference shows none."""
+    def kinds(v):
+        piece = scenario.run(v, chunk=0)
+        return bool(piece["tables"]["g0"]), {a[4] for a in piece["tables"]["anomalies"]}
+
+    assert kinds(FIRE)[0]  # G0
+    assert scenario.G1A in kinds(module(AbortButKeep))[1]
+    assert scenario.G1C in kinds(module(WritesFirst))[1]
+    assert kinds("reference") == (False, set())
+
+
+class WrongReplies(Single):  # answers txn_ok, but without the reads filled in (only the writes)
+    async def on_txn(self, msg):
+        self.run(msg)
+
+    def reply(self, request, body):
+        if body.get("type") == "txn_ok":
+            body = dict(body, txn=[op for op in body["txn"] if op[0] == "w"])
+        super().reply(request, body)
+
+
+def test_replies_must_be_the_same_transaction_with_its_reads_filled_in():
+    """The clients check every txn_ok, like Maelstrom: the same micro-operations in order, writes echoed,
+    reads filled in. One that drops its reads is not an answer (the reference's always are)."""
+    def answered(v):
+        txns = scenario.run(v, chunk=0)["tables"]["txns"]
+        return sum(t[scenario.TXN_OK] for t in txns) / len(txns)
+
+    assert answered(module(WrongReplies)) < 0.8
+    assert answered("reference") > 0.99
 
 
 def test_reference_passes_every_goal():
@@ -141,14 +202,14 @@ def test_stage1_replicates():
     assert first()[0]
 
 
-@your_code(2, "every node catches up after a partition")
+@your_code(2, "every node catches up after a partition, with no dirty writes (G0)")
 def test_stage2_catches_up():
-    assert first()[:3] == [True, True, True]
+    assert first()[:4] == [True, True, True, True]
 
 
-@your_code(3, "no intermediate reads (read committed)")
+@your_code(3, "no aborted, intermediate or circular reads (read committed)")
 def test_stage3_read_committed():
-    assert first() == [True] * 4
+    assert first() == [True] * 5
 
 
 def test_a_second_picture_shows_what_the_clients_see():
@@ -192,7 +253,7 @@ def test_the_peers_picture_shows_the_node_cut_off_and_who_replicates():
     assert all(p.fill == 1.0 for p in healed[0].peers)  # caught up after the heal
 
     world, per_write = peers(PER_WRITE, [k / 10 for k in range(0, 600)])
-    g1b = [p for f in per_write for i, p in enumerate(f.peers) if p.label[0] == world.s("peer_g1b", node=i)]
+    g1b = [p for f in per_write for i, p in enumerate(f.peers) if p.label[0] == world.s("peer_anomaly", node=i, kind="G1b")]
     assert g1b and all(p.outline == RED for p in g1b)  # intermediate reads, flashing red
     burst = max(sum(1 for a, b, *_ in f.flights if 2 in (a, b) and -1 not in (a, b)) for f in per_write[300:310])
     assert burst > 30  # its re-sends piled up during the cut, and flow once it heals

@@ -3,7 +3,7 @@
 Es el reto n.º 4 de Gossip Glomers de Fly.io (https://fly.io/dist-sys/4/), en Python.
 3 nodos reciben de los clientes `add` (un delta) y `read` (el total). La cuenta debe vivir
 en el servicio `seq-kv` de Maelstrom, un almacén clave/valor *secuencialmente consistente*:
-una lectura puede devolver un valor de hasta un segundo de antigüedad, aunque nunca más viejo
+una lectura puede devolver un valor de hasta medio segundo de antigüedad, aunque nunca más viejo
 que lo que tú mismo escribiste. Ahora mismo cada nodo solo cuenta en memoria las sumas que le
 llegan a él.
 

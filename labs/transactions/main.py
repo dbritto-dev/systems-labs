@@ -11,13 +11,18 @@ Right now each node keeps its own store (6a, a single node): writes never reach 
 
 Do the stages in order, in this file:
 
-  Stage 1  Replicate (6b): send every write to the other nodes, so they catch up.
-  Stage 2  Read uncommitted, through partitions (6b): re-send what the other node has not
+  Stage 1  Replicate (6b, without partitions): send every write to the other nodes, so
+           they catch up.
+  Stage 2  Read uncommitted (6b, with partitions): re-send what the other node has not
            acknowledged; when two writes to a key cross, the newest wins everywhere
-           (stamp each transaction with (time, node) and keep the larger stamp).
+           (stamp each transaction with (time, node) and keep the larger stamp). One stamp
+           for the whole transaction: two transactions' writes must never interleave, x
+           from one and y from the other (a "dirty write", G0).
   Stage 3  Read committed (6c): never let anyone see a value a transaction overwrote
            itself (an "intermediate read", G1b): replicate whole transactions, with only
-           their final value per key, and apply each one in one go.
+           their final value per key, and apply each one in one go. Read committed also
+           forbids reading an aborted write (G1a: if you abort, with error code 30, its
+           writes must vanish) and two transactions reading each other's writes (G1c).
 
 How your node talks (see core/net.py):
   self.node_id, self.node_ids      who you are, and every node ("n0", "n1", "n2")

@@ -102,6 +102,37 @@ def test_stage_variants_land_on_their_stage():
         assert world.stage_index(v) == stage, (v.__name__, results(world, v))
 
 
+def test_batching_slowly_is_stage_4_like_fly_3e():
+    """Fly's 3e trades speed for fewer messages: a hub that batches every half second (max latency over
+    3d's 600 ms, under 3e's 2 s) is stage 4, not stuck at 2 for missing 3d's speed."""
+    ref = load("broadcast", "reference", scenario.NAMES)
+
+    class SlowHub(ref.BroadcastNode):
+        async def send_batches(self):
+            if self.now() - getattr(self, "_last", -1.0) >= 0.5:
+                self._last = self.now()
+                await super().send_batches()
+
+    slow = module(SlowHub)
+    world = build_world("broadcast", slow, 2)
+    assert world.stage_index(slow) == 4, results(world, slow)
+
+
+def test_reads_must_return_every_number_the_node_has():
+    """Like Maelstrom's checker, the clients check every reply: a read_ok that leaves out numbers the node
+    had (or makes some up) is a failed read, however well the numbers spread."""
+    ref = load("broadcast", "reference", scenario.NAMES)
+
+    class ForgetfulReads(ref.BroadcastNode):
+        async def on_read(self, msg):
+            self.reply(msg, {"type": "read_ok", "messages": sorted(self.messages)[:3]})
+
+    reads = lambda v: [o for o in scenario.run(v, chunk=0)["tables"]["ops"] if o[1] == scenario.READ]
+    bad = reads(module(ForgetfulReads))
+    assert bad and sum(not o[5] for o in bad) > len(bad) / 2
+    assert all(o[5] for o in reads("reference"))
+
+
 def test_flooding_loses_numbers_in_every_partition():
     world = build_world("broadcast", FLOOD, 3)
     res = results(world, FLOOD)

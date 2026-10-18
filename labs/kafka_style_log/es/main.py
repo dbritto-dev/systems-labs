@@ -10,7 +10,8 @@ offset entero. Dos nodos atienden a los clientes, que hablan con cualquiera de l
   list_committed_offsets {keys: [...]}  -> list_committed_offsets_ok {offsets: {key: off}}
 
 Las reglas (el comprobador mira cada respuesta):
-  - los offsets de una clave son únicos: dos mensajes nunca comparten uno;
+  - los offsets de una clave son únicos y siempre crecen: dos mensajes nunca comparten uno, un
+    send nunca recibe un offset menor que uno ya confirmado, y un poll los da en orden;
   - ninguna escritura se pierde: un poll puede devolver cuantos mensajes quiera desde `from`,
     pero nunca saltarse un offset ya confirmado (ni devolver otro mensaje en él);
   - los offsets con commit nunca retroceden: listarlos devuelve al menos el último

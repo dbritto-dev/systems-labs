@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from core.i18n import strings
 from labs.kafka_style_log import lab
-from labs.kafka_style_log.scenario import DUPLICATE, LOST_COMMIT, LOST_WRITE, SEND
+from labs.kafka_style_log.scenario import BACKWARDS, DUPLICATE, LOST_COMMIT, LOST_WRITE, SEND
 from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PURPLE, RED, WHITE
 from live.worlds.base import (
     Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, below, fmt_ms, history, percentile,
@@ -15,14 +15,15 @@ MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 AN_T, AN_KIND, AN_NODE, AN_KEY = range(4)
 KV = lab.NODES  # lin-kv's index in the picture and the message table
 INF = float("inf")
-ANOMALY_KEYS = {DUPLICATE: "duplicate", LOST_WRITE: "lost_write", LOST_COMMIT: "lost_commit"}  # STRINGS keys
+ANOMALY_KEYS = {DUPLICATE: "duplicate", LOST_WRITE: "lost_write", LOST_COMMIT: "lost_commit",
+                BACKWARDS: "backwards"}  # STRINGS keys
 
 
 _s = strings("kafka_style_log")  # one of the lab's STRINGS, for the goal measures below
 
 
-def _count(run: Run, kind: int, a: float, b: float) -> int:
-    return sum(1 for x in run.rows("anomalies", a, b) if x[AN_KIND] == kind)
+def _count(run: Run, kinds: tuple[int, ...], a: float, b: float) -> int:
+    return sum(1 for x in run.rows("anomalies", a, b) if x[AN_KIND] in kinds)
 
 
 def _msgs_per_op(run: Run, a: float, b: float) -> float | None:
@@ -46,12 +47,13 @@ def _send_times(run: Run, a: float, b: float, upto: float) -> list[float]:
 # ---------------------------------------------------------------- goals
 
 
-def _anomalies(kind: int, key: str, phase: str, extra: float = 0.0) -> GoalSpec:
-    """A goal that no anomaly of `kind` happens in its window (it alerts at the first one)."""
+def _anomalies(kinds: tuple[int, ...], key: str, phase: str, extra: float = 0.0) -> GoalSpec:
+    """A goal that no anomaly of `kinds` happens in its window (it alerts at the first one)."""
+    kind = kinds[0]
 
     def measure(run: Run, inc: Incident, upto: float):
         a, b = WINDOWS[kind](inc)
-        n = _count(run, kind, a, min(b, upto))
+        n = _count(run, kinds, a, min(b, upto))
         return n, str(n)
 
     return GoalSpec("", phase, "", WINDOWS[kind], measure, lambda v: v == 0,
@@ -77,9 +79,9 @@ def _p99(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
-    _anomalies(DUPLICATE, "unique", "before"),
-    _anomalies(LOST_WRITE, "lost_writes", "during", 1.5),
-    _anomalies(LOST_COMMIT, "commits", "after", 1.5),
+    _anomalies((DUPLICATE, BACKWARDS), "unique", "before"),  # Fly.io 5a: offsets unique and always increasing
+    _anomalies((LOST_WRITE,), "lost_writes", "during", 1.5),
+    _anomalies((LOST_COMMIT,), "commits", "after", 1.5),
     GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _msgs, below(lab.MSGS_MAX), key="msgs"),
     GoalSpec("", "during", "", lambda i: (i.t0, i.t1), _p99, below(lab.P99_MAX), settle_extra=1.5, key="p99"),
 ]

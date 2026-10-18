@@ -13,8 +13,9 @@ Haz las etapas en orden, en este archivo:
            hasta que el otro nodo diga que lo tiene (usa `await self.rpc(...)` y reintenta).
   Etapa 3  Eficiente (3d): menos de 30 mensajes por operación, latencia mediana por debajo
            de 400 ms y máxima por debajo de 600 ms.
-  Etapa 4  Por lotes (3e): menos de 20 mensajes por operación (mediana por debajo de 1 s,
-           máxima por debajo de 2 s): envía muchos números en un mensaje.
+  Etapa 4  Por lotes (3e): menos de 20 mensajes por operación: envía muchos números en un
+           mensaje. Aquí puede ir más lento que en la etapa 3 (mediana por debajo de 1 s,
+           máxima por debajo de 2 s).
 
 Cómo habla tu nodo (mira core/net.py):
   self.node_id, self.node_ids      quién eres, y todos los nodos ("n0" ... "n24")

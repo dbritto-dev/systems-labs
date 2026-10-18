@@ -9,8 +9,9 @@ valor de hasta 0.5 s de antigüedad, aunque nunca más viejo que tus propias esc
 clientes envían `add` (un delta) y `read` (el total).
 
 Los incidentes llegan al azar, como en producción: picos de sumas (una venta relámpago, un cliente
-atascado en un bucle de reintentos) y una red lenta. El primero siempre es un pico de 3x entre
-0:20 y 0:30.
+atascado en un bucle de reintentos), una red lenta y particiones, como el `--nemesis partition` de
+Fly.io: un nodo aislado de los otros dos (sigue llegando a seq-kv, un servicio, como en Maelstrom).
+El primero siempre es un pico de 3x entre 0:20 y 0:30.
 
 ```
 uv run python -m live grow_only_counter --lang es            # míralo; edita es/main.py y guarda

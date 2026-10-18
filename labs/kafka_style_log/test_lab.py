@@ -99,6 +99,28 @@ def test_lin_kv_is_correct_but_slow_and_chatty_on_every_incident():
     assert world.stage_index(LINKV) == 1  # Multi-node
 
 
+def test_offsets_that_go_back_are_caught_like_fly_5a():
+    """Fly.io 5a: offsets must always increase. A send that gets an offset below one already acknowledged,
+    or a poll that lists a key's messages out of order, is an anomaly (the reference never makes one)."""
+    ref = load("kafka_style_log", "reference", scenario.NAMES)
+
+    class Twisted(ref.KafkaNode):
+        def reply(self, request, body):
+            body = dict(body)
+            if body.get("type") == "send_ok" and self.twist == "send":
+                body["offset"] = -body["offset"]  # each new offset lower than the last
+            if body.get("type") == "poll_ok" and self.twist == "poll":
+                body["msgs"] = {k: list(reversed(v)) for k, v in body["msgs"].items()}
+            super().reply(request, body)
+
+    for twist in ("send", "poll"):
+        node = type("Twisted", (Twisted,), {"twist": twist})
+        piece = scenario.run(type("M", (), {"KafkaNode": node}), chunk=0)
+        kinds = {a[1] for a in piece["tables"]["anomalies"]}
+        assert scenario.BACKWARDS in kinds, (twist, kinds)
+    assert not scenario.run("reference", chunk=0)["tables"]["anomalies"]
+
+
 def test_reference_passes_every_goal():
     world = build_world("kafka_style_log", "reference", 4)
     res = results(world, "reference")

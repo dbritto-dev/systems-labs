@@ -154,6 +154,7 @@ class BroadcastWorld(World):
         "values": Table(sort=0, times=(0,)),
         "done": Table(sort=0, times=(0,)),
         "lag": Table(sort=0, times=(0,)),
+        "got": Table(sort=0, times=(0,)),  # (time, value, node): a followed number is on that node now
     }
     goals = GOALS
     chart_top = 0.0

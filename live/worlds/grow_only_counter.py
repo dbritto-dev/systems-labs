@@ -130,19 +130,42 @@ class GCounterWorld(World):
             run.add("cas", c[CAS_T])
             if not c[CAS_OK]:
                 run.add("conflicts", c[CAS_T])
+        run.data.setdefault("groups", {}).update(piece.get("groups", {}))
+
+    def groups_at(self, variant: str, t: float) -> list[int] | None:
+        """During a split: the group of each node (the one cut off alone); else None."""
+        run = self.runs.get(variant)
+        inc = self.incident_at(variant, t)
+        groups = run.data.get("groups", {}).get(inc.t0) if run and inc and inc.kind == "split" else None
+        if not groups:
+            return None
+        out = [0] * lab.NODES
+        for g, members in enumerate(groups):
+            for i in members:
+                out[i] = g
+        return out
+
+    def cut_off_at(self, variant: str, t: float) -> str | None:
+        """The node a split has cut off, now (None: the network is whole)."""
+        groups = self.groups_at(variant, t)
+        return None if groups is None else f"n{next(i for i in range(lab.NODES) if groups.count(groups[i]) == 1)}"
 
     def incident_title(self, inc: Incident) -> str:
-        name = self.s("title_burst" if inc.kind == "burst" else "title_slow")
+        name = self.s({"burst": "title_burst", "split": "title_split"}.get(inc.kind, "title_slow"))
         return self.screen.INCIDENT_TITLE.format(name=name, n=inc.index + 1)
 
     def incident_verb(self, inc: Incident, start: bool) -> str:
         if inc.kind == "slow":
             return self.word("slow" if start else "fast")
+        if inc.kind == "split":
+            return self.word("split" if start else "heal")
         return self.word("burst" if start else "calm")
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         if not start:
             return self.s("back_to_normal")
+        if inc.kind == "split":  # which node is not known yet when this is written: the picture names it
+            return self.s("split_text", cause=self.cause(inc))
         key = "slow_text" if inc.kind == "slow" else "burst_text"
         return self.s(key, factor=inc.severity, cause=self.cause(inc))
 

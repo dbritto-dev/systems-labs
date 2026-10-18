@@ -8,7 +8,7 @@ SUMMARY = "Gossip Glomers #4: cuenta sumas en 3 nodos sin estado con un KV secue
 PARAMS = {"rate": "operaciones de clientes por segundo (60% add, 40% read)"}
 
 INCIDENT = IncidentText("Incidente", "el incidente", "el próximo incidente")
-VERBS = {"burst": "PICO", "calm": "CALMA", "slow": "LENTO", "fast": "RÁPIDO"}
+VERBS = {"burst": "PICO", "calm": "CALMA", "slow": "LENTO", "fast": "RÁPIDO", "split": "CORTE", "heal": "UNIDA"}
 CAUSES = {
     "flash_sale": "empezó una venta relámpago",
     "retry_loop": "un cliente reintentó cada suma en bucle",
@@ -16,6 +16,9 @@ CAUSES = {
     "congested_link": "un enlace congestionado entre racks",
     "noisy_neighbour": "un vecino ruidoso saturó la red del host",
     "bad_mtu": "un MTU mal configurado fragmentó cada paquete",
+    "switch_failure": "falló un switch de rack",
+    "firewall_rule": "una regla nueva del firewall bloqueó el tráfico entre nodos",
+    "bad_route": "una ruta mal puesta mandó el tráfico de un nodo a ninguna parte",
 }
 
 STAGES = [
@@ -49,6 +52,8 @@ STRINGS = {
     # incidentes
     "title_burst": "Pico",
     "title_slow": "Red lenta",
+    "title_split": "Partición",
+    "split_text": "un nodo queda aislado de los otros dos (sigue llegando a seq-kv): {cause}",
     "back_to_normal": "vuelve a la normalidad",
     "slow_text": "cada mensaje tarda {factor:.1f}x más: {cause}",
     "burst_text": "{factor:.1f}x las sumas: {cause}",
@@ -72,12 +77,14 @@ STRINGS = {
     "state_conflicts": "CONFLICTOS CAS {share:.0%}",
     "state_burst": "PICO x{factor:.1f}",
     "state_slow": "RED LENTA x{factor:.1f}",
+    "state_split": "PARTIDA: {node} AISLADO",
     "state_off": "LECTURAS MAL",
     # errores en tu código
     "stuck": "una petición de cliente lleva más de {seconds:.0f} s esperando: ¿algún handler nunca responde?",
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_conflicts": "CONFLICTOS",
     "lanes_kv_slow": "KV LENTO",
+    "lanes_split": "PARTIDA",
     # el dibujo en embudo: la red (la puerta), los nodos, seq-kv (el almacén)
     "fan_network": "red",
     "fan_off": "{node} lee mal",

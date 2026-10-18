@@ -10,7 +10,8 @@ integer offset. Two nodes serve clients, who talk to either node:
   list_committed_offsets {keys: [...]}  -> list_committed_offsets_ok {offsets: {key: off}}
 
 The rules (the checker watches every reply):
-  - offsets for a key are unique: two messages never share one;
+  - offsets for a key are unique and always increase: two messages never share one, a send
+    never gets an offset below one already acknowledged, and a poll lists them in order;
   - no lost writes: a poll may return any number of messages from `from` on, but never
     skip an offset that was already acknowledged (or return a different message at it);
   - committed offsets never go back: listing returns at least the latest acknowledged commit.

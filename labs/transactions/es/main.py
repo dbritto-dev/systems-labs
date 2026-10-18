@@ -13,13 +13,19 @@ a los demás.
 
 Haz las etapas en orden, en este archivo:
 
-  Etapa 1  Replica (6b): envía cada escritura a los demás nodos, para que se pongan al día.
-  Etapa 2  Read uncommitted, a través de particiones (6b): reenvía lo que el otro nodo
-           no ha confirmado; cuando dos escrituras a una clave se cruzan, gana la más nueva en
+  Etapa 1  Replica (6b, sin particiones): envía cada escritura a los demás nodos, para
+           que se pongan al día.
+  Etapa 2  Read uncommitted (6b, con particiones): reenvía lo que el otro nodo no ha
+           confirmado; cuando dos escrituras a una clave se cruzan, gana la más nueva en
            todas partes (sella cada transacción con (tiempo, nodo) y quédate con el sello mayor).
+           Un sello para toda la transacción: las escrituras de dos transacciones nunca deben
+           intercalarse, x de una e y de la otra (una "escritura sucia", G0).
   Etapa 3  Read committed (6c): que nadie vea nunca un valor que una transacción
            sobrescribió ella misma (una "lectura intermedia", G1b): replica transacciones
-           enteras, solo con su valor final por clave, y aplica cada una de una vez.
+           enteras, solo con su valor final por clave, y aplica cada una de una vez. Read
+           committed también prohíbe leer una escritura abortada (G1a: si abortas, con el
+           código de error 30, sus escrituras deben desaparecer) y que dos transacciones lean
+           cada una la escritura de la otra (G1c).
 
 Cómo habla tu nodo (mira core/net.py):
   self.node_id, self.node_ids      quién eres, y todos los nodos ("n0", "n1", "n2")

@@ -28,15 +28,25 @@ Spanish comments and hints.
 | Stage | Challenge | In `main.py` | What you see |
 |---|---|---|---|
 | 0 Single node (given) | 6a | each node keeps its own store | the nodes are always behind (~45% fresh) |
-| 1 Replicated | 6b | send every write to the other nodes | fresh, but after a partition some keys never catch up (~90-95%) |
-| 2 Read uncommitted | 6b + partitions | re-send until acked; newest stamp wins | everyone catches up, but readers see intermediate values (G1b) |
-| 3 Read committed | 6c | replicate whole transactions (final values), applied at once | no intermediate reads, and every node catches up |
+| 1 Replicated | 6b, no partitions | send every write to the other nodes | fresh, but after a partition some keys never catch up (~90-95%), and writes interleave (G0) |
+| 2 Read uncommitted | 6b, with partitions | re-send until acked; newest stamp (one per transaction) wins | everyone catches up, no G0, but readers see intermediate values (G1b) |
+| 3 Read committed | 6c | replicate whole transactions (final values), applied at once | no G0 and no G1a, G1b or G1c, and every node catches up |
 
 Goals, judged per partition: **fresh** ≥ 95% in the calm before it (the share of keys, on every
 node, within 1 s of the newest value anywhere); **answered** ≥ 99% of transactions during it;
-**caught up** ≥ 99% fresh 5-10 s after it heals; **no G1b reads** from 15 s before it to 5 s after.
+**caught up** ≥ 99% fresh 5-10 s after it heals; **no G0 writes** (stage 2) and **no G1 reads**
+(stage 3), both from 15 s before it to 5 s after.
 
 The checker looks at each node's `self.store` every 50 ms, outside the network, and checks
-every read the clients get back: a read that returns another transaction's intermediate value
-is a G1b. It does not look for G0 directly: a single stamp per transaction with last-writer-wins
-gives every key the same write order on every node, which is what rules G0 out.
+what Fly.io's 6b and 6c forbid:
+- **G0, dirty write** (read uncommitted already forbids it): it notes every write to a store as
+  it happens; two transactions that both wrote x and y, applied T then U on x but U then T on y
+  on some node, interleaved their writes. One stamp per transaction rules it out.
+- **G1a, aborted read**: a node may abort a transaction (error code 30, `txn-conflict`); a later
+  read that returns one of its writes is a G1a.
+- **G1b, intermediate read**: a read that returns a value another transaction overwrote itself.
+- **G1c, circular information flow**: two transactions that each read the other's write. Only
+  cycles of two are checked, not longer ones.
+
+Every answer is checked too, like Maelstrom: a `txn_ok` must carry the same micro-operations in
+order, writes echoed and reads filled in; anything else counts as not answered.

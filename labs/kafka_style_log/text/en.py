@@ -31,7 +31,7 @@ STAGES = [
 ]
 
 GOALS = {
-    "unique": GoalText("Offsets unique", "agree on offsets"),
+    "unique": GoalText("Offsets rise", "agree on offsets"),
     "lost_writes": GoalText("No lost writes", "never skip an offset"),
     "commits": GoalText("Commits kept", "share committed offsets"),
     "msgs": GoalText("Msgs/op < 3", "fewer lin-kv round trips"),
@@ -55,6 +55,7 @@ STRINGS = {
     "duplicate": "duplicate offset",
     "lost_write": "lost write",
     "lost_commit": "lost commit",
+    "backwards": "offset going back",
     # goal values
     "failed": "failed",
     # the panel
@@ -82,6 +83,7 @@ STRINGS = {
     "fan_duplicate": "{node} duplicate",
     "fan_lost_write": "{node} lost write",
     "fan_lost_commit": "{node} lost commit",
+    "fan_backwards": "{node} goes back",
 }
 
 LESSON = Lesson(

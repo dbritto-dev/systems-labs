@@ -10,6 +10,9 @@ at 0:20-0:30.
 
 The checker watches every reply, as Maelstrom's kafka checker does:
 - duplicate: two acknowledged sends got the same offset for the same key;
+- offset going back (Fly.io 5a: offsets must always increase): a send got an offset below one
+  already acknowledged for that key before it started, or a poll returned a key's messages
+  out of offset order;
 - lost write: a poll returned offset o2 but skipped an earlier offset that was already
   acknowledged (or returned a different message at an offset);
 - lost commit: list_committed_offsets returned less than an acknowledged commit.
@@ -52,7 +55,7 @@ QUIET = 27.0  # 15 s measured before the next one, and 10 s after the last
 # Operation kinds.
 SEND, POLL, COMMIT, LIST = range(4)
 # Anomaly kinds.
-DUPLICATE, LOST_WRITE, LOST_COMMIT = range(3)
+DUPLICATE, LOST_WRITE, LOST_COMMIT, BACKWARDS = range(4)
 
 
 def incidents(seed: int) -> Iterator[Planned]:
@@ -163,6 +166,7 @@ class _Sim:
 
     async def send(self, node: str, key: int) -> None:
         msg = next(self._msg)
+        high = self.offsets[key][-1] if self.offsets[key] else None  # acknowledged before this send started
         start, reply = await self._rpc(node, {"type": "send", "key": key_name(key), "msg": msg})
         bad = 0
         if reply is not None:
@@ -170,6 +174,9 @@ class _Sim:
             known = self.acked[key].get(offset)
             if known is not None and known[0] != msg:
                 self._bad(DUPLICATE, node, key)
+                bad = 1
+            elif isinstance(offset, int) and high is not None and offset < high:
+                self._bad(BACKWARDS, node, key)  # offsets must always increase
                 bad = 1
             elif known is None and isinstance(offset, int):
                 self.acked[key][offset] = (msg, now())
@@ -184,9 +191,13 @@ class _Sim:
         if reply is not None:
             got = reply.get("msgs", {})
             for k in keys:
-                pairs = sorted((p[0], p[1]) for p in got.get(key_name(k), []) if p[0] >= pos[k])
-                if not pairs:
+                raw = [(p[0], p[1]) for p in got.get(key_name(k), []) if p[0] >= pos[k]]
+                if not raw:
                     continue
+                if any(b[0] <= a[0] for a, b in zip(raw, raw[1:])):  # a log is read in offset order
+                    self._bad(BACKWARDS, node, k)
+                    bad += 1
+                pairs = sorted(raw)
                 seen = dict(pairs)
                 top = pairs[-1][0]
                 acked, offs = self.acked[k], self.offsets[k]

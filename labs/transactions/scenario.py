@@ -11,8 +11,12 @@ others (clients still reach every node, so every transaction must still be answe
 The first one always cuts a node off at 0:20-0:30.
 
 The checker looks at each node's `store` dict every 50 ms, outside the network (not
-counted as traffic), to see how far behind each node is; and it checks every answer the
-clients get for intermediate reads (G1b).
+counted as traffic), to see how far behind each node is. It also notes every write to a
+store as it happens (the store is wrapped), to catch dirty writes (G0): two transactions that
+wrote the same keys, applied T then U on one key and U then T on another. It checks every answer the clients
+get for the anomalies read committed forbids, as in Fly.io 6c: aborted reads (G1a: a value
+written by a transaction the node aborted with error 30), intermediate reads (G1b) and
+circular information flow (G1c, between two transactions: each read the other's write).
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ from collections.abc import Iterator
 from core.contract import load
 from core.i18n import lab_text
 from core.incidents import Kind, Planned, arrivals, schedule
-from core.net import Client, Network
+from core.net import Client, Network, RPCError
 from core.vtime import VirtualRun, now
 
 LAB = "transactions"
@@ -48,8 +52,35 @@ KINDS = [
 MEAN_GAP = 30.0
 QUIET = 27.0  # calm before the next one: 15 s measured before it, 10 s to judge the last
 
+TXN_ABORTED = 30  # Maelstrom's txn-conflict error: the transaction was aborted
+
 # Columns of the tables.
 TXN_START, TXN_NODE, TXN_END, TXN_OK, TXN_READS, TXN_WRITES, TXN_BAD = range(7)
+# Kinds of anomaly.
+G1A, G1B, G1C = range(3)
+
+
+class Watched(dict):
+    """A node's store that tells the checker every write to it (old value, new value), in order."""
+
+    def __init__(self, data: dict, noted) -> None:
+        super().__init__(data)
+        self._noted = noted
+
+    def __setitem__(self, key, value) -> None:
+        old = self.get(key)
+        super().__setitem__(key, value)
+        if old != value:
+            self._noted(key, old, value)
+
+    def update(self, *args, **kwargs) -> None:
+        for key, value in dict(*args, **kwargs).items():
+            self[key] = value
+
+    def setdefault(self, key, default=None):
+        if key not in self:
+            self[key] = default
+        return self[key]
 
 
 def incidents(seed: int) -> Iterator[Planned]:
@@ -73,7 +104,15 @@ class _Sim:
         self.net.join(self.client)
         self.planned: list[Planned] = []
         self.txns: list[tuple] = []  # finished: (start, node, end, ok, reads, writes, intermediate reads)
-        self.anomalies: list[tuple] = []  # (when, node, key, value): a G1b intermediate read
+        self.anomalies: list[tuple] = []  # (when, node, key, value, kind): a G1a, G1b or G1c read
+        self.g0: list[tuple] = []  # (when, node, key): a node holds a mix of two transactions' writes
+        self.writer: dict[int, int] = {}  # value -> the transaction that wrote it
+        self.final: dict[int, dict[int, int]] = {}  # tid -> {key: its last value}, for multi-key writers
+        self.reads_from: dict[int, set[int]] = {}  # tid -> the transactions whose writes it read
+        self.aborted: set[int] = set()  # values written by aborted transactions
+        self._order: dict[tuple, set[int]] = {}  # (node, T, U) -> keys where the node applied T's write, then U's
+        self._g0_seen: set[tuple] = set()
+        self._next_trim = 0.0
         self.stale: list[tuple] = []  # (time, stale keys per node)
         self.issued: dict[int, float] = {}  # value -> when its transaction was sent
         self.intermediate: dict[int, int] = {}  # value -> the transaction that overwrote it itself
@@ -88,6 +127,7 @@ class _Sim:
                 raise AttributeError(lab_text(LAB).STRINGS["no_store"])
             self.net.join(node)
             self.nodes.append(node)
+        self.watch()
 
     def make_txn(self, rng: random.Random) -> tuple[int, list[list]]:
         """A transaction: 1-4 reads and writes; a quarter of them write one key twice."""
@@ -108,11 +148,15 @@ class _Sim:
             ops.insert(0, ["w", k, first])
             ops.append(["w", k, self.value(tid)])
             self.intermediate[first] = tid
+        last = {key: v for op, key, v in ops if op == "w"}
+        if len(last) >= 2:
+            self.final[tid] = last
         return tid, ops
 
     def value(self, tid: int) -> int:
         v = next(self._next_value)
         self.issued[v] = now()
+        self.writer[v] = tid
         return v
 
     async def one(self, node: str, tid: int, ops: list[list]) -> None:
@@ -121,20 +165,49 @@ class _Sim:
         ok, reads, bad = False, 0, 0
         try:
             reply = await self.client.rpc(node, {"type": "txn", "txn": ops}, timeout=CLIENT_TIMEOUT)
-            ok = True
+            ok = self.well_formed(ops, reply)
+            seen: set[int] = set()
             for op in reply.get("txn", []):
-                if op[0] == "r":
-                    reads += 1
-                    writer = self.intermediate.get(op[2]) if op[2] is not None else None
-                    if writer is not None and writer != tid:
-                        bad += 1
-                        self.anomalies.append((now(), self.index[node], op[1], op[2]))
+                if op[0] != "r" or op[2] is None:
+                    reads += op[0] == "r"
+                    continue
+                reads += 1
+                kind = None
+                if op[2] in self.aborted:
+                    kind = G1A  # it read a write that was aborted
+                elif (w := self.intermediate.get(op[2])) is not None and w != tid:
+                    kind = G1B  # it read another transaction's intermediate write
+                elif (w := self.writer.get(op[2])) is not None and w != tid:
+                    seen.add(w)
+                    if tid in self.reads_from.get(w, ()):
+                        kind = G1C  # it read w's write, and w read one of its own: a cycle
+                if kind is not None:
+                    bad += 1
+                    self.anomalies.append((now(), self.index[node], op[1], op[2], kind))
+            self.reads_from[tid] = seen
+        except RPCError as e:
+            if e.code == TXN_ABORTED:  # aborted: an answer (allowed), and its writes must never be read
+                ok = True
+                self.aborted.update(v for op, _, v in ops if op == "w")
         except Exception:  # noqa: BLE001 - no answer in time: not available
             pass
         finally:
             self.open.pop(tid, None)
         writes = sum(1 for op in ops if op[0] == "w")
         self.txns.append((start, self.index[node], now(), ok, reads, writes, bad))
+
+    @staticmethod
+    def well_formed(ops: list[list], reply: dict) -> bool:
+        """A txn_ok with the same micro-operations, in order: writes echoed, each read filled in."""
+        got = reply.get("txn")
+        if reply.get("type") != "txn_ok" or not isinstance(got, list) or len(got) != len(ops):
+            return False
+        for (op, key, value), r in zip(ops, got):
+            if not isinstance(r, (list, tuple)) or len(r) != 3 or r[0] != op or r[1] != key:
+                return False
+            if op == "w" and r[2] != value:
+                return False
+        return True
 
     async def traffic(self) -> None:
         rng = random.Random(self.seed * 11 + 5)
@@ -158,6 +231,7 @@ class _Sim:
         same age: when two writes cross, the newest stamp may win, not the newest issue)."""
         next_stale = 0.0
         next_forget = FORGET
+
         while True:
             await asyncio.sleep(PROBE)
             t = now()
@@ -176,12 +250,48 @@ class _Sim:
                         if a is None or a < newest - 0.2:
                             stale[i] += 1
                 self.stale.append((t, tuple(stale)))
+            self.watch()
+            if t >= self._next_trim:
+                self._next_trim = t + 10.0
+                self.trim(t)
             if t >= next_forget:
                 next_forget = t + 60.0
                 old = [v for v, when in self.issued.items() if t - when > FORGET]
                 for v in old:
                     del self.issued[v]
                     self.intermediate.pop(v, None)
+                    self.writer.pop(v, None)
+                    self.aborted.discard(v)
+                done = {self.writer[v] for v in self.issued if v in self.writer}
+                for tid in [tid for tid in self.reads_from if tid not in done]:
+                    del self.reads_from[tid]
+
+    def watch(self) -> None:
+        """Wrap each node's store so every write to it is noted, in order (again if the code replaced it)."""
+        for i, node in enumerate(self.nodes):
+            if not isinstance(node.store, Watched):
+                node.store = Watched(node.store, lambda k, old, new, i=i: self.applied(i, k, old, new))
+
+    def applied(self, i: int, k, old, new) -> None:
+        """G0: node i replaced old with new at key k. If it applied T's write before U's on one key and U's
+        before T's on another (both wrote both), their writes are interleaved: a dirty write."""
+        t_old, t_new = self.writer.get(old), self.writer.get(new)
+        if t_old is None or t_new is None or t_old == t_new or t_old not in self.final or t_new not in self.final:
+            return  # only transactions that wrote several keys can interleave
+        self._order.setdefault((i, t_old, t_new), set()).add(k)
+        other = self._order.get((i, t_new, t_old))
+        pair = (i, min(t_old, t_new), max(t_old, t_new))
+        if other and other - {k} and pair not in self._g0_seen:
+            self._g0_seen.add(pair)
+            self.g0.append((now(), i, k))
+
+    def trim(self, t: float) -> None:
+        """Forget the write order of transactions long done."""
+        live = {tid for tid, last in self.final.items()
+                if t - self.issued.get(next(iter(last.values())), -1e9) < 30.0}
+        self.final = {tid: w for tid, w in self.final.items() if tid in live}
+        self._order = {key: ks for key, ks in self._order.items() if key[1] in live and key[2] in live}
+        self._g0_seen = {key for key in self._g0_seen if key[1] in live and key[2] in live}
 
     def messages(self, a: float, b: float) -> list[tuple]:
         """Messages between nodes sent in [a, b): (sent, src, dest, arrived or None)."""
@@ -226,8 +336,11 @@ def stream(variant="main", seed: int = 1, rate: float = 40.0, nodes: int = 3) ->
                     "txns": _take(s.txns, TXN_START, a, b),
                     # (sent, src, dest, arrived or None if dropped)
                     "msgs": s.messages(a, b),
-                    # (when, node, key, value): a read that saw another transaction's intermediate write
+                    # (when, node, key, value, kind): a read that saw an aborted (G1a) or intermediate
+                    # (G1b) write, or closed a cycle (G1c)
                     "anomalies": _take(s.anomalies, 0, a, b),
+                    # (when, node, key): a node holds a mix of two transactions' writes (G0)
+                    "g0": _take(s.g0, 0, a, b),
                     # (time, stale keys per node)
                     "stale": _take(s.stale, 0, a, b),
                 },

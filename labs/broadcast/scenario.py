@@ -34,6 +34,8 @@ PROBE = 0.02  # how often the checker looks at every node
 LAG_EVERY = 0.1  # how often each node's backlog is recorded for the picture
 CLIENT_TIMEOUT = 1.0
 GIVE_UP = 30.0  # a number not everywhere after this long is recorded as lost
+FOLLOW_EVERY = 2  # one number in this many is followed node by node, for the picture ...
+FOLLOW_FOR = 5.0  # ... for this long after it is sent
 # Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
 FIRST = Planned(20.0, 30.0, "split", 0.5, "tor_switch")
 KINDS = [
@@ -84,8 +86,11 @@ class _Sim:
         self.reached: list[tuple] = []  # (when every node had it, value)
         self.lost: list[tuple] = []  # (gave up at, value)
         self.lag: list[tuple] = []  # (time, (missing values per node...))
+        self.got: list[tuple] = []  # (time, value, node): a followed number is on that node now
+        self.seen: dict[int, set[int]] = {}  # a followed number -> the nodes it has been seen on
         self.groups: list[set[str]] | None = None
         self._seq = itertools.count()
+        self.last_value = 0  # the highest number broadcast so far
 
     async def setup(self) -> None:
         for n in self.ids:
@@ -101,15 +106,29 @@ class _Sim:
         k = next(self._seq)
         start = now()
         self.open_ops[k] = start
+        had = set(self.nodes[self.index[node]].messages) if kind == READ else set()  # what it must return
         try:
-            await self.client.rpc(node, body, timeout=CLIENT_TIMEOUT)
-            ok = True
+            reply = await self.client.rpc(node, body, timeout=CLIENT_TIMEOUT)
+            ok = self.right(kind, reply, had)
         except Exception:  # noqa: BLE001 - a timeout or an error reply: the client gives up
             ok = False
         finally:
             self.open_ops.pop(k, None)
         if kind >= 0:
             self.ops.append((start, kind, self.index[node], value, now(), ok))
+
+    def right(self, kind: int, reply: dict, had: set[int]) -> bool:
+        """Is the reply what Maelstrom expects? broadcast_ok; read_ok with every number the node had when
+        the read was sent (a node never forgets one), and only numbers that were broadcast."""
+        if kind == BROADCAST:
+            return reply.get("type") == "broadcast_ok"
+        if kind != READ:
+            return True
+        got = reply.get("messages")
+        if reply.get("type") != "read_ok" or not isinstance(got, (list, tuple, set)):
+            return False
+        top = self.last_value
+        return all(isinstance(v, int) and 0 < v <= top for v in got) and had <= set(got)
 
     async def traffic(self) -> None:
         rng = random.Random(self.seed * 7 + 1)
@@ -119,7 +138,10 @@ class _Sim:
             node = rng.choice(self.ids)
             if rng.random() < 0.5:
                 value += 1
+                self.last_value = value
                 self.sent[value] = self.pending[value] = now()
+                if value % FOLLOW_EVERY == 0:
+                    self.seen[value] = set()
                 asyncio.ensure_future(self._op(BROADCAST, node, {"type": "broadcast", "message": value}, value))
             else:
                 asyncio.ensure_future(self._op(READ, node, {"type": "read"}))
@@ -140,6 +162,16 @@ class _Sim:
         while True:
             await asyncio.sleep(PROBE)
             t = now()
+            for v, seen in list(self.seen.items()):  # the followed numbers: which nodes have them now
+                if t - self.sent[v] > FOLLOW_FOR:
+                    del self.seen[v]
+                    continue
+                for i, node in enumerate(self.nodes):
+                    if i not in seen and v in node.messages:
+                        seen.add(i)
+                        self.got.append((t, v, i))
+                if len(seen) == len(self.nodes):
+                    del self.seen[v]
             for v, sent in list(self.pending.items()):
                 if all(v in node.messages for node in self.nodes):
                     del self.pending[v]
@@ -206,6 +238,8 @@ def stream(variant="main", seed: int = 1, rate: float = 20.0, nodes: int = SIDE 
                                    + [(t, v, False) for t, v in _take(s.lost, 0, 0.0, b + DRAIN)]),
                     # (time, missing values per node)
                     "lag": _take(s.lag, 0, a, b),
+                    # (time, value, node): one number in FOLLOW_EVERY, the moment it is on each node
+                    "got": _take(s.got, 0, a, b),
                 },
             }
     finally:

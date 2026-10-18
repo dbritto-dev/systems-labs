@@ -11,7 +11,9 @@ from live.worlds.base import (
 )
 
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
-ANOM_T, ANOM_NODE, ANOM_KEY, ANOM_VALUE = range(4)
+ANOM_T, ANOM_NODE, ANOM_KEY, ANOM_VALUE, ANOM_KIND = range(5)
+G0_T, G0_NODE, G0_KEY = range(3)
+KIND_NAMES = ("G1a", "G1b", "G1c")  # by ANOM_KIND; a dirty write is "G0"
 
 
 def fresh(run: Run, a: float, b: float) -> float | None:
@@ -60,7 +62,13 @@ def _around(inc: Incident) -> tuple[float, float]:
     return inc.t0 - lab.AROUND[0], inc.t1 + lab.AROUND[1]
 
 
-def _g1b(run: Run, inc: Incident, upto: float):
+def _g0(run: Run, inc: Incident, upto: float):
+    a, b = _around(inc)
+    n = run.count("g0", a, min(b, upto))
+    return float(n), _s("none") if n == 0 else _s("seen", n=n)
+
+
+def _g1(run: Run, inc: Incident, upto: float):
     a, b = _around(inc)
     n = run.count("anomalies", a, min(b, upto))
     return float(n), _s("none") if n == 0 else _s("seen", n=n)
@@ -70,14 +78,16 @@ def _during(inc: Incident) -> tuple[float, float]:
     return inc.t0, inc.t1
 
 
-# The rule and fix of each goal are text.GOALS[key]. Intermediate reads are counted from 15 s
-# before to 5 s after the partition, and judged after it.
+# The rule and fix of each goal are text.GOALS[key]. Dirty writes (G0) and the reads read committed
+# forbids (G1a, G1b, G1c) are counted from 15 s before to 5 s after the partition, and judged after it.
 GOALS = [
     GoalSpec("", "before", "", _before, _fresh, at_least(lab.FRESH_MIN), settle_extra=lab.BEFORE[1], key="fresh"),
     GoalSpec("", "during", "", _during, _available, at_least(lab.AVAILABLE_MIN), settle_extra=2.0, key="answered"),
     GoalSpec("", "after", "", _after, _caught_up, at_least(lab.CAUGHT_UP_MIN), key="caught_up"),
-    GoalSpec("", "after", "", _around, _g1b, at_most(lab.G1B_MAX),
-             doomed=lambda run, inc, upto: _g1b(run, inc, upto)[0] > lab.G1B_MAX, key="g1b"),
+    GoalSpec("", "after", "", _around, _g0, at_most(lab.G0_MAX),
+             doomed=lambda run, inc, upto: _g0(run, inc, upto)[0] > lab.G0_MAX, key="g0"),
+    GoalSpec("", "after", "", _around, _g1, at_most(lab.G1_MAX),
+             doomed=lambda run, inc, upto: _g1(run, inc, upto)[0] > lab.G1_MAX, key="g1b"),
 ]
 
 
@@ -98,6 +108,7 @@ class TxnWorld(World):
         "txns": Table(sort=TXN_START, times=(TXN_START, TXN_END)),
         "msgs": Table(sort=MSG_SENT, times=(MSG_SENT, MSG_ARRIVED)),
         "anomalies": Table(sort=ANOM_T, times=(ANOM_T,)),
+        "g0": Table(sort=G0_T, times=(G0_T,)),
         "stale": Table(sort=0, times=(0,)),
     }
     goals = GOALS
@@ -112,17 +123,32 @@ class TxnWorld(World):
             run.add("delivered" if m[MSG_ARRIVED] is not None else "dropped", m[MSG_SENT])
         for a in tables["anomalies"]:
             run.add("g1b", a[ANOM_T])
+        for g in tables["g0"]:
+            run.add("g1b", g[G0_T])  # the tile counts every anomaly
         run.data.setdefault("cut", {}).update(piece.get("cut", {}))
 
     def incident_text(self, inc: Incident, start: bool) -> str:
         return self.s("cut_off", cause=self.cause(inc)) if start else self.s("whole_again")
 
     def warnings(self, run: Run, inc: Incident):
-        first = run.rows("anomalies", inc.t0 - lab.AROUND[0], inc.t1 + lab.AROUND[1])
-        if first:
-            a = first[0]
-            return [(a[ANOM_T], self.s("warn_g1b", node=a[ANOM_NODE], which=a[ANOM_KEY]))]
-        return []
+        a, b = inc.t0 - lab.AROUND[0], inc.t1 + lab.AROUND[1]
+        out = []
+        reads = run.rows("anomalies", a, b)
+        if reads:
+            r = reads[0]
+            key = "warn_" + KIND_NAMES[r[ANOM_KIND]].lower()
+            out.append((r[ANOM_T], self.s(key, node=r[ANOM_NODE], which=r[ANOM_KEY])))
+        dirty = run.rows("g0", a, b)
+        if dirty:
+            g = dirty[0]
+            out.append((g[G0_T], self.s("warn_g0", node=g[G0_NODE], which=g[G0_KEY])))
+        return out
+
+    def anomalies_at(self, run: Run, t: float, span: float) -> dict[int, str]:
+        """Node -> the anomaly it showed in the last `span` seconds, by name ("G0", "G1b", ...)."""
+        out = {g[G0_NODE]: "G0" for g in run.rows("g0", t - span, t + 1e-9)}
+        out.update({a[ANOM_NODE]: KIND_NAMES[a[ANOM_KIND]] for a in run.rows("anomalies", t - span, t + 1e-9)})
+        return out
 
     def cut_at(self, variant: str, t: float) -> int | None:
         """The node cut off at time t, if any."""
@@ -138,8 +164,8 @@ class TxnWorld(World):
 
     def node_colours(self, run: Run, t: float) -> list:
         colours = [_stale_colour(s) for s in self.stale_at(run, t)]
-        for a in run.rows("anomalies", t - 0.5, t + 1e-9):  # an intermediate read flashes red
-            colours[a[ANOM_NODE]] = RED
+        for node in self.anomalies_at(run, t, 0.5):  # an anomaly flashes red
+            colours[node] = RED
         return colours
 
     # ---------------------------------------------------------------- panel
@@ -155,7 +181,7 @@ class TxnWorld(World):
             v = fresh(run, s, s + 1)
             return (v or 0.0), fresh_state(v)
 
-        g1b = run.count("anomalies", t - 30, t)
+        g1b = run.count("anomalies", t - 30, t) + run.count("g0", t - 30, t)
 
         def g1b_s(s: int):
             n = run.series("g1b", s, s + 1)[0]
@@ -185,8 +211,9 @@ class TxnWorld(World):
         bars = [Bar(self.s("bar_clients"), [(float(txns), WHITE)]),
                 Bar(self.s("bar_nodes"), [(float(len(last) - dropped), BLUE), (float(dropped), RED)])]
         cut = self.cut_at(variant, t)
-        if run.count("anomalies", t - 2, t):
-            headline, colour = self.s("head_g1b"), RED
+        recent = self.anomalies_at(run, t, 2.0)
+        if recent:
+            headline, colour = self.s("head_" + sorted(recent.values())[-1].lower()), RED
         elif cut is not None:
             headline, colour = self.s("head_cut", node=cut), RED
         elif now_fresh is not None and now_fresh < 0.999:

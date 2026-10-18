@@ -37,15 +37,21 @@ class GCounterCluster(ClusterAdapter):
         inc = w.incident_at(variant, t)
         conflicts = [c for c in run.rows("cas", t - 1, t + 1e-9)]
         share = sum(1 for c in conflicts if not c[2]) / len(conflicts) if conflicts else 0.0
+        groups = w.groups_at(variant, t)
         if share >= 0.5:
             state = (w.s("state_conflicts", share=share), RED)
+        elif groups is not None:
+            state = (w.s("state_split", node=w.cut_off_at(variant, t)), RED)
         elif inc is not None:
             state = (w.s("state_burst" if inc.kind == "burst" else "state_slow", factor=inc.severity), EXTRA2)
         elif any(off):
             state = (w.s("state_off"), RED)
         else:
             state = (w.screen.STATES["healthy"], GREEN)
-        return ClusterFrame(nodes=nodes, flights=every(flights, MAX_FLIGHTS), drops=every(drops, 30), state=state)
+        if groups is not None:
+            groups = groups + [-1]  # seq-kv: a service, every node still reaches it (as in Maelstrom)
+        return ClusterFrame(nodes=nodes, groups=groups, flights=every(flights, MAX_FLIGHTS), drops=every(drops, 30),
+                            state=state)
 
 
 # ---------------------------------------------------------------- the lanes picture: the clients' view
@@ -70,12 +76,15 @@ class GCounterLanes(LaneAdapter):
         waiting, flights, outcomes = client_lanes(run, t, users, "ops", OP_START, OP_END, lambda o: not o[OP_OK])
         fill, gauge = message_gauge(run, t, GAUGE_MAX)
         inc = w.incident_at(variant, t)
-        slow = inc is not None and inc.kind != "burst"
+        slow = inc is not None and inc.kind == "slow"
+        split = inc is not None and inc.kind == "split"
         cas = run.rows("cas", t - 1, t + 1e-9)
         conflicts = sum(1 for c in cas if not c[2]) / len(cas) if cas else 0.0
         words = w.screen.STATES
         if conflicts >= 0.5:
             state = (w.s("lanes_conflicts"), RED)
+        elif split:
+            state = (w.s("lanes_split"), RED)
         elif slow:
             state = (w.s("lanes_kv_slow"), EXTRA2)
         elif inc is not None:
@@ -142,6 +151,8 @@ class GCounterFanin(FaninAdapter):
         inc = w.incident_at(variant, t)
         if share >= 0.5:
             state = (w.s("fan_conflicts", share=share), RED)
+        elif inc is not None and inc.kind == "split":
+            state = (w.s("state_split", node=w.cut_off_at(variant, t)), RED)
         elif inc is not None:
             state = (w.s("state_burst" if inc.kind == "burst" else "state_slow", factor=inc.severity), EXTRA2)
         elif any(off):

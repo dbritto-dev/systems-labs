@@ -35,10 +35,11 @@ GOALS = {
     "fresh": GoalText("Al día ≥ 95%", "replica cada escritura"),
     "answered": GoalText("Responde ≥ 99%", "no esperes a otro nodo"),
     "caught_up": GoalText("Recupera ≥ 99%", "reenvía hasta que confirmen"),
-    "g1b": GoalText("Sin lect. G1b", "replica txns enteras"),
+    "g0": GoalText("Sin escr. G0", "un sello por txn"),
+    "g1b": GoalText("Sin lect. G1", "replica txns enteras"),
 }
 
-LEGEND = {"up_to_date": "al día", "behind": "atrasado", "g1b_read": "lectura G1b", "transaction": "transacción",
+LEGEND = {"up_to_date": "al día", "behind": "atrasado", "g1b_read": "anomalía G0/G1", "transaction": "transacción",
           "replication": "replicación", "dropped": "perdido", "partition": "partición"}
 
 STRINGS = {
@@ -46,17 +47,23 @@ STRINGS = {
     "cut_off": "un nodo queda aislado: {cause}",
     "whole_again": "la red vuelve a estar entera",
     "warn_g1b": "n{node} mostró un valor intermedio de la clave {which}",
+    "warn_g1a": "n{node} mostró un valor de la clave {which} escrito por una transacción abortada",
+    "warn_g1c": "n{node}: dos transacciones leyeron cada una la escritura de la otra (clave {which})",
+    "warn_g0": "n{node} intercaló las escrituras de dos transacciones (clave {which})",
     # valores de los objetivos
     "none": "ninguna",
     "seen": "{n} vistas",
     # el panel
     "tile_fresh": "Al día",
-    "tile_g1b": "G1b",
+    "tile_g1b": "G0/G1",
     "tile_answers": "Resp.",
     "messages": "Mensajes",
     "bar_clients": "Clientes",
     "bar_nodes": "Nodos",
     "head_g1b": "G1b: un lector vio un valor sobrescrito",
+    "head_g1a": "G1a: un lector vio una escritura abortada",
+    "head_g1c": "G1c: dos transacciones leyeron la escritura de la otra",
+    "head_g0": "G0: un nodo intercaló las escrituras de dos transacciones",
     "head_cut": "n{node} aislado: la replicación espera",
     "head_behind": "Hay nodos atrasados ({fresh:.1%} al día)",
     "head_ok": "Todos los nodos están al día",
@@ -67,8 +74,11 @@ STRINGS = {
     "no_store": "TxnNode debe guardar su almacén clave/valor en self.store (un dict)",
     # el dibujo de carriles (lo que ven los clientes): estados bajo el clúster, 13 letras como mucho
     "lanes_g1b": "LECTURA G1b",
-    # el dibujo de pares: bajo un nodo que acaba de servir una lectura intermedia
-    "peer_g1b": "n{node} G1b",
+    "lanes_g1a": "LECTURA G1a",
+    "lanes_g1c": "LECTURA G1c",
+    "lanes_g0": "ESCRIT. G0",
+    # el dibujo de pares: bajo un nodo que acaba de mostrar una anomalía
+    "peer_anomaly": "n{node} {kind}",
 }
 
 LESSON = Lesson(

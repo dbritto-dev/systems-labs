@@ -6,7 +6,7 @@ total in memory and writes it out in batches, one write at a time (so writes nev
 out of order), and acknowledges an add once a write that includes it has succeeded.
 
 A read adds up every node's key. Your own key is always fresh (seq-kv shows you your own
-writes); the others may be up to a second old, which this challenge allows: the counter only
+writes); the others may be up to half a second old, which this challenge allows: the counter only
 has to be eventually right.
 """
 
