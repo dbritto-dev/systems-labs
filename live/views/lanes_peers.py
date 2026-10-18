@@ -46,6 +46,7 @@ class PeersFrame(LaneFrame):
     groups: list[int] | None = None  # a partition: the group of each peer; links between groups are cut
     drops: list[tuple[int, int, float]] = field(default_factory=list)  # (src, dest, 0..1 faded): lost
     two_way: bool = False  # each link as two lanes, one per direction, so messages each way never mix
+    column: bool = False  # the peers in one column, every line straight (else on a ring)
 
 
 class PeersAdapter(Adapter):
@@ -74,7 +75,7 @@ def draw_peers(cv: Canvas, make) -> None:
     st = Stage.on(cv)
     fr = make(st.n)
     xg = door_x(st)
-    ring = PeerRing(fr.peers, int(xg // 2) + 3)
+    ring = PeerRing(fr.peers, int(xg // 2) + 3, column=fr.column, door=xg)
     ring.place(st)
     draw_parts(st, [
         UsersGrid(fr.users),

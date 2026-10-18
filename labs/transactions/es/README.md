@@ -19,9 +19,11 @@ uv run python -m live transactions --lang es --lesson   # el concepto, enlaces y
 LABS_LANG=es uv run pytest labs/transactions            # x = aún no, X = hecho
 ```
 
-Dos dibujos: `cluster` (el de siempre: los nodos y los mensajes entre ellos) y `lanes`
-(lo que ven los clientes: sus peticiones esperando, la red como una puerta, el clúster como
-un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
+Tres dibujos: `peers` (el de siempre: los tres nodos en una columna, cada transacción por una línea
+recta desde la red hasta su nodo, la replicación por líneas rectas entre ellos, el nodo aislado con
+sus enlaces cortados), `cluster` (los nodos y los mensajes entre ellos) y `lanes` (lo que ven los
+clientes: sus peticiones esperando, la red como una puerta, el clúster como un solo servidor).
+Pulsa `v` para cambiar, o empieza con `--view lanes`.
 
 | Etapa | Reto | En `es/main.py` | Lo que ves |
 |---|---|---|---|

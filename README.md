@@ -139,7 +139,8 @@ middle (a balancer, a gateway, a cache, a queue) with requests flying user → d
 server, and **fan-out** has the relay call a few small servers, each with its own gauge and a
 level line straight to it (an orchestrator and its services, a coordinator and its shards). **peers** stands the nodes on a
 ring (a pentagon, an octagon), each a small box with its gauge and its name, with the links that
-carry messages right now between them, and a red ✕ on every link a partition cuts. **fan-in**
+carry messages right now between them, and a red ✕ on every link a partition cuts (`transactions`
+stands its three nodes in a column instead, every line straight). **fan-in**
 puts a column of nodes between the door and the one store they share (a KV store, a database, the
 storage behind a lock), with level lines from the door to each node and on to the store, and
 **pipeline** draws stages in a row, each with its queue and its name under it (and its role under

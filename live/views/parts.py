@@ -698,28 +698,104 @@ def ring_spots(cols: int, rows: int, n: int, c0: int, names: list[tuple[str, ...
     return best  # nothing fits: the smallest there is
 
 
+def column_spots(cols: int, rows: int, n: int, c0: int, names: list[tuple[str, ...]]) -> list[Spot]:
+    """Lay n peers out in one column, top to bottom, a little right of the middle of [c0, cols): the biggest box
+    that leaves a row between boxes for the straight lines between them; each name on the row under its box,
+    starting just right of the box's middle (so a line down the middle never runs through it)."""
+    if n == 0:
+        return []
+    for wc, hr in PEER_SIZES + ((3, 1),):
+        if n * (hr + 1) + (n - 1) <= rows:
+            break
+    gap = (rows - n * (hr + 1)) / max(1, n - 1) if n > 1 else 0
+    c = round(c0 + (cols - c0) * 0.42 - wc / 2)
+    spots = []
+    for k in range(n):
+        r = round(k * (hr + 1 + gap)) if n > 1 else (rows - hr - 1) // 2
+        x0, x1, y0, y1 = c * 2, (c + wc) * 2 - 1, r * 4 + 1, (r + hr) * 4 - 1
+        word = names[k][0] if names[k] else ""
+        spots.append(Spot((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2 + 2, (y1 - y0) / 2 + 2, (x0, x1, y0, y1),
+                          r, c, word, r + hr, c + wc // 2 + 1))
+    return spots
+
+
+def along(path: list[tuple[float, float]], k: float) -> tuple[float, float]:
+    """The point k (0..1) of the way along a path of straight legs, by length."""
+    import math
+
+    sizes = [math.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in zip(path, path[1:])]
+    d = sum(sizes) * max(0.0, min(1.0, k))
+    for ((x0, y0), (x1, y1)), size in zip(zip(path, path[1:]), sizes):
+        if d <= size:
+            f = d / size if size else 1.0
+            return x0 + (x1 - x0) * f, y0 + (y1 - y0) * f
+        d -= size
+    return path[-1]
+
+
+def dotted_path(cv: Canvas, path: list[tuple[float, float]], col: RGB, gap: float, prio: int) -> None:
+    """A path of straight legs, dotted every `gap` dots."""
+    import math
+
+    for (x0, y0), (x1, y1) in zip(path, path[1:]):
+        steps = max(1, int(math.hypot(x1 - x0, y1 - y0) / gap))
+        for s_ in range(steps + 1):
+            cv.dot(x0 + (x1 - x0) * s_ / steps, y0 + (y1 - y0) * s_ / steps, col, prio)
+
+
 @dataclass(slots=True)
 class PeerRing:
     """The peers on an ellipse right of column `c0` (3 a triangle, 5 a pentagon, 8 an octagon), each a small
-    box with its gauge (or a ◉ when cramped) and its name on the row under it. `spots` is filled by `place`
-    (Links and PeerHops call it too: they need to know where each peer sits)."""
+    box with its gauge (or a ◉ when cramped) and its name on the row under it. With `column`, they stand in
+    one column instead, and every line is straight: a level line from the door (at `door`) to each box,
+    a vertical line between neighbours, and a bracket right of the column between the others. `spots` is
+    filled by `place` (Links and PeerHops call it too: they need to know where each peer sits)."""
 
     peers: list[Leaf]
     c0: int
     spots: list[Spot] = field(default_factory=list)
+    column: bool = False
+    door: float = 0.0
 
     def place(self, st: Stage) -> list[Spot]:
         if not self.spots and self.peers:
             names = [tuple(w for w in (p.label[0], p.short, p.tiny) if w) or ("",) for p in self.peers]
-            self.spots = ring_spots(st.cv.cols, st.body1 + 1, len(self.peers), self.c0, names)
+            lay = column_spots if self.column else ring_spots
+            self.spots = lay(st.cv.cols, st.body1 + 1, len(self.peers), self.c0, names)
         return self.spots
+
+    def path(self, st: Stage, a: int, b: int) -> list[tuple[float, float]] | None:
+        """The way from peer a to peer b (-1: the door), as straight legs from edge to edge."""
+        spots = self.place(st)
+        if not (-1 <= a < len(spots) and -1 <= b < len(spots)) or a == b:
+            return None
+        if a == -1 or b == -1:  # the door: level to the box in a column, else from the middle of the door
+            sp = spots[b if a == -1 else a]
+            d = (self.door + 2, sp.y if self.column else st.ymid)
+            way = [d, (sp.x - sp.hw, sp.y) if self.column else sp.edge(*d)]
+            return way if a == -1 else way[::-1]
+        sa, sb = spots[a], spots[b]
+        if not self.column:
+            return [sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)]
+        if abs(a - b) == 1:  # neighbours: straight down (or up) the column
+            down = 1 if sb.y > sa.y else -1
+            return [(sa.x, sa.y + down * sa.hh), (sb.x, sb.y - down * sb.hh)]
+        x = self.bracket_x(st)  # the others: out to the right, along, and back in
+        return [(sa.x + sa.hw, sa.y), (x, sa.y), (x, sb.y), (sb.x + sb.hw, sb.y)]
+
+    def bracket_x(self, st: Stage) -> float:
+        """Where the brackets between peers that are not neighbours run: right of the boxes and the names."""
+        spots = self.place(st)
+        right = max(max(s.x + s.hw for s in spots), max((s.name_col + len(s.name)) * 2 + 2 for s in spots))
+        return min(right + 3, st.cv.cols * 2 - 2)
 
     def cells(self, st: Stage) -> set[tuple[int, int]]:
         """The (row, col) cells the boxes and the names take (a name with a blank column each side)."""
         out: set[tuple[int, int]] = set()
         for s in self.place(st):
             wc = 1 if s.box is None else (s.box[1] - s.box[0] + 1) // 2
-            out |= {(r, c) for r in range(s.row, s.name_row) for c in range(s.col, s.col + wc)}
+            hr = 1 if s.box is None else (s.box[3] + 1) // 4 - s.row
+            out |= {(r, c) for r in range(s.row, s.row + hr) for c in range(s.col, s.col + wc)}
             if s.name:
                 out |= {(s.name_row, c) for c in range(s.name_col - 1, s.name_col + len(s.name) + 1)}
         return out
@@ -733,6 +809,9 @@ class PeerRing:
 
     def draw(self, st: Stage) -> None:
         cv = st.cv
+        if self.column:  # the level lines from the door, under the boxes
+            for k in range(len(self.peers)):
+                dotted_path(cv, self.path(st, -1, k) or [], LINE, 3, 0)
         for peer, s in zip(self.peers, self.place(st)):
             if s.box is None:
                 cv.text(s.row, s.col, "◉", peer.outline)
@@ -769,56 +848,51 @@ class Links:
     labels: dict[tuple[int, int], str | tuple[tuple[str, ...], RGB]] = field(default_factory=dict)
     two_way: bool = False
 
-    def ends(self, st: Stage, a: int, b: int) -> tuple[tuple[float, float], tuple[float, float]] | None:
-        spots = self.ring.place(st)
-        if not (0 <= a < len(spots) and 0 <= b < len(spots)) or a == b:
+    def path(self, st: Stage, a: int, b: int, back: bool = False) -> list[tuple[float, float]] | None:
+        """Link a-b's way (its lane for a → b, with two lanes), as straight legs."""
+        if not (0 <= a and 0 <= b):
             return None
-        sa, sb = spots[a], spots[b]
-        return sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)
+        way = self.ring.path(st, a, b)
+        if way is None or not self.two_way or len(way) != 2:
+            return way
+        return list(lane((way[0], way[1]), -LANE if back else LANE))
 
     def draw(self, st: Stage) -> None:
-        import math
-
         cv = st.cv
         for a, b, col in self.links:
-            ends = self.ends(st, a, b)
-            if ends is None:
+            way = self.ring.path(st, a, b)
+            if way is None:
                 continue
             plain = col == LINE
-            gap = 3 if plain else 2
-            for (x0, y0), (x1, y1) in ((lane(ends, LANE), lane(ends, -LANE)) if self.two_way else (ends,)):
-                steps = max(1, int(math.hypot(x1 - x0, y1 - y0) / gap))
-                for s in range(steps + 1):
-                    cv.dot(x0 + (x1 - x0) * s / steps, y0 + (y1 - y0) * s / steps, col, 0 if plain else 1)
+            ways = [self.path(st, a, b), self.path(st, a, b, back=True)] if self.two_way and len(way) == 2 else [way]
+            for w in ways:
+                dotted_path(cv, w, col, 3 if plain else 2, 0 if plain else 1)
         for a, b, fade in self.drops:
-            ends = self.ends(st, a, b)
-            if ends is not None and self.two_way:
-                ends = lane(ends, LANE)
-            if ends is not None:
-                (x0, y0), (x1, y1) = ends
-                cv.blob(x0 + (x1 - x0) * 0.4, y0 + (y1 - y0) * 0.4, mix(RED, BG, max(0.0, min(1.0, fade))), 7, 1)
+            way = self.path(st, a, b)
+            if way is not None:
+                cv.blob(*along(way, 0.4), mix(RED, BG, max(0.0, min(1.0, fade))), 7, 1)
         taken = self.ring.cells(st)
         if self.groups is not None:  # a cut mark at the middle of each link between groups, clear of the names
             g = self.groups
             for a, b, _ in self.links:
-                ends = self.ends(st, a, b)
-                if ends is None or a >= len(g) or b >= len(g) or g[a] == g[b]:
+                way = self.ring.path(st, a, b)
+                if way is None or a >= len(g) or b >= len(g) or g[a] == g[b]:
                     continue
-                (x0, y0), (x1, y1) = ends
                 for k in (0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74):
-                    r, c = int(y0 + (y1 - y0) * k) // 4, int(x0 + (x1 - x0) * k) // 2
+                    x, y = along(way, k)
+                    r, c = int(y) // 4, int(x) // 2
                     if (r, c) not in taken and 0 <= r <= st.body1 and 0 <= c < cv.cols:
                         cv.text(r, c, CUT, RED)
                         taken.add((r, c))
                         break
         for (a, b), label in self.labels.items():  # a word on a link, where it does not cover anything
-            ends = self.ends(st, a, b)
-            if ends is None:
+            way = self.ring.path(st, a, b)
+            if way is None:
                 continue
             words, colour = ((label,), OUTLINE) if isinstance(label, str) else label
-            (x0, y0), (x1, y1) = ends
+            mx, my = along(way, 0.5)
             for word in filter(None, words):
-                r, c = int((y0 + y1) / 2) // 4, round((x0 + x1) / 4 - len(word) / 2)
+                r, c = int(my) // 4, round(mx / 2 - len(word) / 2)
                 cells = {(r, c + k) for k in range(-1, len(word) + 1)}
                 if 0 <= r <= st.body1 and 0 <= c and c + len(word) <= cv.cols and not cells & taken:
                     cv.text(r, c, word, colour)
@@ -837,18 +911,10 @@ class PeerHops:
     two_way: bool = False  # each on its direction's lane of the link (see Links)
 
     def draw(self, st: Stage) -> None:
-        spots = self.ring.place(st)
-        dx, dy = self.door + 2, st.ymid
         for a, b, p, col in self.hops:
-            if a == b or not (-1 <= a < len(spots) and -1 <= b < len(spots)):
+            way = self.ring.path(st, a, b)
+            if way is None:
                 continue
-            if a == -1:
-                (x0, y0), (x1, y1) = (dx, dy), spots[b].edge(dx, dy)
-            elif b == -1:
-                (x0, y0), (x1, y1) = spots[a].edge(dx, dy), (dx, dy)
-            else:
-                sa, sb = spots[a], spots[b]
-                ends = sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)
-                (x0, y0), (x1, y1) = lane(ends, LANE) if self.two_way else ends
-            p = max(0.0, min(1.0, p))
-            st.cv.blob(x0 + (x1 - x0) * p, y0 + (y1 - y0) * p, col, 6, 1)
+            if self.two_way and a >= 0 and b >= 0 and len(way) == 2:
+                way = list(lane((way[0], way[1]), LANE))
+            st.cv.blob(*along(way, p), col, 6, 1)

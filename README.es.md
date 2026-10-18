@@ -145,7 +145,8 @@ peticiones van usuario → puerta → relevo → servidor; **abanico** hace que 
 varios servidores pequeños, cada uno con su indicador y una línea recta hasta él (un orquestador
 y sus servicios, un coordinador y sus fragmentos). **pares** pone los nodos en un anillo (un pentágono, un
 octógono), cada uno una caja pequeña con su indicador y su nombre, con los enlaces que llevan
-mensajes en ese momento, y una ✕ roja en cada enlace que corta una partición. **embudo** pone
+mensajes en ese momento, y una ✕ roja en cada enlace que corta una partición (`transactions`
+pone sus tres nodos en una columna, con todas las líneas rectas). **embudo** pone
 una columna de nodos entre la puerta y el único almacén que comparten (un almacén clave-valor, una
 base de datos, el almacenamiento detrás de un cerrojo), con líneas rectas de la puerta a cada nodo y
 de ahí al almacén, y **tubería** dibuja etapas en fila, cada una con su cola y su nombre debajo (y su

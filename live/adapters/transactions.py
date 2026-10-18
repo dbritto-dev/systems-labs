@@ -1,4 +1,4 @@
-"""The pictures for lab transactions: the three nodes (peers: on a triangle, the links between them; cluster: on
+"""The pictures for lab transactions: the three nodes (peers: in a column, the links between them; cluster: on
 a grid), and the clients' view (lanes)."""
 
 from __future__ import annotations
@@ -79,13 +79,14 @@ class TxnLanes(LaneAdapter):
                          outline=RED if split or g1b else OUTLINE, state=state)
 
 
-# ---------------------------------------------------------------- the peers picture: the triangle, and the clients
+# ---------------------------------------------------------------- the peers picture: the column, and the clients
 
 
 @adapts("transactions", "peers")
 class TxnPeers(PeersAdapter):
     """The clients (the users, and the door: the network, shut while a node is cut off; an answer is green, red
-    when it failed or read an uncommitted write) and the three nodes on a triangle. A box's outline is how up to
+    when it failed or read an uncommitted write) and the three nodes in a column, every line straight: a level line from the door to each, a vertical
+    line between neighbours, a bracket right of them between n0 and n2. A box's outline is how up to
     date it is: blue, oranges the more keys it is behind, red for a moment when it served an intermediate read
     ("n1 G1b"), or showed a dirty write ("n1 G0"). Its gauge is its share of fresh keys (within 1 s of the newest value; orange under 95%). A link
     is drawn while it carries replication (blue); the two links of a node cut off are cut (a red ✕, "n2 cut
@@ -125,4 +126,4 @@ class TxnPeers(PeersAdapter):
         return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
                           door_color=lane.door_color, state=lane.state, peers=peers,
                           links=link_list(recent, groups, LINE), groups=groups,  # its two links cut
-                          flights=every(flights, MAX_FLIGHTS), drops=drops)
+                          flights=every(flights, MAX_FLIGHTS), drops=drops, column=True)
