@@ -430,10 +430,10 @@ def test_the_peers_picture_shows_the_leader_the_crash_and_a_split_decision():
     assert outlines.count(GREEN) == 1 and MUTED in outlines and RED not in outlines
     i = outlines.index(GREEN)
     ballot = int(crashed.peers[i].label[0].rsplit("b", 1)[1])
-    assert crashed.peers[i].label[0] == world.s("peer_leader", node=f"n{i}", ballot=ballot)  # "n3 leader b13"
+    assert crashed.peers[i].label[0] == world.s("peer_ballot", node=f"n{i}", ballot=ballot)  # "n3", "b13" under it
     assert crashed.links  # and the messages it sends
     split = next(e[0] for e in world_of(FIRST_WINS).runs[FIRST_WINS].rows("events", 0, 60))
     world, given = peers(FIRST_WINS, split + 0.1)  # no ballots: two nodes decide one slot two ways
     outlines = [p.outline for p in given.peers]
     assert RED in outlines and GREEN not in outlines
-    assert any(p.label[0] == world.s("peer_split", node=f"n{i}") for i, p in enumerate(given.peers))
+    assert any(p.outline == RED for p in given.peers)  # a node that decided differently: red (the legend)

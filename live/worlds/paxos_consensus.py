@@ -138,7 +138,7 @@ class PaxosWorld(World):
     view = "peers"  # the five nodes on a pentagon, the links between them, and the clients
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(GREEN, "leader", "◉"), (BLUE, "node", "◉"), (EXTRA2, "candidate", "◉"), (RED, "split", "◉"),
-              (MUTED, "down", "◉"), (WHITE, "request"), (PURPLE, "propose"), (EXTRA1, "phase1"),
+              (MUTED, "down", "◉"), (EXTRA3, "paused", "◉"), (WHITE, "request"), (PURPLE, "propose"), (EXTRA1, "phase1"),
               (BLUE, "phase2"), (GREEN, "decide"), (RED, "dropped")]
     tables = {
         "ops": Table(sort=OP_START, times=(OP_START, OP_END)),

@@ -307,7 +307,7 @@ def test_the_peers_picture_shows_no_leader_then_a_stale_leader_cut_off():
     assert cut and any(stale in link for link in cut)  # its links to the majority are cut ...
     assert any(a == stale for a, _, _ in split.drops)  # ... and what it sends there is lost
     term = int(split.peers[stale].label[0].rsplit("t", 1)[1])
-    assert split.peers[stale].label[0] == world.s("peer_leader", node=f"n{stale}", term=term) and "✕" in text
+    assert split.peers[stale].label[0] == world.s("peer_term", node=f"n{stale}", term=term) and "✕" in text
     assert not split.closed and RED not in [c for c, _ in split.outcomes]
     _, after, _ = peers("reference", 40.0)  # healed: one leader again, the old one stepped down
     assert sum(p.outline == GREEN for p in after.peers) == 1 and after.groups is None

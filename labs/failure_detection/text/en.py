@@ -44,7 +44,7 @@ GOALS = {
     "msgs": GoalText("Msgs/node/s < 10", "SWIM: probe one peer"),
 }
 
-LEGEND = {"alive": "alive", "suspect": "suspected", "dead": "declared dead", "crashed": "crashed, not seen",
+LEGEND = {"alive": "alive", "suspect": "suspected", "dead": "declared dead", "false": "declared dead, but alive", "crashed": "crashed, not seen",
           "probe": "heartbeat or probe", "indirect": "indirect probe", "dropped": "lost", "limit": "limit"}
 
 STRINGS = {
@@ -88,10 +88,6 @@ STRINGS = {
     "lanes_needless": "NEEDLESS MOVE",
     "lanes_in_use": "{n}/{of} IN USE",
     # the peers picture: under each node, what the cluster thinks of it, short
-    "peer_dead": "{node} dead",
-    "peer_false": "{node} FALSE",
-    "peer_down": "{node} down",
-    "peer_suspect": "{node} suspect",
     # errors in your code
     "no_status": "Detector must keep self.status: a dict, peer id -> 'alive', 'suspect' or 'dead'",
 }

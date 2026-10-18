@@ -173,10 +173,9 @@ class MerklePeers(PeersAdapter):
         for i, keys in enumerate(diverged):
             node = f"n{i}"
             colour = shade(keys)
-            if cut is not None and cut[1] == i:
-                down = cut[0] == "down"
-                colour = RED if down else colour
-                label, words = w.s("peer_down" if down else "peer_cut", node=node), RED
+            if cut is not None and cut[1] == i:  # down is red, cut off has its links cut (✕): just the name
+                colour = RED if cut[0] == "down" else colour
+                label, words = node, colour
             elif keys:
                 label, words = w.s("peer_missing", node=node, n=keys), colour
             else:

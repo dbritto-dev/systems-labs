@@ -40,7 +40,7 @@ GOALS = {
     "msgs": GoalText("Msgs/op < 10", "send fewer messages"),
 }
 
-LEGEND = {"in_sync": "in sync", "behind": "behind", "down": "down", "request": "client request",
+LEGEND = {"in_sync": "in sync", "behind": "behind", "down": "down", "cut": "cut off", "slow": "slow", "request": "client request",
           "message": "message", "dropped": "dropped", "limit": "limit"}
 
 STRINGS = {
@@ -73,9 +73,6 @@ STRINGS = {
     "lanes_unanswered": "UNANSWERED",
     # the fan-out picture: the coordinator, and a sick replica's label (at most 9 letters)
     "fan_coordinator": "coordinator",
-    "fan_down": "{node} down",
-    "fan_cut": "{node} cut",
-    "fan_slow": "{node} slow",
     # errors in your code
     "no_store": "QuorumNode must keep its data in self.store",
 }

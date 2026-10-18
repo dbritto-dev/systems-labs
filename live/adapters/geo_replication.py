@@ -174,11 +174,8 @@ class GeoReplicationPeers(PeersAdapter):
         peers = []
         for i, name in enumerate(REGIONS):
             outline = behind_colour(behind[i]) if up[i] else RED
-            if not up[i]:
-                label, words = w.s("peer_down", name=name), RED
-            elif cut[i]:
-                label, words = w.s("peer_cut", name=name), RED
-            elif behind[i] > 2:
+            # Down is red, and cut off has its links cut (✕): the words are the name, and how far behind it is.
+            if up[i] and behind[i] > 2:
                 label, words = w.s("peer_behind", name=name, n=behind[i]), outline
             else:
                 label, words = name, outline

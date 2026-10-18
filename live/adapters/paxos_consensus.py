@@ -141,7 +141,7 @@ class PaxosPeers(PeersAdapter):
     partition cuts every link between the two sides."""
 
     def frame(self, variant: str, t: float, users: int) -> PeersFrame:
-        from labs.paxos_consensus.scenario import CANDIDATE, DOWN, LEADER, PAUSED
+        from labs.paxos_consensus.scenario import DOWN
         from live.worlds.paxos_consensus import (
             MSG_ARRIVED, MSG_DEST, MSG_KIND, MSG_SENT, MSG_SRC, OP_NODE, OP_START, ROLE_COLOURS, ST_BALLOTS,
             ST_DECIDED, name, state_at,
@@ -163,25 +163,16 @@ class PaxosPeers(PeersAdapter):
                                               lambda m: kinds.get(m[MSG_KIND], MUTED), most=MAX_FLIGHTS)
         for o in run.rows("ops", t - 0.12, t + 1e-9):  # client commands, from the door to a node
             flights.append((-1, o[OP_NODE], min(1.0, (t - o[OP_START]) / 0.1), WHITE))
-        words = {LEADER: "peer_leader", CANDIDATE: "peer_candidate"}
         peers = []
         for i, role in enumerate(roles):
             node, ballot = name(i), ballots[i] if i < len(ballots) else 0
-            plain = w.s("peer_ballot", node=node, ballot=ballot) if ballot else node
-            if i in split:
-                label = w.s("peer_split", node=node)
-            elif role == DOWN:
-                label = w.s("peer_down", node=node)
-            elif role == PAUSED:
-                label = w.s("peer_paused", node=node)
-            elif role in words:
-                label = w.s(words[role], node=node, ballot=ballot)
-            else:
-                label = plain
+            # The colour says the role (leader, candidate, down, paused, decided differently: the legend); the
+            # words only the ballot, under the name.
+            label = w.s("peer_ballot", node=node, ballot=ballot) if ballot and role != DOWN else node
             colour = RED if i in split else ROLE_COLOURS.get(role, BLUE)
             mine = decided[i] if i < len(decided) else 0
             peers.append(Leaf(label=(label, MUTED if role == DOWN and i not in split else colour),
-                              short=plain if role != DOWN else node, tiny=node,
+                              short=node, tiny=node,
                               fill=mine / top if top else 0.0, gauge=EXTRA2 if top - mine > BEHIND else BLUE,
                               outline=colour))
         groups = w.groups_at(variant, t)

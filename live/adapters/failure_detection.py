@@ -4,7 +4,7 @@ that carried messages; cluster: on a grid), and the clients' view (lanes)."""
 from __future__ import annotations
 
 from live.adapters.common import client_lanes, every, message_gauge, peer_traffic, sent_per_second
-from live.canvas import BG, BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, ORANGE, RED, WHITE, mix
+from live.canvas import BG, BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, MUTED, ORANGE, PINK, RED, WHITE, mix
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
@@ -55,7 +55,7 @@ class FailureCluster(ClusterAdapter):
         nodes = []
         for i, m in enumerate(marks):
             if m == DEAD:
-                nodes.append(RED)
+                nodes.append(RED if crashed >> i & 1 else PINK)  # declared dead: really, or alive (pink)
             elif crashed >> i & 1:
                 nodes.append(MUTED)  # down, and the cluster has not noticed yet
             else:
@@ -177,14 +177,15 @@ class FailurePeers(PeersAdapter):
         peers = []
         for i, m in enumerate(marks):
             node, down = name(i), bool(crashed >> i & 1)
+            # The colour says it all (the legend): dead red, declared dead but alive pink, crashed and not
+            # seen yet grey, suspected orange, alive blue; the label is just the name.
             if m == DEAD:
-                colour, label = RED, w.s("peer_dead" if down else "peer_false", node=node)
+                colour = RED if down else PINK
             elif down:
-                colour, label = MUTED, w.s("peer_down", node=node)
-            elif m == SUSPECT:
-                colour, label = ORANGE, w.s("peer_suspect", node=node)
+                colour = MUTED
             else:
-                colour, label = BLUE, node
+                colour = ORANGE if m == SUSPECT else BLUE
+            label = node
             k = sent.get(i, 0) / MSGS_MAX
             peers.append(Leaf(label=(label, colour), short=node, tiny=node, fill=min(1.0, k),
                               gauge=EXTRA2 if k > 1 else BLUE, outline=colour))

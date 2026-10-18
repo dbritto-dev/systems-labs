@@ -79,10 +79,7 @@ STRINGS = {
     "lanes_uncommitted": "UNCOMMITTED",
     "lanes_unanswered": "UNANSWERED",
     # the peers picture: under each node, its role and term (t: term), short
-    "peer_leader": "{node} leader t{term}",
-    "peer_candidate": "{node} cand t{term}",
-    "peer_follower": "{node} t{term}",
-    "peer_down": "{node} down",
+    "peer_term": "{node}\nt{term}",  # the term under the name; the colour is the role
     # errors in your code
     "no_state": "RaftNode must keep self.current_term, self.voted_for, self.log and self.role (no {name})",
 }

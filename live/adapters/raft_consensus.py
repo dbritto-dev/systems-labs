@@ -122,7 +122,7 @@ class RaftPeers(PeersAdapter):
     "leader" whose links are all cut, its AppendEntries lost half way."""
 
     def frame(self, variant: str, t: float, users: int) -> PeersFrame:
-        from labs.raft_consensus.scenario import CANDIDATE, DOWN, LEADER, VOTE
+        from labs.raft_consensus.scenario import DOWN, VOTE
         from live.worlds.raft_consensus import (
             MSG_ARRIVED, MSG_DEST, MSG_KIND, MSG_SENT, MSG_SRC, OP_NODE, OP_START, ROLE_COLOURS, ST_TERMS, name,
             state_at,
@@ -145,19 +145,12 @@ class RaftPeers(PeersAdapter):
         peers = []
         for i, role in enumerate(roles):
             node, term = name(i), terms[i] if i < len(terms) else 0
-            if role == DOWN:
-                label = w.s("peer_down", node=node)
-            elif role == LEADER:
-                label = w.s("peer_leader", node=node, term=term)
-            elif role == CANDIDATE:
-                label = w.s("peer_candidate", node=node, term=term)
-            else:
-                label = w.s("peer_follower", node=node, term=term) if term else node
+            # The colour says the role (the legend); the words only the term, under the name.
+            label = w.s("peer_term", node=node, term=term) if term and role != DOWN else node
             colour = ROLE_COLOURS.get(role, BLUE)
             fill, gauge = peer_gauge(sent.get(i, 0) / SENT_MAX)
             peers.append(Leaf(label=(label, MUTED if role == DOWN else colour),
-                              short=w.s("peer_follower", node=node, term=term) if term and role != DOWN else node,
-                              tiny=node, fill=0.0 if role == DOWN else fill, gauge=gauge, outline=colour))
+                              short=node, tiny=node, fill=0.0 if role == DOWN else fill, gauge=gauge, outline=colour))
         return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
                           door_color=lane.door_color, state=lane.state, peers=peers,
                           links=link_list(recent, groups, LINE), groups=groups,  # a partition: all its links cut

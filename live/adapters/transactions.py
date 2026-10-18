@@ -109,19 +109,12 @@ class TxnPeers(PeersAdapter):
         cut = w.cut_at(variant, t)
         stale = w.stale_at(run, t)
         groups = None if cut is None else [1 if i == cut else 0 for i in range(len(stale))]
-        g1b = w.anomalies_at(run, t, 0.5)
-        colours = w.node_colours(run, t)
+        colours = w.node_colours(run, t)  # an anomaly flashes in its colour (the legend); cut off: its links ✕
         peers = []
         for i, behind in enumerate(stale):
             node = f"n{i}"
-            if i in g1b:
-                label = w.s("peer_anomaly", node=i, kind=g1b[i])
-            elif i == cut:
-                label = w.s("state_cut", node=i)
-            else:
-                label = node
             fresh = 1 - behind / lab.KEYS
-            peers.append(Leaf(label=(label, RED if i == cut else colours[i]), short=node, tiny=node, fill=fresh,
+            peers.append(Leaf(label=(node, colours[i]), short=node, tiny=node, fill=fresh,
                               gauge=BLUE if fresh >= lab.FRESH_MIN else EXTRA2, outline=colours[i]))
         return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
                           door_color=lane.door_color, state=lane.state, peers=peers,

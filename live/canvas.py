@@ -31,6 +31,8 @@ DIM: RGB = (72, 80, 92)
 IDLE_DOT: RGB = (110, 118, 132)
 LIMIT: RGB = (255, 120, 140)
 PURPLE: RGB = (124, 82, 214)
+YELLOW: RGB = (230, 200, 70)  # more kinds of trouble, when a lab needs a colour for each
+PINK: RGB = (236, 110, 180)
 
 _BIT = ((1, 2, 4, 64), (8, 16, 32, 128))  # [dx][dy] -> Braille bit
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")

@@ -254,7 +254,7 @@ def test_the_peers_picture_shows_the_replica_down_its_links_cut_and_the_repair_o
     for v in ("main", "reference"):
         world, (during,) = peers(v, [25.0])
         n2 = during.peers[2]
-        assert n2.outline == RED and n2.label[0] == world.s("peer_down", node="n2")
+        assert n2.outline == RED and n2.label[0] == "n2"  # down: red, no word
         assert during.groups == [1, 1, 0, 1]
         assert {(0, 2), (1, 2), (2, 3)} <= {(a, b) for a, b, _ in during.links}  # its three links, cut
         assert "✕" in "\n".join(plain(line) for line in compose(world, v, 25.0, 92, 30))

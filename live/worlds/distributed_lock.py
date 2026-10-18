@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from labs.distributed_lock import lab
 from labs.distributed_lock.scenario import DRAIN, IDS, JOB_DEADLINE, LOCK_MSG
-from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, RED, RGB, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, GREEN, MUTED, PINK, RED, RGB, WHITE
 from live.worlds.base import (
     NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history,
 )
@@ -138,7 +138,7 @@ class DistributedLockWorld(World):
     id = "distributed_lock"
     view = "fanin"  # who holds the lock, and where the late write lands, is the lesson
     stage_colours = (RED, EXTRA2, BLUE)
-    legend = [(GREEN, "holder", "◉"), (EXTRA2, "frozen", "◉"), (RED, "down", "◉"), (BLUE, "lock_msg"),
+    legend = [(GREEN, "holder", "◉"), (EXTRA2, "frozen", "◉"), (RED, "down", "◉"), (PINK, "cut", "◉"), (BLUE, "lock_msg"),
               (WHITE, "write"), (EXTRA1, "late_write"), (RED, "corrupt"), (EXTRA2, "refused")]
     incident_verbs = ("pause", "wake")
     tables = {

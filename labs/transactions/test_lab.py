@@ -245,7 +245,7 @@ def test_the_peers_picture_shows_the_node_cut_off_and_who_replicates():
     for v in ("main", "reference"):
         world, (cut,) = peers(v, [25.0])
         assert cut.groups == [0, 0, 1] and {(0, 2), (1, 2)} <= {(a, b) for a, b, _ in cut.links}  # its links, cut
-        assert cut.peers[2].label == (world.s("state_cut", node=2), RED)
+        assert cut.peers[2].label[0] == "n2"  # cut off: just its name; its links are cut (✕)
         assert "✕" in "\n".join(plain(line) for line in compose(world, v, 25.0, 92, 30))
     _, (cut,) = peers("reference", [25.0])
     assert any(2 in (a, b) for a, b, _ in cut.drops)  # what it sends is lost half way
@@ -253,7 +253,7 @@ def test_the_peers_picture_shows_the_node_cut_off_and_who_replicates():
     assert all(p.fill == 1.0 for p in healed[0].peers)  # caught up after the heal
 
     world, per_write = peers(PER_WRITE, [k / 10 for k in range(0, 600)])
-    g1b = [p for f in per_write for i, p in enumerate(f.peers) if p.label[0] == world.s("peer_anomaly", node=i, kind="G1b")]
-    assert g1b and all(p.outline == RED for p in g1b)  # intermediate reads, flashing red
+    g1b = [p for f in per_write for p in f.peers if p.outline == RED]
+    assert g1b and all(p.label[0] == p.short for p in g1b)  # intermediate reads: red, and just the name
     burst = max(sum(1 for a, b, *_ in f.flights if 2 in (a, b) and -1 not in (a, b)) for f in per_write[300:310])
     assert burst > 30  # its re-sends piled up during the cut, and flow once it heals

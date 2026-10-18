@@ -40,7 +40,7 @@ GOALS = {
     "msgs": GoalText("Msgs/op < 10", "envía menos mensajes"),
 }
 
-LEGEND = {"in_sync": "al día", "behind": "atrasado", "down": "caído", "request": "petición de cliente",
+LEGEND = {"in_sync": "al día", "behind": "atrasado", "down": "caído", "cut": "aislado", "slow": "lento", "request": "petición de cliente",
           "message": "mensaje", "dropped": "perdido", "limit": "límite"}
 
 STRINGS = {
@@ -73,9 +73,6 @@ STRINGS = {
     "lanes_unanswered": "SIN RESPUESTA",
     # el dibujo en abanico: el coordinador, y el nombre de una réplica enferma (9 letras como mucho)
     "fan_coordinator": "coordinador",
-    "fan_down": "{node} caído",
-    "fan_cut": "{node} aislado",
-    "fan_slow": "{node} lento",
     # errores en tu código
     "no_store": "QuorumNode debe guardar sus datos en self.store",
 }

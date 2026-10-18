@@ -81,8 +81,7 @@ STRINGS = {
     "lanes_dups": "DUPLICATES",
     "lanes_clock": "CLOCK SKEW",
     # the peers picture: under a node, short
-    "peer_clock": "n{node} clock −{seconds:g}s",
-    "peer_dup": "n{node} dup!",
+    "peer_clock": "n{node}\nclock −{seconds:g}s",
 }
 
 LESSON = Lesson(

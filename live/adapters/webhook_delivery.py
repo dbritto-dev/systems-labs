@@ -6,11 +6,11 @@ from __future__ import annotations
 
 from labs.webhook_delivery.api import ENDPOINTS, WORKERS
 from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, SLOW, every, just_sent, rare_rows_first, user_flights
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, PURPLE, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, PINK, PURPLE, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import GRID_COLS, OUTLINE, LaneAdapter, LaneFrame, slot
-from live.views.lanes_fanout import LABEL_COLS, FanoutAdapter, FanoutFrame, Leaf
+from live.views.lanes_fanout import FanoutAdapter, FanoutFrame, Leaf
 from live.views.lanes_relay import Relay
 
 SIDE = 5  # the grid is 5 x 5: column 0 the dispatcher and the workers, columns 1-4 the endpoints
@@ -29,7 +29,7 @@ def worker_node(worker: int) -> int:
 
 
 def _endpoint_colours(w, run, t: float) -> list:
-    """Each endpoint by its health right now: red dead (down or hanging), orange slow, purple while it gets
+    """Each endpoint by its health right now: red down, pink hanging, orange slow, purple while it gets
     malformed events, blue healthy."""
     from live.worlds.webhook_delivery import sick
 
@@ -37,7 +37,7 @@ def _endpoint_colours(w, run, t: float) -> list:
     inc = w.incident_at(run, t)
     bad = sick(inc)
     if bad >= 0:
-        colours[bad] = RED if inc.kind in ("down", "hang") else EXTRA2 if inc.kind == "slow" else PURPLE
+        colours[bad] = {"down": RED, "hang": PINK, "slow": EXTRA2}.get(inc.kind, PURPLE)
     return colours
 
 
@@ -234,9 +234,7 @@ class WebhookFanout(FanoutAdapter):
         leaves = []
         for e in shown:
             hurt = colours[e] != BLUE
-            word = w.s(f"fan_{inc.kind}", n=e + 1) if hurt else w.s("fan_endpoint", n=e + 1)
-            if len(word) > LABEL_COLS - 1:  # "#10 poison": the number alone, its colour says the rest
-                word = w.s("fan_endpoint", n=e + 1)
+            word = w.s("fan_endpoint", n=e + 1)  # its colour says what is wrong (the legend)
             stuck = busy_on[e] >= WORKERS // 2
             leaves.append(Leaf(label=(word, colours[e] if hurt else WHITE), fill=busy_on[e] / (WORKERS // 2),
                                gauge=RED if stuck else BLUE, outline=colours[e] if hurt else OUTLINE))

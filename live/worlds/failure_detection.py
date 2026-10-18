@@ -8,7 +8,7 @@ import math
 from core.i18n import strings
 from labs.failure_detection import lab
 from labs.failure_detection.scenario import DEAD, FAILED, SUSPECT
-from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, ORANGE, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, ORANGE, PINK, RED, WHITE
 from live.worlds.base import (
     NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_most, below, history,
 )
@@ -108,7 +108,7 @@ class FailureWorld(World):
     id = "failure_detection"
     view = "peers"  # the eight nodes on an octagon, the links that carried messages, and the clients
     stage_colours = (RED, EXTRA2, BLUE)
-    legend = [(BLUE, "alive", "◉"), (ORANGE, "suspect", "◉"), (RED, "dead", "◉"), (MUTED, "crashed", "◉"),
+    legend = [(BLUE, "alive", "◉"), (ORANGE, "suspect", "◉"), (RED, "dead", "◉"), (PINK, "false", "◉"), (MUTED, "crashed", "◉"),
               (BLUE, "probe"), (EXTRA1, "indirect"), (RED, "dropped"), (LIMIT, "limit", "┄")]
     incident_verbs = ("crash", "back")
     tables = {

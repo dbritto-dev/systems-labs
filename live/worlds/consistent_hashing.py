@@ -116,7 +116,7 @@ class ConsistentHashingWorld(World):
     id = "consistent_hashing"
     view = "fanin"
     stage_colours = (RED, EXTRA2, BLUE)
-    legend = [(BLUE, "fair", "◉"), (EXTRA1, "busy", "◉"), (EXTRA2, "hot", "◉"), (DIM, "out", "◉"),
+    legend = [(BLUE, "fair", "◉"), (EXTRA1, "busy", "◉"), (EXTRA2, "hot", "◉"), (DIM, "out", "◉"), (RED, "removed", "◉"),
               (WHITE, "read"), (RED, "miss"), (LIMIT, "limit", "┄")]
     tables = {
         "reads": Table(sort=R_START, times=(R_START, R_END)),

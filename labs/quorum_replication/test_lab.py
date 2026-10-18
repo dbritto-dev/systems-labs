@@ -172,7 +172,8 @@ def test_the_fanout_picture_shows_the_replicas():
 
     world, given = fan("main", 23.0)  # n2 crashed at 0:20
     _, solved = fan("reference", 23.0)
-    assert [leaf.label[0] for leaf in given.leaves] == ["n0", "n1", world.s("fan_down", node="n2"), "n3", "n4"]
+    assert [leaf.label[0] for leaf in given.leaves] == ["n0", "n1", "n2", "n3", "n4"]
+    assert given.leaves[2].outline == RED  # n2 down: red, no word
     assert all(len(leaf.label[0]) <= 9 for leaf in given.leaves)
     # One copy: nobody replicates, every node is behind and reads come back stale.
     assert all(leaf.outline != OUTLINE for leaf in given.leaves) and given.relay.outline == RED

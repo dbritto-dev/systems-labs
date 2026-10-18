@@ -220,17 +220,19 @@ def test_a_second_picture_shows_what_the_clients_see():
 
 @starting_code
 def test_the_fan_in_picture_shows_the_nodes_handing_out_offsets_on_their_own():
-    from live.canvas import RED
     from live.views import adapter_for
+    from live.worlds.kafka_style_log import ANOMALY_COLOURS
+
+    flashing = set(ANOMALY_COLOURS.values())  # a node flashes in its anomaly's colour
 
     def pictures(v):
         world = build_world("kafka_style_log", v, 1)
         assert world.view == "fanin"
         return [adapter_for(world).frame(v, t / 4, 90) for t in range(40, 160)]
 
-    given = pictures("main")  # a log per node: the nodes keep flashing red with a duplicate offset
-    assert sum(any(lf.outline == RED for lf in fr.leaves) for fr in given) > len(given) // 2
+    given = pictures("main")  # a log per node: the nodes keep flashing (duplicate offsets, lost writes)
+    assert sum(any(lf.outline in flashing for lf in fr.leaves) for fr in given) > len(given) // 2
     assert not any(fr.joins or fr.cross for fr in given)
     ref = pictures("reference")  # each key has an owner: sends cross to it, nothing goes wrong
-    assert not any(lf.outline == RED for fr in ref for lf in fr.leaves)
+    assert not any(lf.outline in flashing for fr in ref for lf in fr.leaves)
     assert sum(bool(fr.cross) for fr in ref) > len(ref) // 2

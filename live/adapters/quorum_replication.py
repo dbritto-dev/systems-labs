@@ -4,7 +4,7 @@ the middle, the five replicas on the right)."""
 from __future__ import annotations
 
 from live.adapters.common import client_lanes, every, message_gauge
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, ORANGE, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, ORANGE, PINK, RED, WHITE, YELLOW
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame
@@ -33,7 +33,7 @@ class QuorumCluster(ClusterAdapter):
         nodes = [_behind(k) for k in w.behind_at(run, t)]
         sick = w.sick_at(variant, t)
         if sick is not None:
-            nodes[sick[0]] = ORANGE if sick[1] == "slow" else RED
+            nodes[sick[0]] = {"slow": YELLOW, "isolate": PINK}.get(sick[1], RED)  # as in the fan-out picture
         flights, drops = [], []
         for m in run.rows("msgs", t - DROP_FADE * 8, t + 1e-9):  # a slow node's messages take ~8x longer
             arrived = m[MSG_ARRIVED]
@@ -187,9 +187,8 @@ class QuorumFanout(FanoutAdapter):
         leaves = []
         for i in range(lab.NODES):
             outline, text = _behind(behind[i]), f"n{i}"
-            if sick is not None and sick[0] == i:
-                key = {"slow": "fan_slow", "isolate": "fan_cut"}.get(sick[1], "fan_down")
-                outline, text = ORANGE if sick[1] == "slow" else RED, w.s(key, node=text)
+            if sick is not None and sick[0] == i:  # the colour says it (the legend): slow, cut off, down
+                outline = {"slow": YELLOW, "isolate": PINK}.get(sick[1], RED)
             leaves.append(Leaf(label=(text, WHITE if outline == BLUE else outline),
                                fill=min(1.0, behind[i] / BEHIND_MAX), gauge=_behind(max(1, behind[i])),
                                outline=OUTLINE if outline == BLUE else outline))

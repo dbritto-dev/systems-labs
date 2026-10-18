@@ -5,7 +5,7 @@ from __future__ import annotations
 from core.i18n import strings
 from labs.quorum_replication import lab
 from labs.quorum_replication.scenario import CLIENT_TIMEOUT, GET
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, ORANGE, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, LIMIT, MUTED, ORANGE, PINK, RED, WHITE, YELLOW
 from live.worlds.base import (
     NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, below, history,
 )
@@ -83,7 +83,7 @@ class QuorumWorld(World):
     id = "quorum_replication"
     view = "fanout"  # opens with the fanout picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
-    legend = [(BLUE, "in_sync", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "down", "◉"),
+    legend = [(BLUE, "in_sync", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "down", "◉"), (PINK, "cut", "◉"), (YELLOW, "slow", "◉"),
               (WHITE, "request"), (BLUE, "message"), (RED, "dropped"), (LIMIT, "limit", "┄")]
     incident_verbs = ("crash", "back")
     tables = {

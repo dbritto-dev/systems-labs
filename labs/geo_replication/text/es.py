@@ -97,9 +97,7 @@ STRINGS = {
     "lanes_busy": "{name} AL {util:.0%}",
     "lanes_far": "p99 {p99}",
     # el dibujo de pares: bajo cada región, corto; en cada enlace, su latencia de ida
-    "peer_down": "{name} caída",
-    "peer_cut": "{name} aislada",
-    "peer_behind": "{name} −{n}",
+    "peer_behind": "{name}\n−{n}",
     "peer_ms": "{ms:.0f}ms",
     "peer_ms_way": "{ms:.0f}ms de ida",
     "note_regions": "En cada enlace: su latencia de ida.",

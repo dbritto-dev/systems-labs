@@ -97,9 +97,7 @@ STRINGS = {
     "lanes_busy": "{name} AT {util:.0%}",
     "lanes_far": "p99 {p99}",
     # the peers picture: under each region, short; on each link, its one-way latency
-    "peer_down": "{name} down",
-    "peer_cut": "{name} cut off",
-    "peer_behind": "{name} −{n}",
+    "peer_behind": "{name}\n−{n}",
     "peer_ms": "{ms:.0f}ms",
     "peer_ms_way": "{ms:.0f}ms one way",
     "note_regions": "On each link: its one-way latency.",

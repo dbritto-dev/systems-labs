@@ -26,8 +26,10 @@ class KafkaLogCluster(ClusterAdapter):
         if run is None:
             return ClusterFrame()
         inc = w.incident_at(variant, t)
-        flashing = {x[AN_NODE] for x in run.rows("anomalies", t - FLASH, t + 1e-9)}
-        nodes = [RED if i in flashing else BLUE for i in range(KV)]
+        from live.worlds.kafka_style_log import AN_KIND
+
+        flashing = {x[AN_NODE]: w.anomaly_colour(x[AN_KIND]) for x in run.rows("anomalies", t - FLASH, t + 1e-9)}
+        nodes = [flashing.get(i, BLUE) for i in range(KV)]
         nodes.append(EXTRA2 if inc is not None and inc.kind == "slowkv" else PURPLE)
         flights = []
         for m in run.rows("msgs", t - TRAVEL, t + 1e-9):
@@ -37,8 +39,7 @@ class KafkaLogCluster(ClusterAdapter):
             flights.append((-1, o[OP_NODE], (t - o[OP_START]) / TRAVEL, RED if o[OP_BAD] else WHITE))
         recent = run.rows("anomalies", t - 2, t + 1e-9)
         if recent:
-            from live.worlds.kafka_style_log import AN_KIND
-            state = (w.anomaly(recent[-1][AN_KIND]).upper(), RED)
+            state = (w.anomaly(recent[-1][AN_KIND]).upper(), w.anomaly_colour(recent[-1][AN_KIND]))
         elif inc is not None and inc.kind == "burst":
             state = (w.s("state_hot", k=w.hot_key(run, inc).upper()), EXTRA2)
         elif inc is not None:
@@ -96,14 +97,14 @@ MAX_HOPS, MAX_JOINS, MAX_CROSS = 30, 40, 30
 @adapts("kafka_style_log", "fanin")
 class KafkaLogFanin(FaninAdapter):
     """Sends, polls and commits come through the network (the door) to the nodes n0 and n1 (each gauge its
-    client operations/s); a node flashes red, with the anomaly by its name, when it hands out a duplicate
-    offset or loses a write or a commit. The nodes keep the log in lin-kv (the store, purple, orange while
+    client operations/s); a node flashes, outline and gauge, in its anomaly's colour: orange a duplicate
+    offset, yellow one going back, red a lost write, pink a lost commit (the state names it too). The nodes keep the log in lin-kv (the store, purple, orange while
     it is slow, its gauge its messages/s): those messages fly light orange; a node that passes a request
     to the key's owner sends it blue, on the line between the nodes."""
 
     def frame(self, variant: str, t: float, users: int) -> FaninFrame:
         from live.worlds.kafka_style_log import (
-            AN_KIND, AN_NODE, ANOMALY_KEYS, KV, MSG_DEST, MSG_SENT, MSG_SRC, OP_BAD, OP_NODE, OP_START,
+            AN_KIND, AN_NODE, KV, MSG_DEST, MSG_SENT, MSG_SRC, OP_BAD, OP_NODE, OP_START,
         )
 
         w = self.world
@@ -133,18 +134,15 @@ class KafkaLogFanin(FaninAdapter):
         leaves = []
         for j in range(KV):
             node = f"n{j}"
-            if j in flashing:
-                label = (w.s(f"fan_{ANOMALY_KEYS[flashing[j]]}", node=node), RED)
-            else:
-                label = (node, WHITE)
-            leaves.append(Leaf(label, short=node, fill=mine[j] / NODE_MAX, gauge=BLUE,
-                               outline=RED if j in flashing else OUTLINE))
+            colour = w.anomaly_colour(flashing[j]) if j in flashing else None  # the whole node, while it flashes
+            leaves.append(Leaf((node, colour or WHITE), short=node, fill=mine[j] / NODE_MAX, gauge=colour or BLUE,
+                               outline=colour or OUTLINE))
 
         inc = w.incident_at(variant, t)
         slow = inc is not None and inc.kind == "slowkv"
         recent = run.rows("anomalies", t - 2, t + 1e-9)
         if recent:
-            state = (w.anomaly(recent[-1][AN_KIND]).upper(), RED)
+            state = (w.anomaly(recent[-1][AN_KIND]).upper(), w.anomaly_colour(recent[-1][AN_KIND]))
         elif inc is not None and inc.kind == "burst":
             state = (w.s("state_hot", k=w.hot_key(run, inc).upper()), EXTRA2)
         elif slow:

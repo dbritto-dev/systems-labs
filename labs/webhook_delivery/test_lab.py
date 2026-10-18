@@ -291,7 +291,7 @@ def test_stage2_first_incident_every_goal():
 @starting_code
 def test_two_pictures_the_cluster_first():
     from live.adapters.webhook_delivery import endpoint_node
-    from live.canvas import RED, plain
+    from live.canvas import PINK, RED, plain
     from live.frame import compose
     from live.views import adapter_for, set_view, views_for
 
@@ -315,7 +315,7 @@ def test_two_pictures_the_cluster_first():
     one = endpoint_node(0)
     for v in ("main", "reference"):
         frame, _ = picture(v, 30.0)
-        assert frame.nodes[one] == RED  # endpoint #1 hangs
+        assert frame.nodes[one] == PINK  # endpoint #1 hangs (pink: the legend)
     # The given code: every worker waits on #1 (dots sitting by it); the reference: a few, then none.
     given, _ = picture("main", 30.0)
     solved, _ = picture("reference", 30.0)
@@ -327,7 +327,7 @@ def test_two_pictures_the_cluster_first():
 
 @starting_code
 def test_the_fanout_picture_shows_the_endpoint_in_trouble():
-    from live.canvas import RED, plain
+    from live.canvas import PINK, RED, plain
     from live.frame import compose
     from live.views import adapter_for, set_view
 
@@ -349,7 +349,7 @@ def test_the_fanout_picture_shows_the_endpoint_in_trouble():
     # piled by it); the reference caps it, so the dispatcher stays calm and the others still get answers.
     given, solved = fan("main", 30.0), fan("reference", 30.0)
     for frame in (given, solved):
-        assert frame.leaves[0].label[0] == world.s("fan_hang", n=1) and frame.leaves[0].outline == RED
+        assert frame.leaves[0].label[0] == "#1" and frame.leaves[0].outline == PINK  # hangs: pink, no word
     assert given.relay.outline == RED and given.leaves[0].fill >= 1.0
     assert solved.relay.outline != RED and solved.leaves[0].fill < 0.5
     waiting = lambda fr: sum(1 for j, p, _, back in fr.hops if j == 0 and not back and p >= 0.6)  # noqa: E731

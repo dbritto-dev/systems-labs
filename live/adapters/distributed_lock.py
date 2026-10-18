@@ -5,7 +5,7 @@ storage)."""
 from __future__ import annotations
 
 from live.adapters.common import BACK, FLIGHTS, FLY, OUTCOMES, every, just_ended, just_sent, user_flights
-from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, RED, WHITE
+from live.canvas import BLUE, DIM, EXTRA1, EXTRA2, EXTRA3, GREEN, PINK, RED, WHITE
 from live.views.base import adapts
 from live.views.cluster import ClusterAdapter, ClusterFrame
 from live.views.lanes import OUTLINE, LaneAdapter, LaneFrame, slot
@@ -210,12 +210,12 @@ class DistributedLockFanin(FaninAdapter):
         for wk in WORKERS:
             node = name(wk)
             label, colour = (node, WHITE), OUTLINE
+            # The colour says it (the legend): holds the lock green, frozen orange, dead red, cut off pink.
             if holder is not None and holder[1] == wk:
-                label, colour = (w.s("fan_holds", worker=node), GREEN), GREEN
+                label, colour = (node, GREEN), GREEN
             if sick is not None and sick[0] == wk and sick[1] != "delay":
-                key = {"pause": "fan_frozen", "crash": "fan_down"}.get(sick[1], "fan_cut")
-                colour = EXTRA2 if sick[1] == "pause" else RED
-                label = (w.s(key, worker=node), colour)
+                colour = {"pause": EXTRA2, "crash": RED}.get(sick[1], PINK)
+                label = (node, colour)
             leaves.append(Leaf(label, short=node, fill=1.0 if wk in busy else 0.0, gauge=BLUE, outline=colour))
 
         stuck = stall_at(run, t)

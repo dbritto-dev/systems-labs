@@ -219,7 +219,7 @@ def test_the_cluster_picture_shows_the_crash_found_and_the_lanes_what_clients_se
 def test_the_peers_picture_shows_false_deaths_behind_the_flaky_links_and_the_cost():
     from labs.failure_detection.scenario import FLAKY
     from live.adapters.failure_detection import FLAKY_LINK
-    from live.canvas import EXTRA2, RED
+    from live.canvas import EXTRA2, PINK, RED
     from live.views import adapter_for
 
     def peers(v):
@@ -232,13 +232,13 @@ def test_the_peers_picture_shows_false_deaths_behind_the_flaky_links_and_the_cos
 
     def false(frames) -> set[int]:
         return {i for f in frames for i, p in enumerate(f.peers)
-                if p.outline == RED and p.label[0] == world.s("peer_false", node=f"n{i}")}
+                if p.outline == PINK}  # declared dead, but alive
 
     for frames in (given, solved):
         flaky = {(a, b) for f in frames for a, b, c in f.links if c == FLAKY_LINK}
         assert {tuple(sorted(link)) for link in FLAKY} <= flaky  # the flaky links, always drawn
         assert all(len(f.links) < 8 * 7 // 2 for f in frames)  # never the whole mesh
-        assert any(f.peers[2].label[0] == world.s("peer_dead", node="n2") for f in frames)  # the crash, found
+        assert any(f.peers[2].outline == RED for f in frames)  # the crash, found: declared dead
     ends = {i for link in FLAKY for i in link}
     before = given[:20]  # 0:05 to 0:15, before the crash
     assert false(before) and false(before) <= ends  # healthy nodes buried behind the flaky links

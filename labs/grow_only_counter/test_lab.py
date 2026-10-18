@@ -237,7 +237,7 @@ def test_the_fan_in_picture_shows_nodes_that_never_ask_seq_kv():
 
     given = picture("main")  # the count in memory: nothing goes to seq-kv, every node's reads are off
     assert not given.joins and given.fill == 0
-    assert all(lf.outline != OUTLINE and lf.label[0] != lf.short for lf in given.leaves)
+    assert all(lf.outline != OUTLINE and lf.label[1] == lf.outline for lf in given.leaves)  # reads off: coloured
     ref = picture("reference")  # one key per node in seq-kv: requests go, answers come back, reads are right
     assert {c for _, _, c, back in ref.joins if not back} and {c for _, _, c, back in ref.joins if back}
     assert all(lf.outline == OUTLINE for lf in ref.leaves) and ref.fill > 0

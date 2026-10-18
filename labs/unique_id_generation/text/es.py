@@ -81,8 +81,7 @@ STRINGS = {
     "lanes_dups": "DUPLICADOS",
     "lanes_clock": "DESFASE",
     # el dibujo de pares: bajo un nodo, corto
-    "peer_clock": "n{node} reloj −{seconds:g}s",
-    "peer_dup": "n{node} ¡duplica!",
+    "peer_clock": "n{node}\nreloj −{seconds:g}s",
 }
 
 LESSON = Lesson(

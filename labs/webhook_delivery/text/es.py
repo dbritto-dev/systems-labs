@@ -55,7 +55,8 @@ GOALS = {
 
 LEGEND = {"idle": "en reposo", "first": "1.er intento", "retry": "reintento", "delivered": "entregado",
           "out_of_order": "desordenado", "failed": "fallido", "gave_up": "abandonado", "limit": "eventos creados",
-          "incident": "incidente"}
+          "incident": "incidente",
+          "ep_down": "caído", "ep_hang": "se cuelga", "ep_slow": "lento", "ep_poison": "recibe veneno"}
 
 STRINGS = {
     # incidentes
@@ -104,10 +105,6 @@ STRINGS = {
     "pic_state": "{state} · workers {busy}/{of}",
     "fan_dispatcher": "despachador",
     "fan_endpoint": "#{n}",
-    "fan_down": "#{n} caído",
-    "fan_hang": "#{n} cuelga",
-    "fan_slow": "#{n} lento",
-    "fan_poison": "#{n} veneno",
     "note": "Endpoints: rojo muerto, naranja lento. Los puntos son una muestra (decorativa).",
 }
 

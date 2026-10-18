@@ -44,7 +44,7 @@ GOALS = {
     "msgs": GoalText("Msgs/nodo/s < 10", "SWIM: sondea un par"),
 }
 
-LEGEND = {"alive": "vivo", "suspect": "sospechoso", "dead": "declarado muerto", "crashed": "caído, sin detectar",
+LEGEND = {"alive": "vivo", "suspect": "sospechoso", "dead": "declarado muerto", "false": "declarado muerto, pero vivo", "crashed": "caído, sin detectar",
           "probe": "latido o sondeo", "indirect": "sondeo indirecto", "dropped": "perdido", "limit": "límite"}
 
 STRINGS = {
@@ -88,10 +88,6 @@ STRINGS = {
     "lanes_needless": "CAMBIO INÚTIL",
     "lanes_in_use": "{n}/{of} EN USO",
     # el dibujo de pares: bajo cada nodo, lo que el clúster cree de él, corto
-    "peer_dead": "{node} muerto",
-    "peer_false": "{node} FALSO",
-    "peer_down": "{node} caído",
-    "peer_suspect": "{node} sospechoso",
     # errores en tu código
     "no_status": "Detector debe guardar self.status: un dict, id del par -> 'alive', 'suspect' o 'dead'",
 }

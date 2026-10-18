@@ -87,7 +87,6 @@ STRINGS = {
     "lanes_split": "PARTIDA",
     # el dibujo en embudo: la red (la puerta), los nodos, seq-kv (el almacén)
     "fan_network": "red",
-    "fan_off": "{node} lee mal",
     "fan_conflicts": "CONFLICTOS {share:.0%}",
 }
 

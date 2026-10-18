@@ -48,12 +48,11 @@ GOALS = {
 }
 
 LEGEND = {"prepare": "preparar", "yes": "vota sí", "commit": "consolidar", "abort": "no / abortar",
-          "ask": "pregunta", "doubt": "en duda", "partial": "parcial", "limit": "transferencias",
+          "ask": "pregunta", "doubt": "en duda", "down": "caído", "partial": "parcial", "limit": "transferencias",
           "incident": "incidente"}
 
 STRINGS = {
     "fan_coordinator": "coordinador",
-    "fan_down": "{shard} caído",
     "fan_state_shard": "{shard} CAÍDO",
     # incidentes
     "overload_start": "{shard} va lento: el {share:.0%} de las preparaciones dan timeout de bloqueo: {cause}",

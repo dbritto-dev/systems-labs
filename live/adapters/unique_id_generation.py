@@ -143,7 +143,7 @@ class UniqueIdsPeers(PeersAdapter):
         for i in range(lab.NODES):
             node = f"n{i}"
             if i in dup:
-                colour, label = RED, w.s("peer_dup", node=i)
+                colour, label = RED, node  # a duplicate id: red (the legend)
             elif skew is not None and skew[0] == i:
                 colour, label = EXTRA2, w.s("peer_clock", node=i, seconds=skew[1])
             else:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from core.i18n import strings
 from labs.kafka_style_log import lab
 from labs.kafka_style_log.scenario import BACKWARDS, DUPLICATE, LOST_COMMIT, LOST_WRITE, SEND
-from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PURPLE, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PINK, PURPLE, RED, WHITE, YELLOW
 from live.worlds.base import (
     Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, below, fmt_ms, history, percentile,
 )
@@ -17,6 +17,8 @@ KV = lab.NODES  # lin-kv's index in the picture and the message table
 INF = float("inf")
 ANOMALY_KEYS = {DUPLICATE: "duplicate", LOST_WRITE: "lost_write", LOST_COMMIT: "lost_commit",
                 BACKWARDS: "backwards"}  # STRINGS keys
+# One colour per anomaly, so a node that flashes says which without a word.
+ANOMALY_COLOURS = {DUPLICATE: EXTRA2, BACKWARDS: YELLOW, LOST_WRITE: RED, LOST_COMMIT: PINK}
 
 
 _s = strings("kafka_style_log")  # one of the lab's STRINGS, for the goal measures below
@@ -91,7 +93,8 @@ class KafkaLogWorld(World):
     id = "kafka_style_log"
     view = "fanin"
     stage_colours = (RED, EXTRA2, BLUE)
-    legend = [(BLUE, "node", "◉"), (PURPLE, "lin_kv", "◉"), (RED, "anomaly", "◉"), (WHITE, "client_request"),
+    legend = [(BLUE, "node", "◉"), (PURPLE, "lin_kv", "◉"), (EXTRA2, "duplicate", "◉"), (YELLOW, "backwards", "◉"), (RED, "lost_write", "◉"),
+              (PINK, "lost_commit", "◉"), (WHITE, "client_request"),
               (BLUE, "node_message"), (EXTRA1, "kv_message"), (LIMIT, "limit", "┄")]
     tables = {
         "ops": Table(sort=OP_START, times=(OP_START, OP_END)),
@@ -129,6 +132,12 @@ class KafkaLogWorld(World):
     def hot_key(self, run: Run, inc: Incident) -> str:
         k = run.data.get("hot", {}).get(inc.t0)
         return self.s("one_key") if k is None else f"k{k}"
+
+    @staticmethod
+    def anomaly_colour(kind: int):
+        """Each anomaly's colour: orange a duplicate, yellow an offset going back, red a lost write, pink a
+        lost commit."""
+        return ANOMALY_COLOURS[kind]
 
     def anomaly(self, kind: int) -> str:
         """An anomaly's name in words, e.g. "duplicate offset"."""
@@ -192,7 +201,8 @@ class KafkaLogWorld(World):
         if recent:
             x = recent[-1]
             what = self.anomaly(x[AN_KIND])
-            headline, colour = self.s("head_anomaly", what=what[:1].upper() + what[1:], k=f"k{x[AN_KEY]}"), RED
+            headline = self.s("head_anomaly", what=what[:1].upper() + what[1:], k=f"k{x[AN_KEY]}")
+            colour = self.anomaly_colour(x[AN_KIND])
         elif inc is not None and inc.kind == "burst":
             headline, colour = self.s("head_hot", k=self.hot_key(run, inc), p99=fmt_ms(p99)), EXTRA2
         elif inc is not None:

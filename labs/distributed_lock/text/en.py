@@ -45,7 +45,7 @@ GOALS = {
     "done": GoalText("Jobs done ≥ 80%", "renew; give up a lost lock"),
 }
 
-LEGEND = {"holder": "lock holder", "frozen": "frozen", "down": "dead / cut off", "lock_msg": "lock message",
+LEGEND = {"holder": "lock holder", "frozen": "frozen", "down": "dead", "cut": "cut off", "lock_msg": "lock message",
           "write": "write", "late_write": "delayed write", "corrupt": "late write accepted",
           "refused": "late write refused"}
 
@@ -91,10 +91,6 @@ STRINGS = {
     "state_lock": "lock: {worker}",
     "nobody": "free",
     # the fan-in picture: the lock service (the door), the workers, the storage (the store)
-    "fan_holds": "{worker} holds",
-    "fan_frozen": "{worker} frozen",
-    "fan_down": "{worker} down",
-    "fan_cut": "{worker} cut off",
     "fan_token": "{state}  token {n}",
 }
 

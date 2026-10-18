@@ -80,10 +80,7 @@ STRINGS = {
     "lanes_uncommitted": "SIN GUARDAR",
     "lanes_unanswered": "SIN RESPUESTA",
     # el dibujo de pares: bajo cada nodo, su papel y su término (t: término), corto
-    "peer_leader": "{node} líder t{term}",
-    "peer_candidate": "{node} cand t{term}",
-    "peer_follower": "{node} t{term}",
-    "peer_down": "{node} caído",
+    "peer_term": "{node}\nt{term}",  # el término bajo el nombre; el color es el papel
     # errores en tu código
     "no_state": "RaftNode debe guardar self.current_term, self.voted_for, self.log y self.role (falta {name})",
 }

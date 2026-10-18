@@ -38,7 +38,8 @@ GOALS = {
     "p99": GoalText("p99 send < 100ms", "an owner per key"),
 }
 
-LEGEND = {"node": "node", "lin_kv": "lin-kv", "anomaly": "anomaly", "client_request": "client request",
+LEGEND = {"node": "node", "lin_kv": "lin-kv", "duplicate": "duplicate", "backwards": "offset back", "lost_write": "lost write",
+          "lost_commit": "lost commit", "client_request": "client request",
           "node_message": "node message", "kv_message": "lin-kv message", "limit": "limit"}
 
 STRINGS = {
@@ -80,10 +81,6 @@ STRINGS = {
     "lanes_kv_slow": "KV SLOW",
     # the fan-in picture: the network (the door), the nodes, lin-kv (the store)
     "fan_network": "network",
-    "fan_duplicate": "{node} duplicate",
-    "fan_lost_write": "{node} lost write",
-    "fan_lost_commit": "{node} lost commit",
-    "fan_backwards": "{node} goes back",
 }
 
 LESSON = Lesson(

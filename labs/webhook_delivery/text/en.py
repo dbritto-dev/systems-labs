@@ -55,7 +55,8 @@ GOALS = {
 
 LEGEND = {"idle": "idle", "first": "1st attempt", "retry": "retry", "delivered": "delivered",
           "out_of_order": "out of order", "failed": "failed", "gave_up": "given up", "limit": "events made",
-          "incident": "incident"}
+          "incident": "incident",
+          "ep_down": "down", "ep_hang": "hangs", "ep_slow": "slow", "ep_poison": "gets poison"}
 
 STRINGS = {
     # incidents
@@ -104,10 +105,6 @@ STRINGS = {
     "pic_state": "{state} · workers {busy}/{of}",
     "fan_dispatcher": "dispatcher",
     "fan_endpoint": "#{n}",
-    "fan_down": "#{n} down",
-    "fan_hang": "#{n} hangs",
-    "fan_slow": "#{n} slow",
-    "fan_poison": "#{n} poison",
     "note": "Endpoints: red dead, orange slow. Dots are a sample (cosmetic).",
 }
 

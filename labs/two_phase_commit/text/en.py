@@ -48,12 +48,11 @@ GOALS = {
 }
 
 LEGEND = {"prepare": "prepare", "yes": "vote yes", "commit": "commit", "abort": "no / abort",
-          "ask": "ask outcome", "doubt": "in doubt", "partial": "partial", "limit": "transfers in",
+          "ask": "ask outcome", "doubt": "in doubt", "down": "down", "partial": "partial", "limit": "transfers in",
           "incident": "incident"}
 
 STRINGS = {
     "fan_coordinator": "coordinator",
-    "fan_down": "{shard} down",
     "fan_state_shard": "{shard} DOWN",
     # incidents
     "overload_start": "{shard} is busy: {share:.0%} of prepares time out on locks: {cause}",

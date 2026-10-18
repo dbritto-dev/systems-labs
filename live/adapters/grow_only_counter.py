@@ -142,7 +142,7 @@ class GCounterFanin(FaninAdapter):
         for j in range(NODES):
             node = f"n{j}"
             colour = (RED if off[j] > 2 else EXTRA2) if off[j] else None
-            leaves.append(Leaf((w.s("fan_off", node=node), colour) if colour else (node, WHITE), short=node,
+            leaves.append(Leaf((node, colour or WHITE), short=node,  # reads off: orange, then red (the legend)
                                fill=mine[j] / NODE_MAX, gauge=BLUE, outline=colour or OUTLINE))
 
         kv = sum(1 for m in run.rows("msgs", t - 1, t + 1e-9) if m[MSG_KIND] == KV_REQ and m[MSG_DEST] == KV_INDEX)

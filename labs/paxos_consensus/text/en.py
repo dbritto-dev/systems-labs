@@ -48,7 +48,7 @@ GOALS = {
 }
 
 LEGEND = {"leader": "leader", "node": "node", "candidate": "candidate", "split": "decided differently",
-          "down": "down", "request": "client command", "propose": "propose", "phase1": "prepare/promise",
+          "down": "down", "paused": "paused", "request": "client command", "propose": "propose", "phase1": "prepare/promise",
           "phase2": "accept/accepted", "decide": "decide", "dropped": "lost"}
 
 STRINGS = {
@@ -87,13 +87,8 @@ STRINGS = {
     "lanes_split": "DISAGREE",
     "lanes_lost": "LOST",
     "lanes_stalled": "STALLED",
-    # the peers picture: under each node, its role and ballot (b: ballot), short
-    "peer_leader": "{node} leader b{ballot}",
-    "peer_candidate": "{node} cand b{ballot}",
-    "peer_ballot": "{node} b{ballot}",
-    "peer_down": "{node} down",
-    "peer_paused": "{node} paused",
-    "peer_split": "{node} differs",
+    # the peers picture: under each node's name, its ballot (b: ballot); its colour is its role
+    "peer_ballot": "{node}\nb{ballot}",
     # errors in your code
     "no_state": "PaxosNode must keep self.promised, self.accepted, self.decided and self.role (no {name})",
 }

@@ -329,8 +329,8 @@ def test_the_fanout_picture_shows_each_partition():
         return frame
 
     given, solved = fan("main", 24.0), fan("reference", 24.0)
-    assert len(given.leaves) == PARTITIONS and given.leaves[hot].short == build_world(LAB, "main", 1).s("fan_hot_short", p=hot)
-    assert given.leaves[hot].label[0].startswith(given.leaves[hot].short)  # "p1 hot 99%", "p1 hot" when cramped
+    assert len(given.leaves) == PARTITIONS and given.leaves[hot].label[0].startswith(f"p{hot} ")  # "p1 99%": its
+    # colour says it is hot (red melting, else purple), the words its load
     # Hash by key: the hot partition melts (red), the hot key's requests all go there and some are throttled.
     assert [p for p, leaf in enumerate(given.leaves) if leaf.outline == RED] == [hot]
     assert {j for j, _, c, _ in given.hops if c == PURPLE} == {hot} and any(c == RED for _, _, c, _ in given.hops)

@@ -142,7 +142,7 @@ class ConsistentHashingFanin(FaninAdapter):
             on = layout is not None and layout[C_LIVE][j]
             if not on:
                 red = j in died
-                leaves.append(Leaf((w.s("fan_down", node=node) if red else node, RED if red else DIM),
+                leaves.append(Leaf((node, RED if red else DIM),  # just removed: red (the legend)
                                    short=node, outline=RED if red else DIM))
                 continue
             live = [n for n, alive in zip(layout[C_COUNTS], layout[C_LIVE]) if alive]

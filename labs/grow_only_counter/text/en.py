@@ -86,7 +86,6 @@ STRINGS = {
     "lanes_split": "PARTITIONED",
     # the fan-in picture: the network (the door), the nodes, seq-kv (the store)
     "fan_network": "network",
-    "fan_off": "{node} reads off",
     "fan_conflicts": "CONFLICTS {share:.0%}",
 }
 

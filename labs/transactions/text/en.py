@@ -39,7 +39,7 @@ GOALS = {
     "g1b": GoalText("No G1 reads", "replicate whole txns"),
 }
 
-LEGEND = {"up_to_date": "up to date", "behind": "behind", "g1b_read": "G0/G1 anomaly", "transaction": "transaction",
+LEGEND = {"up_to_date": "up to date", "behind": "behind", "g0": "G0 write", "g1a": "G1a read", "g1b": "G1b read", "g1c": "G1c read", "transaction": "transaction",
           "replication": "replication", "dropped": "dropped", "partition": "partition"}
 
 STRINGS = {
@@ -77,8 +77,6 @@ STRINGS = {
     "lanes_g1a": "G1a READ",
     "lanes_g1c": "G1c READ",
     "lanes_g0": "G0 WRITE",
-    # the peers picture: under a node that just showed an anomaly
-    "peer_anomaly": "n{node} {kind}",
 }
 
 LESSON = Lesson(

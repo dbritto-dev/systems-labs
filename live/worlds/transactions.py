@@ -5,7 +5,7 @@ from __future__ import annotations
 from core.i18n import strings
 from labs.transactions import lab
 from labs.transactions.scenario import TXN_END, TXN_OK, TXN_START
-from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, MUTED, RED, WHITE
+from live.canvas import BLUE, EXTRA1, EXTRA2, EXTRA3, MUTED, PINK, PURPLE, RED, WHITE, YELLOW
 from live.worlds.base import (
     NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most, history,
 )
@@ -14,6 +14,7 @@ MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 ANOM_T, ANOM_NODE, ANOM_KEY, ANOM_VALUE, ANOM_KIND = range(5)
 G0_T, G0_NODE, G0_KEY = range(3)
 KIND_NAMES = ("G1a", "G1b", "G1c")  # by ANOM_KIND; a dirty write is "G0"
+KIND_COLOURS = {"G0": PINK, "G1a": YELLOW, "G1b": RED, "G1c": PURPLE}  # a node flashes in its anomaly's colour
 
 
 def fresh(run: Run, a: float, b: float) -> float | None:
@@ -101,7 +102,8 @@ class TxnWorld(World):
     id = "transactions"
     view = "peers"  # the node cut off, its links cut, and how far behind it falls
     stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
-    legend = [(BLUE, "up_to_date", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (RED, "g1b_read", "◉"),
+    legend = [(BLUE, "up_to_date", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (PINK, "g0", "◉"), (YELLOW, "g1a", "◉"), (RED, "g1b", "◉"),
+              (PURPLE, "g1c", "◉"),
               (WHITE, "transaction"), (BLUE, "replication"), (RED, "dropped"), (RED, "partition", "┆")]
     incident_verbs = ("split", "heal")
     tables = {
@@ -164,8 +166,8 @@ class TxnWorld(World):
 
     def node_colours(self, run: Run, t: float) -> list:
         colours = [_stale_colour(s) for s in self.stale_at(run, t)]
-        for node in self.anomalies_at(run, t, 0.5):  # an anomaly flashes red
-            colours[node] = RED
+        for node, kind in self.anomalies_at(run, t, 0.5).items():  # an anomaly flashes in its colour
+            colours[node] = KIND_COLOURS[kind]
         return colours
 
     # ---------------------------------------------------------------- panel

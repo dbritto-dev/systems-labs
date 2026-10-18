@@ -7,7 +7,7 @@ from labs.webhook_delivery import lab
 from labs.webhook_delivery.api import CLIENT_TIMEOUT, WORKERS
 from labs.webhook_delivery.scenario import ENDPOINT_KINDS, endpoint_of
 from live.canvas import (
-    BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PURPLE, RED, WHITE,
+    BLUE, EXTRA1, EXTRA2, EXTRA3, GREEN, IDLE_DOT, LIMIT, MUTED, PINK, PURPLE, RED, WHITE,
 )
 from live.worlds.base import (
     KEEP, NO_VALUE, PIECE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, at_most,
@@ -170,7 +170,8 @@ class WebhookWorld(World):
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(IDLE_DOT, "idle", "○"), (WHITE, "first"), ([EXTRA1, EXTRA2], "retry"), (GREEN, "delivered"),
               (EXTRA3, "out_of_order"), (RED, "failed"), (PURPLE, "gave_up"), (LIMIT, "limit", "┄"),
-              (DOWN_KEY, "incident", "█")]
+              (DOWN_KEY, "incident", "█"),
+              (RED, "ep_down", "◉"), (PINK, "ep_hang", "◉"), (EXTRA2, "ep_slow", "◉"), (PURPLE, "ep_poison", "◉")]
     tables = {
         "events": Table(sort=EV_CREATED, times=(EV_CREATED,)),
         "attempts": Table(sort=AT_START, times=(AT_START, AT_END)),

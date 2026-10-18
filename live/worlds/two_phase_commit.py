@@ -130,7 +130,7 @@ class TwoPhaseCommitWorld(World):
     view = "fanout"  # opens with the fanout picture; lanes and cluster stay a key away
     stage_colours = (RED, EXTRA2, BLUE)
     legend = [(WHITE, "prepare"), (BLUE, "yes"), (GREEN, "commit"), (MUTED, "abort"), (EXTRA1, "ask"),
-              (EXTRA2, "doubt", "◉"), (RED, "partial"), (LIMIT, "limit", "┄"), (DOWN_KEY, "incident", "█")]
+              (EXTRA2, "doubt", "◉"), (RED, "down", "◉"), (RED, "partial"), (LIMIT, "limit", "┄"), (DOWN_KEY, "incident", "█")]
     tables = {
         "txns": Table(sort=TX_START, times=(TX_START, TX_END)),
         "msgs": Table(sort=MSG_SENT, times=(MSG_SENT,)),

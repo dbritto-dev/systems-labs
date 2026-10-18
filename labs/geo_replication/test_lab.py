@@ -253,7 +253,7 @@ def test_the_peers_picture_shows_the_oceans_and_the_region_cut_off():
         assert [p.short for p in cut.peers] == ["us", "eu", "ap"]
         assert {words[-1] for words, _ in cut.link_labels.values()} == {"70ms", "100ms", "150ms"}
         assert cut.link_labels[1, 2][0][0] == world.s("peer_ms_way", ms=150)  # the long form, where it fits
-        assert cut.groups == [1, 0, 0] and cut.peers[0].label == (world.s("peer_cut", name="us"), RED)
+        assert cut.groups == [1, 0, 0] and cut.peers[0].label[0].split("\n")[0] == "us"  # cut off: its links ✕
         assert cut.peers[0].outline != RED  # cut off, not down
         text = "\n".join(plain(line) for line in compose(world, v, 25.0, 110, 44))
         assert "✕" in text and "150ms" in text  # us's two oceans cut; eu–ap still there

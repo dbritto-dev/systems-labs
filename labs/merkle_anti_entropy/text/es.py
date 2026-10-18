@@ -88,9 +88,7 @@ STRINGS = {
     "lanes_diverged": "DIFIEREN",
     "lanes_sync": "AL DÍA",
     # el dibujo de pares: bajo cada réplica, lo que le falta, corto
-    "peer_down": "{node} caído",
-    "peer_cut": "{node} aislado",
-    "peer_missing": "{node} −{n}",
+    "peer_missing": "{node}\n−{n}",
     # errores en tu código
     "not_replica": "ReplicaNode debe heredar de Replica (de labs.merkle_anti_entropy.api)",
 }

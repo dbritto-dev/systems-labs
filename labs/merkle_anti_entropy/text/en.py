@@ -88,9 +88,7 @@ STRINGS = {
     "lanes_diverged": "DIVERGED",
     "lanes_sync": "IN SYNC",
     # the peers picture: under each replica, what it misses, short
-    "peer_down": "{node} down",
-    "peer_cut": "{node} cut off",
-    "peer_missing": "{node} −{n}",
+    "peer_missing": "{node}\n−{n}",
     # errors in your code
     "not_replica": "ReplicaNode must subclass Replica (from labs.merkle_anti_entropy.api)",
 }

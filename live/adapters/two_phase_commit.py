@@ -186,7 +186,7 @@ class TwoPhaseFanout(FanoutAdapter):
             doubt = bool(st is not None and st[ST_DOUBT][i])
             held = st[ST_HELD][i] if st is not None else 0
             colour = RED if off or bad >> i & 1 else EXTRA2 if doubt else OUTLINE
-            label = w.s("fan_down", shard=name) if off else name
+            label = name  # down: red (the legend)
             leaves.append(Leaf(label=(label, WHITE if colour == OUTLINE else colour), fill=held / (LOCKS_MAX / 3),
                                gauge=EXTRA2 if doubt else BLUE, outline=colour))
         coord_down = bool(down & 1)

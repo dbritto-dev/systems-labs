@@ -643,6 +643,7 @@ class Spot:
     name: str  # its name in the form that fits, and where it goes
     name_row: int
     name_col: int
+    lines: int = 1  # in a column: the rows its words take under the box (a word about it on the second)
 
     def edge(self, x: float, y: float) -> tuple[float, float]:
         """The point on the way to (x, y) where a line from the centre leaves the box."""
@@ -653,8 +654,10 @@ class Spot:
 
 def ring_spots(cols: int, rows: int, n: int, c0: int, names: list[tuple[str, ...]]) -> list[Spot]:
     """Lay n peers out on an ellipse between column c0 and the right edge, rows 0 .. rows-1 (each peer's name
-    on the row under it): the first at the top, then clockwise. The biggest box and the longest name that
-    leave every box and name clear of the others; else smaller boxes, shorter names, and at last a ◉."""
+    centred on the row under it, and a word about it centred under that: "n3" / "leader t4"): the first at
+    the top, then clockwise. The biggest box and the longest name that leave every box and name clear of the
+    others; else smaller boxes, shorter names, and at last a ◉. A box is as even or odd as the first name is
+    long, so the name stands exactly in its middle."""
     if n == 0:
         return []
     import math
@@ -670,26 +673,32 @@ def ring_spots(cols: int, rows: int, n: int, c0: int, names: list[tuple[str, ...
         return p[0] == q[0] and p[1] <= q[2] and q[1] <= p[2]
 
     forms = range(max(len(f) for f in names))  # a box with its whole name, a smaller box, a shorter name ...
-    tries = [(wc, hr, form) for form in forms for wc, hr in PEER_SIZES] + [(1, 1, form) for form in forms]
+    first = names[0][0].split("\n")[0] if names and names[0] else ""
+    sizes = [(wc + (wc - len(first)) % 2, hr) for wc, hr in PEER_SIZES]
+    # A row for the words under the name when there is room; else they share the name's row ("n3 t4").
+    tries = [(wc, hr, form, nr) for nr in (NAME_ROWS, 1) for form in forms for wc, hr in sizes]
+    tries += [(1, 1, form, 1) for form in forms]
     best: list[Spot] = []
-    for wc, hr, form in tries:
+    for wc, hr, form, nr in tries:
         spots, cells = [], []  # cells: per peer, the (row, c0, c1) its box and name take
         for k in range(n):
-            r = spread(ys[k], min(ys), max(ys), 0, rows - 1 - hr)
+            r = spread(ys[k], min(ys), max(ys), 0, rows - nr - hr)
             c = spread(xs[k], min(xs), max(xs), c0, cols - wc)
             words = names[k]
             word = words[min(form, len(words) - 1)] if words else ""
-            centre = c + (wc - 1) / 2
-            nc = max(c0, min(cols - len(word), round(centre - (len(word) - 1) / 2)))
+            lines = word.split("\n")[:nr] if nr > 1 else [word.replace("\n", " ")]
+            nc = max(c0, min(cols - len(lines[0]), centred(c + wc / 2, word.split("\n")[0])))
+            mid = nc + len(lines[0]) / 2
             if wc == 1:
                 x, y, box, hw, hh = c * 2 + 1, r * 4 + 2, None, 2.5, 3.0
             else:
                 x0, x1, y0, y1 = c * 2, (c + wc) * 2 - 1, r * 4 + 1, (r + hr) * 4 - 1
                 x, y, box, hw, hh = (x0 + x1) / 2, (y0 + y1) / 2, (x0, x1, y0, y1), (x1 - x0) / 2 + 2, (y1 - y0) / 2 + 2
-            spots.append(Spot(x, y, hw, hh, box, r, c, word, r + hr, nc))
+            spots.append(Spot(x, y, hw, hh, box, r, c, word, r + hr, nc, nr))
             mine = [(rr, c, c + wc - 1) for rr in range(r, r + hr)]
-            if word:
-                mine.append((r + hr, nc - 1, nc + len(word)))
+            for k2, line in enumerate(lines if word else []):
+                at = nc if k2 == 0 else max(c0, min(cols - len(line), centred(mid, line)))
+                mine.append((r + hr + k2, at - 1, at + len(line)))
             cells.append(mine)
         clear = all(not overlap(p, q) for i in range(n) for j in range(i + 1, n) for p in cells[i] for q in cells[j])
         if clear:
@@ -698,24 +707,45 @@ def ring_spots(cols: int, rows: int, n: int, c0: int, names: list[tuple[str, ...
     return best  # nothing fits: the smallest there is
 
 
+NAME_ROWS = 2  # in a column: a peer's name under its box, and a word about it under that ("n2" / "cut off")
+# In a column, the boxes and word rows tried, best first: a word under the name, else on its row, before
+# the boxes shrink to a line. Each width is made even or odd like the names (see column_spots).
+COLUMN_FORMS = ((7, 3, 2), (5, 2, 2), (7, 3, 1), (5, 2, 1), (3, 1, 2), (3, 1, 1))
+WORD_ROOM = 7  # in a column, when a peer's word shares its name's row: the columns kept for it right of the box
+
+
+def centred(mid: float, word: str) -> int:
+    """The column a word starts at to stand centred on `mid` (in columns); when it cannot be exactly centred
+    (an even word under an odd box), half a column to the left rather than to the right."""
+    import math
+
+    return math.floor(mid - len(word) / 2)
+
+
 def column_spots(cols: int, rows: int, n: int, c0: int, names: list[tuple[str, ...]]) -> list[Spot]:
-    """Lay n peers out in one column, top to bottom, a little right of the middle of [c0, cols): the biggest box
-    that leaves a row between boxes for the straight lines between them; each name on the row under its box,
-    starting just right of the box's middle (so a line down the middle never runs through it)."""
+    """Lay n peers out in one column, top to bottom, in the middle of [c0, cols): the biggest box
+    that leaves room under each for its name and a word about it (on the row under the name when there is
+    room, else on the name's row; centred under the box), and a row more for the straight line down to the
+    next one."""
     if n == 0:
         return []
-    for wc, hr in PEER_SIZES + ((3, 1),):
-        if n * (hr + 1) + (n - 1) <= rows:
+    for wc, hr, lines in COLUMN_FORMS:
+        if n * (hr + lines) + (n - 1) <= rows:
             break
-    gap = (rows - n * (hr + 1)) / max(1, n - 1) if n > 1 else 0
-    c = round(c0 + (cols - c0) * 0.42 - wc / 2)
+    # A name stands exactly centred only under a box as even or odd as it is wide ("n0" under 8, "n10" under 7):
+    # the boxes take the parity of the first name, one column wider when it differs.
+    first = names[0][0].split("\n")[0] if names and names[0] else ""
+    wc += (wc - len(first)) % 2
+    gap = (rows - n * (hr + lines)) / max(1, n - 1) if n > 1 else 0
+    c = round(c0 + (cols - c0) / 2 - wc / 2)
     spots = []
     for k in range(n):
-        r = round(k * (hr + 1 + gap)) if n > 1 else (rows - hr - 1) // 2
+        r = round(k * (hr + lines + gap)) if n > 1 else (rows - hr - lines) // 2
         x0, x1, y0, y1 = c * 2, (c + wc) * 2 - 1, r * 4 + 1, (r + hr) * 4 - 1
         word = names[k][0] if names[k] else ""
-        spots.append(Spot((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2 + 2, (y1 - y0) / 2 + 2, (x0, x1, y0, y1),
-                          r, c, word, r + hr, c + wc // 2 + 1))
+        x = (x0 + x1) / 2
+        spots.append(Spot(x, (y0 + y1) / 2, (x1 - x0) / 2 + 2, (y1 - y0) / 2 + 2, (x0, x1, y0, y1),
+                          r, c, word, r + hr, centred(x / 2 + 0.25, word.split("\n")[0]), lines))
     return spots
 
 
@@ -760,8 +790,14 @@ class PeerRing:
     def place(self, st: Stage) -> list[Spot]:
         if not self.spots and self.peers:
             names = [tuple(w for w in (p.label[0], p.short, p.tiny) if w) or ("",) for p in self.peers]
-            lay = column_spots if self.column else ring_spots
-            self.spots = lay(st.cv.cols, st.body1 + 1, len(self.peers), self.c0, names)
+            if self.column:  # a blank row above the state, so it never reads as a node's words; unless the
+                # boxes would shrink to a line for it: then the row goes to the boxes
+                spots = column_spots(st.cv.cols, st.body1, len(self.peers), self.c0, names)
+                if spots and spots[0].box and (spots[0].box[3] + 1) // 4 - spots[0].row < 2:
+                    spots = column_spots(st.cv.cols, st.body1 + 1, len(self.peers), self.c0, names)
+                self.spots = spots
+            else:
+                self.spots = ring_spots(st.cv.cols, st.body1 + 1, len(self.peers), self.c0, names)
         return self.spots
 
     def path(self, st: Stage, a: int, b: int) -> list[tuple[float, float]] | None:
@@ -777,17 +813,39 @@ class PeerRing:
         sa, sb = spots[a], spots[b]
         if not self.column:
             return [sa.edge(sb.x, sb.y), sb.edge(sa.x, sa.y)]
-        if abs(a - b) == 1:  # neighbours: straight down (or up) the column
-            down = 1 if sb.y > sa.y else -1
-            return [(sa.x, sa.y + down * sa.hh), (sb.x, sb.y - down * sb.hh)]
+        if abs(a - b) == 1:  # neighbours: straight down the column, from under the upper one's words
+            up, low = (sa, sb) if sb.y > sa.y else (sb, sa)
+            way = [(up.x, (up.name_row + up.lines) * 4 + 1), (low.x, low.y - low.hh)]
+            return way if up is sa else way[::-1]
         x = self.bracket_x(st)  # the others: out to the right, along, and back in
         return [(sa.x + sa.hw, sa.y), (x, sa.y), (x, sb.y), (sb.x + sb.hw, sb.y)]
 
+    def placed(self, s: Spot) -> list[tuple[int, int, str]]:
+        """A peer's words, as (row, column, word): the name centred under its box, and every word after it
+        centred on the name (so all of them share one middle, however the rounding falls)."""
+        words = self.words(s)
+        if not words:
+            return []
+        name = s.name.split("\n")[0]
+        at = s.name_col  # the name, centred under its box (and kept on screen) when the peers were laid out
+        mid = at + len(name) / 2
+        out = [(s.name_row, at, words[0])]  # on one row, the word follows the name
+        out += [(s.name_row + k, max(0, centred(mid, w)), w) for k, w in enumerate(words[1:], 1)]
+        return out
+
+    def words(self, s: Spot) -> list[str]:
+        """A peer's words, a row each: its name, then a word about it (on one row when only one fits)."""
+        if not s.name:
+            return []
+        parts = s.name.split("\n")
+        return parts[:s.lines] if s.lines > 1 else [" ".join(parts)]
+
     def bracket_x(self, st: Stage) -> float:
-        """Where the brackets between peers that are not neighbours run: right of the boxes and the names."""
-        spots = self.place(st)
-        right = max(max(s.x + s.hw for s in spots), max((s.name_col + len(s.name)) * 2 + 2 for s in spots))
-        return min(right + 3, st.cv.cols * 2 - 2)
+        """Where the brackets between peers that are not neighbours run: a fixed way right of the boxes (further
+        when a word shares its name's row), so they never move when a word appears."""
+        s = self.place(st)[0]
+        room = WORD_ROOM if s.lines == 1 else 2  # columns
+        return min(s.x + s.hw + room * 2, st.cv.cols * 2 - 2)
 
     def cells(self, st: Stage) -> set[tuple[int, int]]:
         """The (row, col) cells the boxes and the names take (a name with a blank column each side)."""
@@ -796,8 +854,8 @@ class PeerRing:
             wc = 1 if s.box is None else (s.box[1] - s.box[0] + 1) // 2
             hr = 1 if s.box is None else (s.box[3] + 1) // 4 - s.row
             out |= {(r, c) for r in range(s.row, s.row + hr) for c in range(s.col, s.col + wc)}
-            if s.name:
-                out |= {(s.name_row, c) for c in range(s.name_col - 1, s.name_col + len(s.name) + 1)}
+            for r, c0, word in self.placed(s):
+                out |= {(r, c) for c in range(c0 - 1, c0 + len(word) + 1)}
         return out
 
     @property
@@ -817,8 +875,18 @@ class PeerRing:
                 cv.text(s.row, s.col, "◉", peer.outline)
             else:
                 draw_leaf(cv, *s.box, peer)
-            if s.name and s.name_row <= st.body1:
-                cv.text(s.name_row, s.name_col, s.name, peer.label[1])
+            if not s.name:
+                continue
+            for k, (r, c, word) in enumerate(self.placed(s)):  # the name, then a word about it
+                if r > st.body1:
+                    continue
+                c = max(0, min(c, cv.cols - len(word)))  # kept on screen, like the name
+                if k == 0 and s.lines == 1 and "\n" in s.name:  # one row: the name, then its word beside it
+                    name = s.name.split("\n", 1)[0]
+                    cv.text(r, c, name, peer.outline)
+                    cv.text(r, c + len(name) + 1, word[len(name) + 1:], peer.label[1])
+                else:
+                    cv.text(r, c, word, peer.label[1] if k else peer.outline)  # the name in the node's colour
 
 
 

@@ -185,7 +185,7 @@ class LoadBalancingFanout(FanoutAdapter):
             fill = min(1.0, n / QUEUE_FULL)
             gauge = RED if n >= QUEUE_FULL else _load_colour(n)
             if i == sick:
-                leaves.append(Leaf(label=(w.s("fan_slow", n=i), PURPLE), fill=fill, gauge=gauge, outline=PURPLE))
+                leaves.append(Leaf(label=(w.s("fan_server", n=i), PURPLE), fill=fill, gauge=gauge, outline=PURPLE))
             else:
                 leaves.append(Leaf(label=(w.s("fan_server", n=i), WHITE), fill=fill, gauge=gauge,
                                    outline=RED if n >= QUEUE_FULL else OUTLINE))

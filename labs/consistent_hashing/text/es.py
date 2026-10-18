@@ -41,7 +41,7 @@ GOALS = {
     "db": GoalText("Carga BD ≤ 2x", "mueve menos claves"),
 }
 
-LEGEND = {"fair": "carga justa", "busy": "cargado", "hot": "saturado", "out": "fuera", "read": "lectura",
+LEGEND = {"fair": "carga justa", "busy": "cargado", "hot": "saturado", "out": "fuera", "removed": "recién quitado", "read": "lectura",
           "miss": "fallo", "limit": "límite"}
 
 STRINGS = {
@@ -82,7 +82,6 @@ STRINGS = {
     "lanes_misses": "FALLOS {share:.0%}",
     # el dibujo en embudo: el enrutador (la puerta), los servidores de caché, la base de datos (el almacén)
     "fan_router": "enrutador",
-    "fan_down": "{node} caído",
     "fan_db": "{state} BD {db}/s",
     # errores en tu código
     "bad_node": "node_for devolvió '{node}', que ahora no está en el clúster ({live})",

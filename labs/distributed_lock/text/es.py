@@ -45,7 +45,7 @@ GOALS = {
     "done": GoalText("Hechos ≥ 80%", "renueva; suelta el perdido"),
 }
 
-LEGEND = {"holder": "dueño del cerrojo", "frozen": "congelado", "down": "muerto / aislado",
+LEGEND = {"holder": "dueño del cerrojo", "frozen": "congelado", "down": "muerto", "cut": "aislado",
           "lock_msg": "mensaje del cerrojo", "write": "escritura", "late_write": "escritura demorada",
           "corrupt": "escritura tardía aceptada", "refused": "escritura tardía rechazada"}
 
@@ -91,10 +91,6 @@ STRINGS = {
     "state_lock": "cerrojo: {worker}",
     "nobody": "libre",
     # el dibujo en embudo: el servicio de cerrojos (la puerta), los workers, el almacenamiento (el almacén)
-    "fan_holds": "{worker} lo tiene",
-    "fan_frozen": "{worker} congelado",
-    "fan_down": "{worker} caído",
-    "fan_cut": "{worker} aislado",
     "fan_token": "{state}  token {n}",
 }
 

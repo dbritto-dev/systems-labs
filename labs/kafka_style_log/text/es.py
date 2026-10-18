@@ -38,7 +38,8 @@ GOALS = {
     "p99": GoalText("p99 send < 100ms", "un dueño por clave"),
 }
 
-LEGEND = {"node": "nodo", "lin_kv": "lin-kv", "anomaly": "anomalía", "client_request": "petición de cliente",
+LEGEND = {"node": "nodo", "lin_kv": "lin-kv", "duplicate": "duplicado", "backwards": "offset atrás", "lost_write": "escritura perdida",
+          "lost_commit": "commit perdido", "client_request": "petición de cliente",
           "node_message": "mensaje entre nodos", "kv_message": "mensaje a lin-kv", "limit": "límite"}
 
 STRINGS = {
@@ -80,10 +81,6 @@ STRINGS = {
     "lanes_kv_slow": "KV LENTO",
     # el dibujo en embudo: la red (la puerta), los nodos, lin-kv (el almacén)
     "fan_network": "red",
-    "fan_duplicate": "{node} duplicado",
-    "fan_lost_write": "{node} pierde uno",
-    "fan_lost_commit": "{node} sin commit",
-    "fan_backwards": "{node} retrocede",
 }
 
 LESSON = Lesson(

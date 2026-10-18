@@ -186,5 +186,5 @@ def test_the_peers_picture_shows_snowflake_ids_need_no_links():
     assert all(0 in (a, b) for f in leader for a, b, _ in f.links) and any(len(f.links) == 4 for f in leader)
     assert "✕" in picture(module(Leader), 25.0)  # ... and n3's, cut off from n0
     world, counter = peers(module(Counter))  # a counter per node: duplicates
-    dups = [p for f in counter for i, p in enumerate(f.peers) if p.label[0] == world.s("peer_dup", node=i)]
-    assert dups and all(p.outline == RED for p in dups)
+    dups = [p for f in counter for p in f.peers if p.outline == RED]  # a duplicate id: red
+    assert dups and all(p.label[0] == p.short for p in dups)  # just the name: the colour says it

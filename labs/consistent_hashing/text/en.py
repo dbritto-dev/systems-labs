@@ -41,7 +41,7 @@ GOALS = {
     "db": GoalText("DB load ≤ 2x", "move fewer keys"),
 }
 
-LEGEND = {"fair": "fair load", "busy": "busy", "hot": "hot", "out": "out", "read": "read",
+LEGEND = {"fair": "fair load", "busy": "busy", "hot": "hot", "out": "out", "removed": "just removed", "read": "read",
           "miss": "miss", "limit": "limit"}
 
 STRINGS = {
@@ -82,7 +82,6 @@ STRINGS = {
     "lanes_misses": "MISSES {share:.0%}",
     # the fan-in picture: the router (the door), the cache servers, the database (the store)
     "fan_router": "router",
-    "fan_down": "{node} down",
     "fan_db": "{state} DB {db}/s",
     # errors in your code
     "bad_node": "node_for returned '{node}', which is not in the cluster now ({live})",

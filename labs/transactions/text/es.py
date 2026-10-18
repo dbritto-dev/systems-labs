@@ -39,7 +39,7 @@ GOALS = {
     "g1b": GoalText("Sin lect. G1", "replica txns enteras"),
 }
 
-LEGEND = {"up_to_date": "al día", "behind": "atrasado", "g1b_read": "anomalía G0/G1", "transaction": "transacción",
+LEGEND = {"up_to_date": "al día", "behind": "atrasado", "g0": "escritura G0", "g1a": "lectura G1a", "g1b": "lectura G1b", "g1c": "lectura G1c", "transaction": "transacción",
           "replication": "replicación", "dropped": "perdido", "partition": "partición"}
 
 STRINGS = {
@@ -77,8 +77,6 @@ STRINGS = {
     "lanes_g1a": "LECTURA G1a",
     "lanes_g1c": "LECTURA G1c",
     "lanes_g0": "ESCRIT. G0",
-    # el dibujo de pares: bajo un nodo que acaba de mostrar una anomalía
-    "peer_anomaly": "n{node} {kind}",
 }
 
 LESSON = Lesson(

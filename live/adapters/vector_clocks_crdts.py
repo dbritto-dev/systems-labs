@@ -152,8 +152,7 @@ class CartsPeers(PeersAdapter):
             else:
                 label = node
             fill = sent.get(i, 0) / share
-            peers.append(Leaf(label=(label, colour), short=w.s("peer_differ_short", node=node, n=k) if k else node,
-                              tiny=node, fill=min(1.0, fill), gauge=EXTRA2 if fill > 1 else BLUE, outline=colour))
+            peers.append(Leaf(label=(label, colour), short=node, tiny=node, fill=min(1.0, fill), gauge=EXTRA2 if fill > 1 else BLUE, outline=colour))
         groups = w.groups_at(variant, t)
         return PeersFrame(users=lane.users, requests=lane.flights, outcomes=lane.outcomes, closed=lane.closed,
                           door_color=lane.door_color, state=lane.state, peers=peers,
