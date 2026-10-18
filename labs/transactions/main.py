@@ -7,18 +7,22 @@ write. The node answers `txn_ok` with the same list, every read filled in. Every
 value is unique. Now and then one node is cut off from the others (a partition), but the
 clients still reach it: every transaction must still be answered (total availability).
 
-Right now each node keeps its own store (6a, a single node): writes never reach the others.
+Right now each node has an empty store and no handler for `txn`, so every transaction
+gets an error.
 
 Do the stages in order, in this file:
 
-  Stage 1  Replicate (6b, without partitions): send every write to the other nodes, so
+  Stage 1  Single node (6a): answer each txn from this node's own store: run its
+           micro-operations in order, reads from self.store, writes into it, and reply
+           {"type": "txn_ok", "txn": [...]} with every read filled in.
+  Stage 2  Replicate (6b, without partitions): send every write to the other nodes, so
            they catch up.
-  Stage 2  Read uncommitted (6b, with partitions): re-send what the other node has not
+  Stage 3  Read uncommitted (6b, with partitions): re-send what the other node has not
            acknowledged; when two writes to a key cross, the newest wins everywhere
            (stamp each transaction with (time, node) and keep the larger stamp). One stamp
            for the whole transaction: two transactions' writes must never interleave, x
            from one and y from the other (a "dirty write", G0).
-  Stage 3  Read committed (6c): never let anyone see a value a transaction overwrote
+  Stage 4  Read committed (6c): never let anyone see a value a transaction overwrote
            itself (an "intermediate read", G1b): replicate whole transactions, with only
            their final value per key, and apply each one in one go. Read committed also
            forbids reading an aborted write (G1a: if you abort, with error code 30, its
@@ -49,15 +53,13 @@ class TxnNode(Node):
         super().__init__(node_id, node_ids)
         self.store: dict[int, int] = {}
 
-    async def on_txn(self, msg: Message) -> None:
-        result = []
-        for op, key, value in msg.body["txn"]:
-            if op == "r":
-                result.append(["r", key, self.store.get(key)])
-            else:
-                self.store[key] = value
-                result.append(["w", key, value])
-        self.reply(msg, {"type": "txn_ok", "txn": result})
-        # Stage 1: send the writes to the other nodes (a message type of your own, e.g.
-        # self.send(n, {"type": "replicate", "writes": [[key, value], ...]})), and handle
-        # it in `async def on_replicate(self, msg)`.
+    # Stage 1: add
+    #     async def on_txn(self, msg: Message) -> None:
+    #         result = []
+    #         for op, key, value in msg.body["txn"]:
+    #             ...  # ["r", key, self.store.get(key)], or write self.store[key] = value
+    #         self.reply(msg, {"type": "txn_ok", "txn": result})
+    #
+    # Stage 2: send the writes to the other nodes (a message type of your own, e.g.
+    # self.send(n, {"type": "replicate", "writes": [[key, value], ...]})), and handle
+    # it in `async def on_replicate(self, msg)`.

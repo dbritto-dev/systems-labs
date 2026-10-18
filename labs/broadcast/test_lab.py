@@ -28,7 +28,18 @@ class Base(Node):
         self.got(msg.body["message"], None)
 
 
-class Flood(Base):  # stage 1: tell the neighbours, fire and forget
+class Empty(Node):  # stage 0: no handlers, every request gets an error
+    def __init__(self, node_id, node_ids):
+        super().__init__(node_id, node_ids)
+        self.messages = set()
+
+
+class Single(Base):  # stage 1: keep the numbers you are sent
+    def got(self, v, src):
+        self.messages.add(v)
+
+
+class Flood(Base):  # stage 2: tell the neighbours, fire and forget
     async def on_gossip(self, msg):
         self.got(msg.body["message"], msg.src)
 
@@ -40,7 +51,20 @@ class Flood(Base):  # stage 1: tell the neighbours, fire and forget
                     self.send(n, {"type": "gossip", "message": v})
 
 
-class FloodRetry(Base):  # stage 2: tell the neighbours, re-send until acknowledged
+class WholeSet(Base):  # stage 1: every number reaches every node, but each message carries the whole set
+    async def on_gossip(self, msg):
+        for v in msg.body["messages"]:
+            self.got(v, msg.src)
+
+    def got(self, v, src):
+        if v not in self.messages:
+            self.messages.add(v)
+            for n in self.neighbours:
+                if n != src:
+                    self.send(n, {"type": "gossip", "messages": sorted(self.messages)})
+
+
+class FloodRetry(Base):  # stage 3: tell the neighbours, re-send until acknowledged
     async def on_gossip(self, msg):
         self.reply(msg, {"type": "gossip_ok"})
         self.got(msg.body["message"], msg.src)
@@ -61,7 +85,7 @@ class FloodRetry(Base):  # stage 2: tell the neighbours, re-send until acknowled
                 await self.sleep(0.2)
 
 
-class Direct(FloodRetry):  # stage 3: straight to every node, re-send until acknowledged
+class Direct(FloodRetry):  # stage 4: straight to every node, re-send until acknowledged
     def got(self, v, src):
         if v not in self.messages:
             self.messages.add(v)
@@ -75,6 +99,7 @@ def module(cls):
     return type(cls.__name__, (), {"BroadcastNode": cls})
 
 
+EMPTY, SINGLE, WHOLE_SET = module(Empty), module(Single), module(WholeSet)
 FLOOD, FLOOD_RETRY, DIRECT = module(Flood), module(FloodRetry), module(Direct)
 
 
@@ -88,23 +113,23 @@ def results(world, v):
 
 
 @starting_code
-def test_a_single_node_keeps_numbers_to_itself():
+def test_the_starting_node_answers_nothing():
     world = build_world("broadcast", "main", 1)
-    assert world.stage("main") is not None
+    assert world.stage_index("main") == 0  # Nothing yet
     piece = scenario.run("main", chunk=0)
-    assert piece["tables"]["values"] and not [d for d in piece["tables"]["done"] if d[2]]
+    assert piece["tables"]["ops"] and not any(o[5] for o in piece["tables"]["ops"])
 
 
 def test_stage_variants_land_on_their_stage():
-    # 1 multi-node, 2 fault tolerant, 3 efficient
-    for v, stage in ((FLOOD, 1), (FLOOD_RETRY, 2), (DIRECT, 3)):
+    # 0 nothing yet, 1 single node, 2 multi-node, 3 fault tolerant, 4 efficient
+    for v, stage in ((EMPTY, 0), (SINGLE, 1), (WHOLE_SET, 1), (FLOOD, 2), (FLOOD_RETRY, 3), (DIRECT, 4)):
         world = build_world("broadcast", v, 2)
         assert world.stage_index(v) == stage, (v.__name__, results(world, v))
 
 
-def test_batching_slowly_is_stage_4_like_fly_3e():
+def test_batching_slowly_is_stage_5_like_fly_3e():
     """Fly's 3e trades speed for fewer messages: a hub that batches every half second (max latency over
-    3d's 600 ms, under 3e's 2 s) is stage 4, not stuck at 2 for missing 3d's speed."""
+    3d's 600 ms, under 3e's 2 s) is stage 5, not stuck at 3 for missing 3d's speed."""
     ref = load("broadcast", "reference", scenario.NAMES)
 
     class SlowHub(ref.BroadcastNode):
@@ -115,7 +140,7 @@ def test_batching_slowly_is_stage_4_like_fly_3e():
 
     slow = module(SlowHub)
     world = build_world("broadcast", slow, 2)
-    assert world.stage_index(slow) == 4, results(world, slow)
+    assert world.stage_index(slow) == 5, results(world, slow)
 
 
 def test_reads_must_return_every_number_the_node_has():
@@ -133,17 +158,25 @@ def test_reads_must_return_every_number_the_node_has():
     assert all(o[5] for o in reads("reference"))
 
 
+def test_sending_the_whole_set_every_time_is_not_multi_node_like_fly_3b():
+    """Fly's 3b: don't send your entire data set on every message. The set grows with time (hundreds of
+    numbers within a minute), so a node that floods it stays at single node however well numbers spread."""
+    world = build_world("broadcast", WHOLE_SET, 1)
+    answer, reach, numbers = results(world, WHOLE_SET)[0][:3]
+    assert answer and reach and not numbers
+
+
 def test_flooding_loses_numbers_in_every_partition():
     world = build_world("broadcast", FLOOD, 3)
     res = results(world, FLOOD)
-    assert len(res) >= 3 and all(r[0] and not r[1] for r in res)
+    assert len(res) >= 3 and all(r[0] and r[1] and r[2] and not r[3] for r in res)
 
 
 def test_reference_passes_every_goal():
     world = build_world("broadcast", "reference", 4)
     res = results(world, "reference")
     assert len(res) >= 4 and all(all(r) for r in res)
-    assert world.stage_index("reference") == 4  # batched
+    assert world.stage_index("reference") == 5  # batched
 
 
 def test_partitions_are_random_but_the_first_splits_the_cluster_at_twenty_seconds():
@@ -165,24 +198,29 @@ def first(v=None):
     return [r.ok for r in build_world("broadcast", v, 1).runs[v].settled[0]]
 
 
-@your_code(1, "numbers reach every node")
-def test_stage1_numbers_reach_every_node():
+@your_code(1, "every client request is answered right")
+def test_stage1_answers_clients():
     assert first()[0]
 
 
-@your_code(2, "numbers sent during a partition arrive after it heals")
-def test_stage2_survives_partitions():
-    assert first()[:2] == [True, True]
+@your_code(2, "numbers reach every node, without the whole set in every message")
+def test_stage2_numbers_reach_every_node():
+    assert first()[:3] == [True] * 3
 
 
-@your_code(3, "under 30 messages per operation, p50 < 400 ms, max < 600 ms")
-def test_stage3_efficient():
+@your_code(3, "numbers sent during a partition arrive after it heals")
+def test_stage3_survives_partitions():
     assert first()[:4] == [True] * 4
 
 
-@your_code(4, "under 20 messages per operation, p50 < 1 s, max < 2 s")
-def test_stage4_batched():
-    assert first() == [True] * 6
+@your_code(4, "under 30 messages per operation, p50 < 400 ms, max < 600 ms")
+def test_stage4_efficient():
+    assert first()[:6] == [True] * 6
+
+
+@your_code(5, "under 20 messages per operation, p50 < 1 s, max < 2 s")
+def test_stage5_batched():
+    assert first() == [True] * 8
 
 
 def test_a_second_picture_shows_what_the_clients_see():

@@ -13,7 +13,7 @@ from live.worlds.base import (
 )
 
 OP_START, OP_KIND, OP_NODE, OP_VALUE, OP_END, OP_OK = range(6)
-MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
+MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED, MSG_NUMBERS = range(5)
 INF = float("inf")
 
 
@@ -69,6 +69,15 @@ def _spread(run: Run, a: float, b: float, upto: float) -> list[float]:
 # ---------------------------------------------------------------- goals
 
 
+def _answered(run: Run, inc: Incident, upto: float):
+    a, b = _window(inc)
+    ops = [o for o in run.rows("ops", a, b) if o[OP_END] <= upto]
+    if not ops:
+        return NO_VALUE
+    v = sum(1 for o in ops if o[OP_OK]) / len(ops)
+    return v, f"{v:.0%}"
+
+
 def _reached(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     lat = _spread(run, a, b, max(upto, b))
@@ -100,6 +109,15 @@ def _msgs(run: Run, inc: Incident, upto: float):
     return v, "–" if v is None else f"{v:.1f}"
 
 
+def _numbers(run: Run, inc: Incident, upto: float):
+    a, b = _window(inc)
+    msgs = run.rows("msgs", a, min(b, upto))
+    if not msgs:
+        return NO_VALUE
+    v = sum(m[MSG_NUMBERS] for m in msgs) / len(msgs)
+    return v, f"{v:.1f}"
+
+
 def _latency(run: Run, inc: Incident, upto: float):
     a, b = _window(inc)
     lat = _spread(run, a, b, max(upto, b + lab.BEFORE[1]))
@@ -125,8 +143,12 @@ def _before(inc: Incident) -> tuple[float, float]:
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
+    GoalSpec("", "before", "", _before, _answered, at_least(lab.ANSWER_MIN),
+             settle_extra=lab.BEFORE[1], key="answer"),
     GoalSpec("", "before", "", _before, _reached, at_least(lab.REACH_MIN),
              settle_extra=lab.BEFORE[1], key="reach"),
+    GoalSpec("", "before", "", _before, _numbers, below(lab.NUMBERS_MAX),
+             settle_extra=lab.BEFORE[1], key="numbers"),
     GoalSpec("", "after", "", lambda i: (i.t0, i.t1 + lab.AFTER), _survived,
              at_least(lab.REACH_MIN), settle_extra=1.0, key="survive"),
     GoalSpec("", "before", "", _before, _msgs, below(lab.EFFICIENT_MSGS),
@@ -143,7 +165,7 @@ GOALS = [
 class BroadcastWorld(World):
     id = "broadcast"
     view = "cluster"
-    stage_colours = (RED, EXTRA3, EXTRA2, EXTRA1, BLUE)
+    stage_colours = (RED, RED, EXTRA3, EXTRA2, EXTRA1, BLUE)
     legend = [(BLUE, "complete", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "missing", "◉"),
               (WHITE, "request"), (BLUE, "message"), (RED, "dropped"),
               (RED, "partition", "┆"), (LIMIT, "limit", "┄")]

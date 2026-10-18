@@ -17,21 +17,25 @@ CAUSES = {
 }
 
 STAGES = [
+    StageText("Nothing yet",
+              "Challenge: the nodes answer no txn. Keep a store per node and answer from it.",
+              "Stage 1 (6a): answer each txn from self.store"),
     StageText("Single node",
               "Challenge: writes stay on the node that got them. Send them to the other nodes.",
-              "Stage 1 (6b): replicate every write to the other nodes"),
+              "Stage 2 (6b): replicate every write to the other nodes"),
     StageText("Replicated",
               "Challenge: writes made during a partition are lost for good. Re-send until acked.",
-              "Stage 2 (6b): re-send until acked; the newest stamp wins"),
+              "Stage 3 (6b): re-send until acked; the newest stamp wins"),
     StageText("Read uncommitted",
               "Challenge: readers see values a transaction overwrote itself. Replicate whole txns.",
-              "Stage 3 (6c): replicate final values per txn, applied at once"),
+              "Stage 4 (6c): replicate final values per txn, applied at once"),
     StageText("Read committed",
               "Solved: every node catches up through partitions, and no one sees intermediate values.",
               "All stages done"),
 ]
 
 GOALS = {
+    "replies": GoalText("Replies ≥ 99%", "answer from self.store"),
     "fresh": GoalText("Fresh ≥ 95%", "replicate every write"),
     "answered": GoalText("Answered ≥ 99%", "never wait for a peer"),
     "caught_up": GoalText("Caught up ≥ 99%", "re-send until acked"),
@@ -67,6 +71,7 @@ STRINGS = {
     "head_cut": "n{node} is cut off: replication waits",
     "head_behind": "Some nodes are behind ({fresh:.1%} fresh)",
     "head_ok": "Every node is up to date",
+    "head_errors": "{n} transactions got an error in 5 s",
     "note_chart": "Chart: replication messages/s.",
     # the picture
     "state_cut": "n{node} cut off",
@@ -95,6 +100,7 @@ LESSON = Lesson(
         "other node in one go.",
     ),
     watch_for=(
+        "Nothing yet: every transaction comes back red.",
         "Single node: the nodes stay orange (behind): each only has its own clients' writes.",
         "Replicated: blue again, until a partition; afterwards some keys never catch up.",
         "Read uncommitted: everyone catches up, but red flashes: readers seeing intermediate values.",
@@ -136,8 +142,8 @@ LESSON = Lesson(
             "The txn message and its micro-operations."),
     ),
     try_next=(
-        "Do stage 1 in labs/transactions/main.py and watch the nodes turn blue.",
+        "Do stages 1 and 2 in labs/transactions/main.py and watch the nodes turn blue.",
         "Then wait for a partition: which keys never catch up, and why?",
-        "Do stage 3 and watch the red flashes stop.",
+        "Do stage 4 and watch the red flashes stop.",
     ),
 )

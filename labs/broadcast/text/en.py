@@ -19,25 +19,30 @@ CAUSES = {
 }
 
 STAGES = [
+    StageText("Nothing yet",
+              "Challenge: the nodes answer nothing. Keep the numbers you are sent and answer read.",
+              "Stage 1 (3a): reply broadcast_ok, read_ok, topology_ok"),
     StageText("Single node",
               "Challenge: each node only knows the numbers sent to it. Tell the other nodes.",
-              "Stage 1 (3b): send new numbers to your neighbours"),
+              "Stage 2 (3b): send new numbers to your neighbours"),
     StageText("Multi-node",
               "Challenge: numbers sent during a partition never reach the other side. Retry them.",
-              "Stage 2 (3c): re-send until the other node acknowledges"),
+              "Stage 3 (3c): re-send until the other node acknowledges"),
     StageText("Fault tolerant",
               "Challenge: it works, but costs too many messages and is too slow. Make it efficient.",
-              "Stage 3 (3d): under 30 msgs/op, p50 < 400 ms, max < 600 ms"),
+              "Stage 4 (3d): under 30 msgs/op, p50 < 400 ms, max < 600 ms"),
     StageText("Efficient",
               "Challenge: under 30 messages per operation. Now under 20: send numbers in batches.",
-              "Stage 4 (3e): under 20 msgs/op (p50 < 1 s, max < 2 s)"),
+              "Stage 5 (3e): under 20 msgs/op (p50 < 1 s, max < 2 s)"),
     StageText("Batched",
               "Solved: every number reaches every node, through partitions, fast and in few messages.",
               "All stages done"),
 ]
 
 GOALS = {
+    "answer": GoalText("Answers ≥ 99%", "reply broadcast_ok, read_ok"),
     "reach": GoalText("Reaches all", "send new numbers on"),
+    "numbers": GoalText("Nums/msg < 30", "send only new numbers"),
     "survive": GoalText("Survives split", "re-send until acked"),
     "msgs30": GoalText("Msgs/op < 30", "send fewer messages"),
     "fast": GoalText("Fast 400/600ms", "fewer hops per number"),
@@ -90,6 +95,7 @@ LESSON = Lesson(
         "acknowledged, keeps fault tolerance cheap.",
     ),
     watch_for=(
+        "Nothing yet: every client request comes back as an error.",
         "Single node: only the node a client talked to has the number; the others stay orange.",
         "Multi-node: blue dots spread over the grid; during a partition red dots die at the cut.",
         "Fault tolerant: after the partition heals, the numbers flow across and the nodes turn blue.",
@@ -130,7 +136,7 @@ LESSON = Lesson(
             "Gossip for membership and anti-entropy with Merkle trees in production."),
     ),
     try_next=(
-        "Do stage 1 in labs/broadcast/main.py and watch numbers spread across the grid.",
+        "Do stages 1 and 2 in labs/broadcast/main.py and watch numbers spread across the grid.",
         "Then watch a partition: what happens to numbers sent on the small side?",
         "Try --set rate=60: does your batching get cheaper per operation?",
     ),

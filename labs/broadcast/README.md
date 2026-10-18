@@ -22,21 +22,26 @@ Spanish comments and hints.
 
 | Stage | Challenge | In `main.py` | What you see |
 |---|---|---|---|
-| 0 Single node (given) | 3a | keep the numbers you are sent | only one node has each number |
-| 1 Multi-node | 3b | tell your neighbours about new numbers | numbers spread, but those sent during a partition are lost |
-| 2 Fault tolerant | 3c | re-send until acknowledged | survives partitions, but ~60 msgs/op and ~700 ms |
-| 3 Efficient | 3d | fewer hops (e.g. straight to every node) | < 30 msgs/op, p50 < 400 ms, max < 600 ms |
-| 4 Batched | 3e | many numbers per message | < 20 msgs/op, p50 < 1 s, max < 2 s: slower than stage 3 is fine |
+| 0 Nothing yet (given) | | | every request gets an error |
+| 1 Single node | 3a | keep the numbers you are sent, answer `read` | only one node has each number |
+| 2 Multi-node | 3b | tell your neighbours about new numbers (not your whole set) | numbers spread, but those sent during a partition are lost |
+| 3 Fault tolerant | 3c | re-send until acknowledged | survives partitions, but ~60 msgs/op and ~700 ms |
+| 4 Efficient | 3d | fewer hops (e.g. straight to every node) | < 30 msgs/op, p50 < 400 ms, max < 600 ms |
+| 5 Batched | 3e | many numbers per message | < 20 msgs/op, p50 < 1 s, max < 2 s: slower than stage 4 is fine |
 
-Goals, judged per partition: every node gets every number (measured in the calm before it),
-numbers sent during it are everywhere 5 s after it heals, messages per operation < 30 and < 20,
-and the time until every node has a number (median/max) < 400/600 ms and < 1/2 s.
+Goals, judged per partition: the clients' requests are answered right (≥ 99%), every node gets
+every number, a message between nodes carries under 30 numbers on average (all measured in the
+calm before it), numbers sent during it are everywhere 5 s after it heals, messages per
+operation < 30 and < 20, and the time until every node has a number (median/max) < 400/600 ms
+and < 1/2 s.
 
 Messages per operation counts messages between nodes, divided by client operations (reads
-included), like Maelstrom's `msgs-per-op`. The checker looks at each node's `self.messages`
-every 20 ms, outside the network, so it never adds traffic. The clients check every reply, like
-Maelstrom: a `read_ok` must list every number the node had when the read was sent, and only
-numbers that were broadcast; anything else is a failed read.
+included), like Maelstrom's `msgs-per-op`. Numbers per message counts the numbers in each
+message between nodes (a list counts its length), so a node that sends its whole set, which
+grows by ten numbers a second, fails it, as Fly.io's 3b asks. The checker looks at each node's
+`self.messages` every 20 ms, outside the network, so it never adds traffic. The clients check
+every reply, like Maelstrom: a `read_ok` must list every number the node had when the read was
+sent, and only numbers that were broadcast; anything else is a failed read.
 
 How your node talks is in `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,
 `self.every`, `self.spawn`, `self.now()`, and `on_<type>` handlers.

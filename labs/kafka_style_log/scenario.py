@@ -1,11 +1,13 @@
 """Lab kafka_style_log (Fly.io Gossip Glomers #5): one endless run on virtual time.
 
-Two nodes and Maelstrom's `lin-kv` service on a fast network (~10 ms per message).
+Two nodes and Maelstrom's `lin-kv` and `seq-kv` services on a fast network (~10 ms per message).
+`seq-kv` is sequentially consistent: a read may return a value up to `STALE` seconds old (never
+older than what that node already saw); its writes and compare-and-swaps act on the latest value.
 Clients send ~`rate` operations/s to either node: `send` (append a message to a key's log),
 `poll` (messages from an offset on), `commit_offsets` and `list_committed_offsets`.
 
 Incidents, like in production: a burst on one hot key (a producer replays a backlog), or the
-`lin-kv` store slows down (compaction, a noisy neighbour). The first one is always a burst
+store (`lin-kv` and `seq-kv`) slows down (compaction, a noisy neighbour). The first one is always a burst
 at 0:20-0:30.
 
 The checker watches every reply, as Maelstrom's kafka checker does:
@@ -40,6 +42,7 @@ KEYS = 10
 LATENCY = 0.01  # seconds per message (a fast LAN)
 CLIENT_TIMEOUT = 1.0
 CONSUMERS = 4
+STALE = 0.5  # seq-kv reads may be this many seconds old
 HOT_SHARE = 0.4  # during a burst, this share of operations are sends to the hot key
 # Causes are keys; their words are in text/<lang>.py (CAUSES), so a trace is the same in any language.
 FIRST = Planned(20.0, 30.0, "burst", 2.5, "replay")
@@ -67,10 +70,10 @@ def key_name(k: int) -> str:
 
 
 class SlowKV(KVService):
-    """lin-kv, with an extra delay while it is slow."""
+    """lin-kv or seq-kv, with an extra delay while it is slow."""
 
-    def __init__(self, name: str) -> None:
-        super().__init__(name)
+    def __init__(self, name: str, stale: float = 0.0, seed: int = 0) -> None:
+        super().__init__(name, stale, seed)
         self.delay = 0.0
 
     async def _slow(self) -> None:
@@ -96,9 +99,10 @@ class _Sim:
         self.net = Network(latency=LATENCY, jitter=0.3, seed=seed)
         self.ids = [f"n{i}" for i in range(NODES)]
         self.index = {n: i for i, n in enumerate(self.ids)}
-        self.index["lin-kv"] = NODES
-        self.kv = SlowKV("lin-kv")
-        self.net.join(self.kv)
+        self.index["lin-kv"] = self.index["seq-kv"] = NODES  # one store in the pictures
+        self.kvs = [SlowKV("lin-kv"), SlowKV("seq-kv", STALE, seed * 3 + 1)]
+        for kv in self.kvs:
+            self.net.join(kv)
         self.client = Client("c1")
         self.net.join(self.client)
         self.nodes: list = []
@@ -246,10 +250,12 @@ class _Sim:
                 self.burst = (rng.randrange(KEYS), inc.severity)
                 self.hot[inc.t0] = self.burst[0]
             else:
-                self.kv.delay = LATENCY * inc.severity * 2
+                for kv in self.kvs:
+                    kv.delay = LATENCY * inc.severity * 2
             await asyncio.sleep(inc.t1 - now())
             self.burst = None
-            self.kv.delay = 0.0
+            for kv in self.kvs:
+                kv.delay = 0.0
 
     def prune(self) -> None:
         """Forget acknowledged offsets every consumer has polled past (an endless run stays small)."""
@@ -262,7 +268,7 @@ class _Sim:
             del offs[:i]
 
     def messages(self, a: float, b: float) -> list[tuple]:
-        """Messages between nodes and lin-kv sent in [a, b): (sent, src, dest, arrived or None)."""
+        """Messages between nodes and the store (lin-kv or seq-kv) sent in [a, b): (sent, src, dest, arrived or None)."""
         out, keep = [], []
         for d in self.net.log:
             if d.sent >= b or (d.arrived is None and not d.dropped):
@@ -303,7 +309,7 @@ def stream(variant="main", seed: int = 1, rate: float = 30.0) -> Iterator[dict]:
                 "tables": {
                     # (start, kind, node, key, end, ok, anomalies)
                     "ops": _take(s.ops, 0, a, b),
-                    # (sent, src, dest, arrived or None): between nodes and lin-kv (index 2)
+                    # (sent, src, dest, arrived or None): between nodes and the store (lin-kv or seq-kv, index 2)
                     "msgs": s.messages(a, b),
                     # (time, kind, node, key)
                     "anomalies": _take(s.anomalies, 0, a, b),

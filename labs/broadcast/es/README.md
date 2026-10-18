@@ -19,22 +19,27 @@ un solo servidor). Pulsa `v` para cambiar, o empieza con `--view lanes`.
 
 | Etapa | Reto | En `es/main.py` | Lo que ves |
 |---|---|---|---|
-| 0 Un solo nodo (dada) | 3a | guarda los números que te envían | solo un nodo tiene cada número |
-| 1 Varios nodos | 3b | cuéntales los números nuevos a tus vecinos | los números se extienden, pero los enviados durante una partición se pierden |
-| 2 Tolerante a fallos | 3c | reenvía hasta que confirmen | aguanta las particiones, pero ~60 msgs/op y ~700 ms |
-| 3 Eficiente | 3d | menos saltos (por ejemplo, directo a cada nodo) | < 30 msgs/op, p50 < 400 ms, máx < 600 ms |
-| 4 Por lotes | 3e | muchos números por mensaje | < 20 msgs/op, p50 < 1 s, máx < 2 s: puede ir más lento que la etapa 3 |
+| 0 Nada aún (dada) | | | cada petición recibe un error |
+| 1 Un solo nodo | 3a | guarda los números que te envían, responde `read` | solo un nodo tiene cada número |
+| 2 Varios nodos | 3b | cuéntales los números nuevos a tus vecinos (no todo tu conjunto) | los números se extienden, pero los enviados durante una partición se pierden |
+| 3 Tolerante a fallos | 3c | reenvía hasta que confirmen | aguanta las particiones, pero ~60 msgs/op y ~700 ms |
+| 4 Eficiente | 3d | menos saltos (por ejemplo, directo a cada nodo) | < 30 msgs/op, p50 < 400 ms, máx < 600 ms |
+| 5 Por lotes | 3e | muchos números por mensaje | < 20 msgs/op, p50 < 1 s, máx < 2 s: puede ir más lento que la etapa 4 |
 
-Objetivos, evaluados en cada partición: cada nodo recibe cada número (medido en la calma de
-antes), los números enviados durante la partición están en todas partes 5 s después de que se
-cure, mensajes por operación < 30 y < 20, y el tiempo hasta que cada nodo tiene un número
-(mediana/máximo) < 400/600 ms y < 1/2 s.
+Objetivos, evaluados en cada partición: las peticiones de los clientes se responden bien
+(≥ 99%), cada nodo recibe cada número, un mensaje entre nodos lleva menos de 30 números de media
+(todo medido en la calma de antes), los números enviados durante la partición están en todas
+partes 5 s después de que se cure, mensajes por operación < 30 y < 20, y el tiempo hasta que
+cada nodo tiene un número (mediana/máximo) < 400/600 ms y < 1/2 s.
 
 Los mensajes por operación cuentan los mensajes entre nodos, divididos por las operaciones de
-los clientes (lecturas incluidas), como el `msgs-per-op` de Maelstrom. El comprobador mira el
-`self.messages` de cada nodo cada 20 ms, fuera de la red, así que nunca añade tráfico. Los clientes
-comprueban cada respuesta, como Maelstrom: un `read_ok` debe listar todos los números que el nodo
-tenía cuando se envió la lectura, y solo números difundidos; si no, es una lectura fallida.
+los clientes (lecturas incluidas), como el `msgs-per-op` de Maelstrom. Los números por mensaje
+cuentan los números de cada mensaje entre nodos (una lista cuenta su longitud), así que un nodo
+que envía todo su conjunto, que crece diez números por segundo, no lo cumple, como pide el 3b
+de Fly.io. El comprobador mira el `self.messages` de cada nodo cada 20 ms, fuera de la red, así
+que nunca añade tráfico. Los clientes comprueban cada respuesta, como Maelstrom: un `read_ok`
+debe listar todos los números que el nodo tenía cuando se envió la lectura, y solo números
+difundidos; si no, es una lectura fallida.
 
 Cómo habla tu nodo está en `core/net.py`: `self.reply`, `self.send`, `await self.rpc`,
 `self.every`, `self.spawn`, `self.now()`, y los manejadores `on_<tipo>`.

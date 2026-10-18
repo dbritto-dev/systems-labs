@@ -16,7 +16,8 @@ store as it happens (the store is wrapped), to catch dirty writes (G0): two tran
 wrote the same keys, applied T then U on one key and U then T on another. It checks every answer the clients
 get for the anomalies read committed forbids, as in Fly.io 6c: aborted reads (G1a: a value
 written by a transaction the node aborted with error 30), intermediate reads (G1b) and
-circular information flow (G1c, between two transactions: each read the other's write).
+circular information flow (G1c: a ring of transactions, of any length, each reading the next one's
+write).
 """
 
 from __future__ import annotations
@@ -108,7 +109,7 @@ class _Sim:
         self.g0: list[tuple] = []  # (when, node, key): a node holds a mix of two transactions' writes
         self.writer: dict[int, int] = {}  # value -> the transaction that wrote it
         self.final: dict[int, dict[int, int]] = {}  # tid -> {key: its last value}, for multi-key writers
-        self.reads_from: dict[int, set[int]] = {}  # tid -> the transactions whose writes it read
+        self.read_by: dict[int, set[int]] = {}  # tid -> the answered transactions that read its writes
         self.aborted: set[int] = set()  # values written by aborted transactions
         self._order: dict[tuple, set[int]] = {}  # (node, T, U) -> keys where the node applied T's write, then U's
         self._g0_seen: set[tuple] = set()
@@ -167,6 +168,7 @@ class _Sim:
             reply = await self.client.rpc(node, {"type": "txn", "txn": ops}, timeout=CLIENT_TIMEOUT)
             ok = self.well_formed(ops, reply)
             seen: set[int] = set()
+            reach = None  # the transactions that read tid's writes, directly or through others
             for op in reply.get("txn", []):
                 if op[0] != "r" or op[2] is None:
                     reads += op[0] == "r"
@@ -179,12 +181,15 @@ class _Sim:
                     kind = G1B  # it read another transaction's intermediate write
                 elif (w := self.writer.get(op[2])) is not None and w != tid:
                     seen.add(w)
-                    if tid in self.reads_from.get(w, ()):
-                        kind = G1C  # it read w's write, and w read one of its own: a cycle
+                    if reach is None:
+                        reach = self.reached(tid)
+                    if w in reach:
+                        kind = G1C  # it read w's write, and w read its writes (through others): a cycle
                 if kind is not None:
                     bad += 1
                     self.anomalies.append((now(), self.index[node], op[1], op[2], kind))
-            self.reads_from[tid] = seen
+            for w in seen:
+                self.read_by.setdefault(w, set()).add(tid)
         except RPCError as e:
             if e.code == TXN_ABORTED:  # aborted: an answer (allowed), and its writes must never be read
                 ok = True
@@ -195,6 +200,16 @@ class _Sim:
             self.open.pop(tid, None)
         writes = sum(1 for op in ops if op[0] == "w")
         self.txns.append((start, self.index[node], now(), ok, reads, writes, bad))
+
+    def reached(self, tid: int) -> set[int]:
+        """Every transaction that read tid's writes, or the writes of one that did, and so on (G1c's edges)."""
+        out, todo = set(), [tid]
+        while todo:
+            for r in self.read_by.get(todo.pop(), ()):
+                if r not in out:
+                    out.add(r)
+                    todo.append(r)
+        return out
 
     @staticmethod
     def well_formed(ops: list[list], reply: dict) -> bool:
@@ -263,8 +278,8 @@ class _Sim:
                     self.writer.pop(v, None)
                     self.aborted.discard(v)
                 done = {self.writer[v] for v in self.issued if v in self.writer}
-                for tid in [tid for tid in self.reads_from if tid not in done]:
-                    del self.reads_from[tid]
+                for tid in [tid for tid in self.read_by if tid not in done]:
+                    del self.read_by[tid]
 
     def watch(self) -> None:
         """Wrap each node's store so every write to it is noted, in order (again if the code replaced it)."""

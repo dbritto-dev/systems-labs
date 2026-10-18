@@ -19,18 +19,22 @@ CAUSES = {
 }
 
 STAGES = [
+    StageText("Nothing yet",
+              "Challenge: the nodes answer nothing. Start with one log per key, on each node.",
+              "Stage 1 (5a): send, poll and commit on one node"),
     StageText("Single node",
               "Challenge: each node hands out its own offsets, so two messages share one. Agree on them.",
-              "Stage 1 (5b): keep offsets and messages in lin-kv"),
+              "Stage 2 (5b): offsets and messages in lin-kv/seq-kv"),
     StageText("Multi-node",
               "Challenge: correct, but every send costs ~10 messages and stalls on one hot key.",
-              "Stage 2 (5c): fewer round trips, e.g. an owner per key"),
+              "Stage 3 (5c): fewer round trips, e.g. an owner per key"),
     StageText("Efficient",
               "Solved: offsets are unique, nothing is lost, and a send costs about one message.",
               "All stages done"),
 ]
 
 GOALS = {
+    "answered": GoalText("Answered ≥ 99%", "handle send and poll"),
     "unique": GoalText("Offsets rise", "agree on offsets"),
     "lost_writes": GoalText("No lost writes", "never skip an offset"),
     "commits": GoalText("Commits kept", "share committed offsets"),
@@ -71,6 +75,7 @@ STRINGS = {
     "head_anomaly": "{what} on {k}!",
     "head_hot": "Hot {k}: p99 send {p99}",
     "head_slow": "lin-kv is slow: p99 send {p99}",
+    "head_errors": "{n} requests got an error in 5 s",
     "head_ok": "Log ok: {mpo} msgs per operation",
     "note_dots": "Dots slowed down to be seen (cosmetic).",
     # the picture
@@ -99,6 +104,7 @@ LESSON = Lesson(
         "how Kafka itself works (a leader per partition).",
     ),
     watch_for=(
+        "Nothing yet: every request comes back an error.",
         "Single node: red flashes and DUPLICATE OFFSET / LOST WRITE under the nodes.",
         "Multi-node: no anomalies, but orange lin-kv messages everywhere; in a burst the p99 send soars.",
         "Efficient: a few blue messages between the nodes, and sends stay fast through bursts.",
@@ -134,8 +140,8 @@ LESSON = Lesson(
             "Real lost and duplicated writes in a Kafka-compatible log, and how they were found."),
     ),
     try_next=(
-        "Do stage 1 in labs/kafka_style_log/main.py with lin-kv and watch the anomalies stop.",
+        "Do stages 1 and 2 in labs/kafka_style_log/main.py, the second with lin-kv, and watch the anomalies stop.",
         "Then watch a hot-key burst: how many CAS retries does one send take?",
-        "Try --set rate=60: does your stage-2 design still cost about one message per operation?",
+        "Try --set rate=60: does your stage-3 design still cost about one message per operation?",
     ),
 )

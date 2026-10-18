@@ -8,19 +8,22 @@ rellenada. Cada valor escrito es único. De vez en cuando un nodo queda aislado 
 (una partición), pero los clientes siguen llegando a él: cada transacción debe seguir teniendo
 respuesta (disponibilidad total).
 
-Ahora mismo cada nodo tiene su propio almacén (6a, un solo nodo): las escrituras nunca llegan
-a los demás.
+Ahora mismo cada nodo tiene un almacén vacío y ningún manejador para `txn`, así que cada
+transacción recibe un error.
 
 Haz las etapas en orden, en este archivo:
 
-  Etapa 1  Replica (6b, sin particiones): envía cada escritura a los demás nodos, para
+  Etapa 1  Un solo nodo (6a): responde cada txn desde el almacén propio del nodo: ejecuta
+           sus microoperaciones en orden, lecturas de self.store, escrituras en él, y
+           responde {"type": "txn_ok", "txn": [...]} con cada lectura rellenada.
+  Etapa 2  Replica (6b, sin particiones): envía cada escritura a los demás nodos, para
            que se pongan al día.
-  Etapa 2  Read uncommitted (6b, con particiones): reenvía lo que el otro nodo no ha
+  Etapa 3  Read uncommitted (6b, con particiones): reenvía lo que el otro nodo no ha
            confirmado; cuando dos escrituras a una clave se cruzan, gana la más nueva en
            todas partes (sella cada transacción con (tiempo, nodo) y quédate con el sello mayor).
            Un sello para toda la transacción: las escrituras de dos transacciones nunca deben
            intercalarse, x de una e y de la otra (una "escritura sucia", G0).
-  Etapa 3  Read committed (6c): que nadie vea nunca un valor que una transacción
+  Etapa 4  Read committed (6c): que nadie vea nunca un valor que una transacción
            sobrescribió ella misma (una "lectura intermedia", G1b): replica transacciones
            enteras, solo con su valor final por clave, y aplica cada una de una vez. Read
            committed también prohíbe leer una escritura abortada (G1a: si abortas, con el
@@ -52,15 +55,13 @@ class TxnNode(Node):
         super().__init__(node_id, node_ids)
         self.store: dict[int, int] = {}
 
-    async def on_txn(self, msg: Message) -> None:
-        result = []
-        for op, key, value in msg.body["txn"]:
-            if op == "r":
-                result.append(["r", key, self.store.get(key)])
-            else:
-                self.store[key] = value
-                result.append(["w", key, value])
-        self.reply(msg, {"type": "txn_ok", "txn": result})
-        # Etapa 1: envía las escrituras a los demás nodos (con un tipo de mensaje tuyo, por
-        # ejemplo self.send(n, {"type": "replicate", "writes": [[key, value], ...]})), y
-        # manéjalo en `async def on_replicate(self, msg)`.
+    # Etapa 1: añade
+    #     async def on_txn(self, msg: Message) -> None:
+    #         result = []
+    #         for op, key, value in msg.body["txn"]:
+    #             ...  # ["r", key, self.store.get(key)], o escribe self.store[key] = value
+    #         self.reply(msg, {"type": "txn_ok", "txn": result})
+    #
+    # Etapa 2: envía las escrituras a los demás nodos (con un tipo de mensaje tuyo, por
+    # ejemplo self.send(n, {"type": "replicate", "writes": [[key, value], ...]})), y
+    # manéjalo en `async def on_replicate(self, msg)`.

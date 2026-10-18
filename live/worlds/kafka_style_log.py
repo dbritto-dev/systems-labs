@@ -7,13 +7,14 @@ from labs.kafka_style_log import lab
 from labs.kafka_style_log.scenario import BACKWARDS, DUPLICATE, LOST_COMMIT, LOST_WRITE, SEND
 from live.canvas import BLUE, EXTRA1, EXTRA2, LIMIT, MUTED, PINK, PURPLE, RED, WHITE, YELLOW
 from live.worlds.base import (
-    Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, below, fmt_ms, history, percentile,
+    NO_VALUE, Bar, GoalSpec, Incident, Run, Table, Tile, Traffic, World, at_least, below, fmt_ms, history,
+    percentile,
 )
 
 OP_START, OP_KIND, OP_NODE, OP_KEY, OP_END, OP_OK, OP_BAD = range(7)
 MSG_SENT, MSG_SRC, MSG_DEST, MSG_ARRIVED = range(4)
 AN_T, AN_KIND, AN_NODE, AN_KEY = range(4)
-KV = lab.NODES  # lin-kv's index in the picture and the message table
+KV = lab.NODES  # the store's (lin-kv and seq-kv) index in the picture and the message table
 INF = float("inf")
 ANOMALY_KEYS = {DUPLICATE: "duplicate", LOST_WRITE: "lost_write", LOST_COMMIT: "lost_commit",
                 BACKWARDS: "backwards"}  # STRINGS keys
@@ -69,6 +70,14 @@ WINDOWS = {
 }
 
 
+def _answered(run: Run, inc: Incident, upto: float):
+    rows = [o for o in run.rows("ops", inc.t0 - lab.BEFORE, min(inc.t0, upto)) if o[OP_END] <= upto]
+    if not rows:
+        return NO_VALUE
+    v = sum(o[OP_OK] for o in rows) / len(rows)
+    return v, f"{v:.0%}"
+
+
 def _msgs(run: Run, inc: Incident, upto: float):
     v = _msgs_per_op(run, inc.t0 - lab.BEFORE, min(inc.t0, upto))
     return v, "–" if v is None else f"{v:.1f}"
@@ -81,6 +90,8 @@ def _p99(run: Run, inc: Incident, upto: float):
 
 # The rule and fix of each goal are text.GOALS[key].
 GOALS = [
+    GoalSpec("", "before", "", lambda i: (i.t0 - lab.BEFORE, i.t0), _answered, at_least(lab.ANSWERED_MIN),
+             key="answered"),
     _anomalies((DUPLICATE, BACKWARDS), "unique", "before"),  # Fly.io 5a: offsets unique and always increasing
     _anomalies((LOST_WRITE,), "lost_writes", "during", 1.5),
     _anomalies((LOST_COMMIT,), "commits", "after", 1.5),
@@ -92,7 +103,7 @@ GOALS = [
 class KafkaLogWorld(World):
     id = "kafka_style_log"
     view = "fanin"
-    stage_colours = (RED, EXTRA2, BLUE)
+    stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
     legend = [(BLUE, "node", "◉"), (PURPLE, "lin_kv", "◉"), (EXTRA2, "duplicate", "◉"), (YELLOW, "backwards", "◉"), (RED, "lost_write", "◉"),
               (PINK, "lost_commit", "◉"), (WHITE, "client_request"),
               (BLUE, "node_message"), (EXTRA1, "kv_message"), (LIMIT, "limit", "┄")]
@@ -207,6 +218,8 @@ class KafkaLogWorld(World):
             headline, colour = self.s("head_hot", k=self.hot_key(run, inc), p99=fmt_ms(p99)), EXTRA2
         elif inc is not None:
             headline, colour = self.s("head_slow", p99=fmt_ms(p99)), EXTRA2
+        elif failed := sum(1 for o in run.rows("ops", t - 5, t) if o[OP_END] <= t and not o[OP_OK]):
+            headline, colour = self.s("head_errors", n=failed), RED
         else:
             headline, colour = self.s("head_ok", mpo="–" if mpo is None else f"{mpo:.1f}"), MUTED
         return Traffic(tiles, bars, limit, self.s("limit", limit=lab.MSGS_MAX), headline, colour,

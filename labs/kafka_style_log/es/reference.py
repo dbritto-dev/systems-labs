@@ -1,4 +1,4 @@
-"""Laboratorio kafka_style_log: una solución que funciona (etapa 2). Léela después de intentar es/main.py.
+"""Laboratorio kafka_style_log: una solución que funciona (etapa 3). Léela después de intentar es/main.py.
 
 Cada clave tiene un dueño: uno de los dos nodos, elegido con un hash de la clave. El dueño guarda
 en memoria el log de esa clave y su offset con commit, y reparte él mismo los offsets: sin viajes

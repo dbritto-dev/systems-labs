@@ -1,4 +1,4 @@
-"""The pictures for lab kafka_style_log: two nodes and lin-kv."""
+"""The pictures for lab kafka_style_log: two nodes and the store (lin-kv and seq-kv)."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ class KafkaLogLanes(LaneAdapter):
 
 # ---------------------------------------------------------------- the fan-in picture: network, nodes, lin-kv
 
-KV_MAX = 150  # messages per second to or from lin-kv that fill its gauge
+KV_MAX = 150  # messages per second to or from the store that fill its gauge
 NODE_MAX = 40  # client operations per second on one node that fill its gauge
 MAX_HOPS, MAX_JOINS, MAX_CROSS = 30, 40, 30
 
@@ -98,7 +98,7 @@ MAX_HOPS, MAX_JOINS, MAX_CROSS = 30, 40, 30
 class KafkaLogFanin(FaninAdapter):
     """Sends, polls and commits come through the network (the door) to the nodes n0 and n1 (each gauge its
     client operations/s); a node flashes, outline and gauge, in its anomaly's colour: orange a duplicate
-    offset, yellow one going back, red a lost write, pink a lost commit (the state names it too). The nodes keep the log in lin-kv (the store, purple, orange while
+    offset, yellow one going back, red a lost write, pink a lost commit (the state names it too). The nodes keep the log in the store (lin-kv or seq-kv, purple, orange while
     it is slow, its gauge its messages/s): those messages fly light orange; a node that passes a request
     to the key's owner sends it blue, on the line between the nodes."""
 

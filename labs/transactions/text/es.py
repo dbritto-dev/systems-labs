@@ -17,21 +17,25 @@ CAUSES = {
 }
 
 STAGES = [
+    StageText("Nada aún",
+              "Reto: los nodos no responden ninguna txn. Guarda un almacén por nodo y responde con él.",
+              "Etapa 1 (6a): responde cada txn desde self.store"),
     StageText("Un solo nodo",
               "Reto: las escrituras se quedan en el nodo que las recibe. Envíalas a los demás nodos.",
-              "Etapa 1 (6b): replica cada escritura en los demás nodos"),
+              "Etapa 2 (6b): replica cada escritura en los demás nodos"),
     StageText("Replicado",
               "Reto: las escrituras durante una partición se pierden. Reenvíalas hasta que confirmen.",
-              "Etapa 2 (6b): reenvía hasta que confirmen; gana el sello más nuevo"),
+              "Etapa 3 (6b): reenvía hasta que confirmen; gana el sello más nuevo"),
     StageText("Read uncommitted",
               "Reto: se leen valores que la propia transacción sobrescribió. Replica txns enteras.",
-              "Etapa 3 (6c): replica valores finales por txn, de una vez"),
+              "Etapa 4 (6c): replica valores finales por txn, de una vez"),
     StageText("Read committed",
               "Resuelto: cada nodo se pone al día tras las particiones y nadie ve valores intermedios.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
+    "replies": GoalText("Contesta ≥ 99%", "responde desde self.store"),
     "fresh": GoalText("Al día ≥ 95%", "replica cada escritura"),
     "answered": GoalText("Responde ≥ 99%", "no esperes a otro nodo"),
     "caught_up": GoalText("Recupera ≥ 99%", "reenvía hasta que confirmen"),
@@ -67,6 +71,7 @@ STRINGS = {
     "head_cut": "n{node} aislado: la replicación espera",
     "head_behind": "Hay nodos atrasados ({fresh:.1%} al día)",
     "head_ok": "Todos los nodos están al día",
+    "head_errors": "{n} transacciones con error en 5 s",
     "note_chart": "Gráfica: mensajes de replicación/s.",
     # el dibujo
     "state_cut": "n{node} aislado",
@@ -98,6 +103,7 @@ LESSON = Lesson(
         "vez en el otro nodo.",
     ),
     watch_for=(
+        "Nada aún: cada transacción vuelve en rojo.",
         "Un solo nodo: los nodos siguen naranjas (atrasados): cada uno solo tiene las escrituras de sus clientes.",
         "Replicado: vuelven a azul, hasta una partición; después algunas claves nunca se ponen al día.",
         "Read uncommitted: todos se ponen al día, pero hay destellos rojos: lectores que ven valores intermedios.",
@@ -139,8 +145,8 @@ LESSON = Lesson(
             "El mensaje txn y sus microoperaciones (en inglés)."),
     ),
     try_next=(
-        "Haz la etapa 1 en labs/transactions/es/main.py y mira cómo los nodos se ponen azules.",
+        "Haz las etapas 1 y 2 en labs/transactions/es/main.py y mira cómo los nodos se ponen azules.",
         "Luego espera una partición: ¿qué claves nunca se ponen al día, y por qué?",
-        "Haz la etapa 3 y mira cómo dejan de aparecer los destellos rojos.",
+        "Haz la etapa 4 y mira cómo dejan de aparecer los destellos rojos.",
     ),
 )

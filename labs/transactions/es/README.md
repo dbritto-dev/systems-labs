@@ -27,15 +27,17 @@ Pulsa `v` para cambiar, o empieza con `--view lanes`.
 
 | Etapa | Reto | En `es/main.py` | Lo que ves |
 |---|---|---|---|
-| 0 Un solo nodo (dada) | 6a | cada nodo tiene su propio almacén | los nodos siempre van atrasados (~45% al día) |
-| 1 Replicado | 6b, sin particiones | envía cada escritura a los demás nodos | al día, pero tras una partición algunas claves nunca se recuperan (~90-95%), y las escrituras se intercalan (G0) |
-| 2 Read uncommitted | 6b, con particiones | reenvía hasta que confirmen; gana el sello más nuevo (uno por transacción) | todos se ponen al día, sin G0, pero los lectores ven valores intermedios (G1b) |
-| 3 Read committed | 6c | replica transacciones enteras (valores finales), aplicadas de una vez | sin G0 ni G1a, G1b o G1c, y cada nodo se pone al día |
+| 0 Nada aún (dada) | | sin `on_txn`: cada transacción recibe un error | cada respuesta en rojo |
+| 1 Un solo nodo | 6a | responde cada txn desde el almacén propio del nodo | responde, pero los nodos siempre van atrasados (~45% al día) |
+| 2 Replicado | 6b, sin particiones | envía cada escritura a los demás nodos | al día, pero tras una partición algunas claves nunca se recuperan (~90-95%), y las escrituras se intercalan (G0) |
+| 3 Read uncommitted | 6b, con particiones | reenvía hasta que confirmen; gana el sello más nuevo (uno por transacción) | todos se ponen al día, sin G0, pero los lectores ven valores intermedios (G1b) |
+| 4 Read committed | 6c | replica transacciones enteras (valores finales), aplicadas de una vez | sin G0 ni G1a, G1b o G1c, y cada nodo se pone al día |
 
-Objetivos, evaluados en cada partición: **al día** ≥ 95% en la calma anterior (la parte de las
+Objetivos, evaluados en cada partición: **contesta** ≥ 99% de las transacciones respondidas en
+la calma anterior; **al día** ≥ 95% en la calma anterior (la parte de las
 claves, en cada nodo, que está a menos de 1 s del valor más nuevo en cualquier nodo);
 **respondidas** ≥ 99% de las transacciones durante ella; **recuperado** ≥ 99% al día entre 5 y
-10 s después de que termine; **sin escrituras G0** (etapa 2) y **sin lecturas G1** (etapa 3),
+10 s después de que termine; **sin escrituras G0** (etapa 3) y **sin lecturas G1** (etapa 4),
 ambas desde 15 s antes hasta 5 s después.
 
 El comprobador mira el `self.store` de cada nodo cada 50 ms, fuera de la red, y comprueba lo que
@@ -47,8 +49,9 @@ prohíben los retos 6b y 6c de Fly.io:
   `txn-conflict`); una lectura posterior que devuelva una de sus escrituras es una G1a.
 - **G1b, lectura intermedia**: una lectura que devuelve un valor que otra transacción sobrescribió
   ella misma.
-- **G1c, flujo circular de información**: dos transacciones que leen cada una la escritura de la
-  otra. Solo se comprueban ciclos de dos, no más largos.
+- **G1c, flujo circular de información**: transacciones que leen las escrituras de otras en un
+  anillo: T1 leyó la escritura de T2, T2 la de T3, ... y la última la de T1. Se comprueban anillos
+  de cualquier longitud, entre las transacciones enviadas en los últimos 5 minutos.
 
 También se comprueba cada respuesta, como Maelstrom: un `txn_ok` debe llevar las mismas
 microoperaciones en orden, con las escrituras repetidas y las lecturas rellenas; si no, cuenta

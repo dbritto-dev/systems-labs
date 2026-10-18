@@ -1,4 +1,4 @@
-"""Laboratorio broadcast: una solución que funciona (etapas 3 y 4). Léela después de intentar es/main.py.
+"""Laboratorio broadcast: una solución que funciona (etapas 4 y 5). Léela después de intentar es/main.py.
 
 Un hub (n0) con lotes, y confirmaciones también agrupadas:
 

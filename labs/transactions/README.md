@@ -29,15 +29,17 @@ Spanish comments and hints.
 
 | Stage | Challenge | In `main.py` | What you see |
 |---|---|---|---|
-| 0 Single node (given) | 6a | each node keeps its own store | the nodes are always behind (~45% fresh) |
-| 1 Replicated | 6b, no partitions | send every write to the other nodes | fresh, but after a partition some keys never catch up (~90-95%), and writes interleave (G0) |
-| 2 Read uncommitted | 6b, with partitions | re-send until acked; newest stamp (one per transaction) wins | everyone catches up, no G0, but readers see intermediate values (G1b) |
-| 3 Read committed | 6c | replicate whole transactions (final values), applied at once | no G0 and no G1a, G1b or G1c, and every node catches up |
+| 0 Nothing yet (given) | | no `on_txn`: every transaction gets an error | every answer red |
+| 1 Single node | 6a | answer each txn from the node's own store | answered, but the nodes are always behind (~45% fresh) |
+| 2 Replicated | 6b, no partitions | send every write to the other nodes | fresh, but after a partition some keys never catch up (~90-95%), and writes interleave (G0) |
+| 3 Read uncommitted | 6b, with partitions | re-send until acked; newest stamp (one per transaction) wins | everyone catches up, no G0, but readers see intermediate values (G1b) |
+| 4 Read committed | 6c | replicate whole transactions (final values), applied at once | no G0 and no G1a, G1b or G1c, and every node catches up |
 
-Goals, judged per partition: **fresh** ≥ 95% in the calm before it (the share of keys, on every
+Goals, judged per partition: **replies** ≥ 99% of transactions answered in the calm before it;
+**fresh** ≥ 95% in the calm before it (the share of keys, on every
 node, within 1 s of the newest value anywhere); **answered** ≥ 99% of transactions during it;
-**caught up** ≥ 99% fresh 5-10 s after it heals; **no G0 writes** (stage 2) and **no G1 reads**
-(stage 3), both from 15 s before it to 5 s after.
+**caught up** ≥ 99% fresh 5-10 s after it heals; **no G0 writes** (stage 3) and **no G1 reads**
+(stage 4), both from 15 s before it to 5 s after.
 
 The checker looks at each node's `self.store` every 50 ms, outside the network, and checks
 what Fly.io's 6b and 6c forbid:
@@ -47,8 +49,9 @@ what Fly.io's 6b and 6c forbid:
 - **G1a, aborted read**: a node may abort a transaction (error code 30, `txn-conflict`); a later
   read that returns one of its writes is a G1a.
 - **G1b, intermediate read**: a read that returns a value another transaction overwrote itself.
-- **G1c, circular information flow**: two transactions that each read the other's write. Only
-  cycles of two are checked, not longer ones.
+- **G1c, circular information flow**: transactions that read each other's writes in a ring: T1
+  read T2's write, T2 read T3's, ... and the last read T1's. Rings of any length are checked,
+  among transactions sent in the last 5 minutes.
 
 Every answer is checked too, like Maelstrom: a `txn_ok` must carry the same micro-operations in
 order, writes echoed and reads filled in; anything else counts as not answered.

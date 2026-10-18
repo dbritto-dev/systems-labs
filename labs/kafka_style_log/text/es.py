@@ -19,18 +19,22 @@ CAUSES = {
 }
 
 STAGES = [
+    StageText("Nada aún",
+              "Reto: los nodos no responden nada. Empieza con un log por clave, en cada nodo.",
+              "Etapa 1 (5a): send, poll y commit en un nodo"),
     StageText("Un solo nodo",
               "Reto: cada nodo reparte sus propios offsets y dos mensajes comparten uno. Que coincidan.",
-              "Etapa 1 (5b): guarda offsets y mensajes en lin-kv"),
+              "Etapa 2 (5b): offsets y mensajes en lin-kv/seq-kv"),
     StageText("Multinodo",
               "Reto: es correcto, pero cada send cuesta ~10 mensajes y se atasca en una clave caliente.",
-              "Etapa 2 (5c): menos viajes, p. ej. un dueño por clave"),
+              "Etapa 3 (5c): menos viajes, p. ej. un dueño por clave"),
     StageText("Eficiente",
               "Resuelto: offsets únicos, nada se pierde, y un send cuesta más o menos un mensaje.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
+    "answered": GoalText("Respondidas ≥ 99%", "atiende send y poll"),
     "unique": GoalText("Offsets crecen", "pon de acuerdo los offsets"),
     "lost_writes": GoalText("Nada perdido", "no saltes ningún offset"),
     "commits": GoalText("Commits guardados", "comparte los commits"),
@@ -71,6 +75,7 @@ STRINGS = {
     "head_anomaly": "¡{what} en {k}!",
     "head_hot": "{k} caliente: p99 send {p99}",
     "head_slow": "lin-kv va lento: p99 send {p99}",
+    "head_errors": "{n} peticiones con error en 5 s",
     "head_ok": "Log bien: {mpo} mensajes por operación",
     "note_dots": "Puntos más lentos para que se vean (decorativo).",
     # el dibujo
@@ -101,6 +106,7 @@ LESSON = Lesson(
         "almacenamiento. Así funciona el propio Kafka (un líder por partición).",
     ),
     watch_for=(
+        "Nada aún: cada petición vuelve con un error.",
         "Un solo nodo: destellos rojos y OFFSET DUPLICADO / ESCRITURA PERDIDA bajo los nodos.",
         "Multinodo: sin anomalías, pero mensajes naranjas a lin-kv por todas partes; en un pico el p99 del "
         "send se dispara.",
@@ -138,8 +144,8 @@ LESSON = Lesson(
             "(en inglés)."),
     ),
     try_next=(
-        "Haz la etapa 1 en labs/kafka_style_log/es/main.py con lin-kv y mira cómo paran las anomalías.",
+        "Haz las etapas 1 y 2 en labs/kafka_style_log/es/main.py, la segunda con lin-kv, y mira cómo paran las anomalías.",
         "Luego mira un pico en una clave caliente: ¿cuántos reintentos de CAS cuesta un send?",
-        "Prueba --set rate=60: ¿tu diseño de la etapa 2 sigue costando más o menos un mensaje por operación?",
+        "Prueba --set rate=60: ¿tu diseño de la etapa 3 sigue costando más o menos un mensaje por operación?",
     ),
 )

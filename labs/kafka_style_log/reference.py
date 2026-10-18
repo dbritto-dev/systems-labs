@@ -1,4 +1,4 @@
-"""Lab kafka_style_log: a working solution (stage 2). Read it after you have tried main.py.
+"""Lab kafka_style_log: a working solution (stage 3). Read it after you have tried main.py.
 
 Every key has an owner: one of the two nodes, picked by hashing the key. The owner keeps that
 key's log and its committed offset in memory and hands out offsets itself: no storage round

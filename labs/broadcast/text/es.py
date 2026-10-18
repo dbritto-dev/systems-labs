@@ -19,25 +19,30 @@ CAUSES = {
 }
 
 STAGES = [
+    StageText("Nada aún",
+              "Reto: los nodos no responden nada. Guarda los números que te envían y responde read.",
+              "Etapa 1 (3a): responde broadcast_ok, read_ok, topology_ok"),
     StageText("Un solo nodo",
               "Reto: cada nodo solo conoce los números que le envían. Cuéntaselos a los demás.",
-              "Etapa 1 (3b): envía los números nuevos a tus vecinos"),
+              "Etapa 2 (3b): envía los números nuevos a tus vecinos"),
     StageText("Varios nodos",
               "Reto: los números enviados durante una partición no llegan al otro lado. Reintenta.",
-              "Etapa 2 (3c): reenvía hasta que el otro nodo confirme"),
+              "Etapa 3 (3c): reenvía hasta que el otro nodo confirme"),
     StageText("Tolerante a fallos",
               "Reto: funciona, pero cuesta demasiados mensajes y es lento. Hazlo eficiente.",
-              "Etapa 3 (3d): menos de 30 msgs/op, p50 < 400 ms, máx < 600 ms"),
+              "Etapa 4 (3d): menos de 30 msgs/op, p50 < 400 ms, máx < 600 ms"),
     StageText("Eficiente",
               "Reto: menos de 30 mensajes por operación. Ahora menos de 20: envía por lotes.",
-              "Etapa 4 (3e): menos de 20 msgs/op (p50 < 1 s, máx < 2 s)"),
+              "Etapa 5 (3e): menos de 20 msgs/op (p50 < 1 s, máx < 2 s)"),
     StageText("Por lotes",
               "Resuelto: cada número llega a cada nodo, con particiones, rápido y con pocos mensajes.",
               "Todas las etapas hechas"),
 ]
 
 GOALS = {
+    "answer": GoalText("Responde ≥ 99%", "broadcast_ok, read_ok"),
     "reach": GoalText("Llega a todos", "reenvía los números nuevos"),
+    "numbers": GoalText("Núms/msj < 30", "envía solo los nuevos"),
     "survive": GoalText("Aguanta corte", "reenvía hasta que confirmen"),
     "msgs30": GoalText("Msgs/op < 30", "envía menos mensajes"),
     "fast": GoalText("Ráp. 400/600", "menos saltos por número"),
@@ -91,6 +96,7 @@ LESSON = Lesson(
         "lo que no se confirmó, mantiene barata la tolerancia a fallos.",
     ),
     watch_for=(
+        "Nada aún: cada petición de cliente vuelve con un error.",
         "Un solo nodo: solo el nodo con el que habló el cliente tiene el número; los demás siguen naranjas.",
         "Varios nodos: los puntos azules se extienden por la cuadrícula; en una partición, puntos rojos mueren en el corte.",
         "Tolerante a fallos: cuando la partición se cura, los números cruzan y los nodos se vuelven azules.",
@@ -131,7 +137,7 @@ LESSON = Lesson(
             "Gossip para la membresía y anti-entropía con árboles de Merkle en producción (en inglés)."),
     ),
     try_next=(
-        "Haz la etapa 1 en labs/broadcast/es/main.py y mira cómo los números se extienden por la cuadrícula.",
+        "Haz las etapas 1 y 2 en labs/broadcast/es/main.py y mira cómo los números se extienden por la cuadrícula.",
         "Luego mira una partición: ¿qué les pasa a los números enviados en el lado pequeño?",
         "Prueba --set rate=60: ¿tus lotes salen más baratos por operación?",
     ),

@@ -1,4 +1,4 @@
-"""Lab broadcast: a working solution (stages 3 and 4). Read it after you have tried main.py.
+"""Lab broadcast: a working solution (stages 4 and 5). Read it after you have tried main.py.
 
 A hub (n0) with batches, and acknowledgements that are batched too:
 

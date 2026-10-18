@@ -51,6 +51,25 @@ QUIET = 27.0  # calm before the next one: 15 s measured before it, 7 s to judge 
 BROADCAST, READ = 0, 1
 
 
+def numbers_in(body: dict) -> int:
+    """How many numbers a message carries: one per field, the length of each list (or set, or dict).
+    The type and the message ids are not counted."""
+    return sum(len(v) if isinstance(v, (list, tuple, set, frozenset, dict)) else 1
+               for k, v in body.items() if k not in ("type", "msg_id", "in_reply_to"))
+
+
+class _Net(Network):
+    """The network, also noting how many numbers each message carries (Fly.io's 3b: not the whole set)."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.sizes: list[int] = []  # one per entry of self.log
+
+    def send(self, src: str, dest: str, body: dict) -> None:
+        super().send(src, dest, body)
+        self.sizes.append(numbers_in(body))
+
+
 def incidents(seed: int) -> Iterator[Planned]:
     return schedule(seed, FIRST, KINDS, MEAN_GAP, QUIET)
 
@@ -70,7 +89,7 @@ def groups_for(inc: Planned, ids: list[str], seed: int) -> list[set[str]]:
 class _Sim:
     def __init__(self, code, seed: int, rate: float, nodes: int) -> None:
         self.seed, self.rate = seed, rate
-        self.net = Network(latency=0.1, jitter=0.2, seed=seed)
+        self.net = _Net(latency=0.1, jitter=0.2, seed=seed)
         self.ids = [f"n{i}" for i in range(nodes)]
         self.index = {n: i for i, n in enumerate(self.ids)}
         self.code = code
@@ -185,15 +204,16 @@ class _Sim:
                 self.lag.append((t, missing))
 
     def messages(self, a: float, b: float) -> list[tuple]:
-        """Messages between nodes sent in [a, b): (sent, src, dest, arrived or None)."""
+        """Messages between nodes sent in [a, b): (sent, src, dest, arrived or None, numbers carried)."""
         out, keep = [], []
-        for d in self.net.log:
+        for d, size in zip(self.net.log, self.net.sizes):
             if d.sent >= b or (d.arrived is None and not d.dropped):
-                keep.append(d)  # later, or still on the wire
+                keep.append((d, size))  # later, or still on the wire
                 continue
             if d.src in self.index and d.dest in self.index and d.sent >= a:
-                out.append((d.sent, self.index[d.src], self.index[d.dest], d.arrived))
-        self.net.log[:] = keep
+                out.append((d.sent, self.index[d.src], self.index[d.dest], d.arrived, size))
+        self.net.log[:] = [d for d, _ in keep]
+        self.net.sizes[:] = [size for _, size in keep]
         return out
 
 
@@ -229,7 +249,7 @@ def stream(variant="main", seed: int = 1, rate: float = 20.0, nodes: int = SIDE 
                 "tables": {
                     # (start, kind, node, value, end, ok)
                     "ops": _take(s.ops, 0, a, b),
-                    # (sent, src, dest, arrived or None if dropped)
+                    # (sent, src, dest, arrived or None if dropped, numbers it carries)
                     "msgs": s.messages(a, b),
                     # (sent, value): numbers broadcast this minute
                     "values": sorted((t, v) for v, t in sent.items()),

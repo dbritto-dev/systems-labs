@@ -41,12 +41,21 @@ def _fresh(run: Run, inc: Incident, upto: float):
     return v, "–" if v is None else f"{v:.0%}"
 
 
-def _available(run: Run, inc: Incident, upto: float):
-    done = [r for r in run.rows("txns", inc.t0, min(inc.t1, upto)) if r[TXN_END] <= upto]
+def _answered(run: Run, a: float, b: float, upto: float):
+    """Share of the transactions sent in [a, b) that got a well-formed answer (txn_ok, or an abort)."""
+    done = [r for r in run.rows("txns", a, min(b, upto)) if r[TXN_END] <= upto]
     if not done:
         return NO_VALUE
     v = sum(r[TXN_OK] for r in done) / len(done)
     return v, f"{v:.0%}"
+
+
+def _calm(run: Run, inc: Incident, upto: float):
+    return _answered(run, *_before(inc), upto)
+
+
+def _available(run: Run, inc: Incident, upto: float):
+    return _answered(run, inc.t0, inc.t1, upto)
 
 
 def _after(inc: Incident) -> tuple[float, float]:
@@ -79,9 +88,11 @@ def _during(inc: Incident) -> tuple[float, float]:
     return inc.t0, inc.t1
 
 
-# The rule and fix of each goal are text.GOALS[key]. Dirty writes (G0) and the reads read committed
+# The rule and fix of each goal are text.GOALS[key]. Replies (in the calm) come first: a node with no on_txn
+# answers nothing (stage 0), one store per node answers but falls behind (stage 1). Dirty writes (G0) and the reads read committed
 # forbids (G1a, G1b, G1c) are counted from 15 s before to 5 s after the partition, and judged after it.
 GOALS = [
+    GoalSpec("", "before", "", _before, _calm, at_least(lab.ANSWERED_MIN), settle_extra=lab.BEFORE[1], key="replies"),
     GoalSpec("", "before", "", _before, _fresh, at_least(lab.FRESH_MIN), settle_extra=lab.BEFORE[1], key="fresh"),
     GoalSpec("", "during", "", _during, _available, at_least(lab.AVAILABLE_MIN), settle_extra=2.0, key="answered"),
     GoalSpec("", "after", "", _after, _caught_up, at_least(lab.CAUGHT_UP_MIN), key="caught_up"),
@@ -101,7 +112,7 @@ def _stale_colour(stale: int) -> tuple[int, int, int]:
 class TxnWorld(World):
     id = "transactions"
     view = "peers"  # the node cut off, its links cut, and how far behind it falls
-    stage_colours = (RED, EXTRA2, EXTRA1, BLUE)
+    stage_colours = (RED, EXTRA3, EXTRA2, EXTRA1, BLUE)
     legend = [(BLUE, "up_to_date", "◉"), ([EXTRA1, EXTRA2, EXTRA3], "behind", "◉"), (PINK, "g0", "◉"), (YELLOW, "g1a", "◉"), (RED, "g1b", "◉"),
               (PURPLE, "g1c", "◉"),
               (WHITE, "transaction"), (BLUE, "replication"), (RED, "dropped"), (RED, "partition", "┆")]
@@ -214,7 +225,10 @@ class TxnWorld(World):
                 Bar(self.s("bar_nodes"), [(float(len(last) - dropped), BLUE), (float(dropped), RED)])]
         cut = self.cut_at(variant, t)
         recent = self.anomalies_at(run, t, 2.0)
-        if recent:
+        failed = sum(1 for r in done if not r[TXN_OK])
+        if failed and cut is None:  # transactions get errors (no handler yet): say so, not "up to date"
+            headline, colour = self.s("head_errors", n=failed), RED
+        elif recent:
             headline, colour = self.s("head_" + sorted(recent.values())[-1].lower()), RED
         elif cut is not None:
             headline, colour = self.s("head_cut", node=cut), RED

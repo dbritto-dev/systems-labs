@@ -11,8 +11,42 @@ from labs.kafka_style_log import scenario
 code = load("kafka_style_log", variant(), scenario.NAMES)
 
 
+class OwnLogNode(Node):
+    """Stage 1 (5a): each node keeps its own log. Correct with one node, wrong with two."""
+
+    def __init__(self, node_id, node_ids):
+        super().__init__(node_id, node_ids)
+        self.logs = {}  # key -> messages; the offset is the index
+        self.commits = {}
+
+    async def on_send(self, msg):
+        log = self.logs.setdefault(msg.body["key"], [])
+        log.append(msg.body["msg"])
+        self.reply(msg, {"type": "send_ok", "offset": len(log) - 1})
+
+    async def on_poll(self, msg):
+        out = {}
+        for key, start in msg.body["offsets"].items():
+            log = self.logs.get(key, [])
+            out[key] = [[i, log[i]] for i in range(start, min(len(log), start + 10))]
+        self.reply(msg, {"type": "poll_ok", "msgs": out})
+
+    async def on_commit_offsets(self, msg):
+        for key, offset in msg.body["offsets"].items():
+            self.commits[key] = max(offset, self.commits.get(key, -1))
+        self.reply(msg, {"type": "commit_offsets_ok"})
+
+    async def on_list_committed_offsets(self, msg):
+        offsets = {k: self.commits[k] for k in msg.body["keys"] if k in self.commits}
+        self.reply(msg, {"type": "list_committed_offsets_ok", "offsets": offsets})
+
+
+class OWNLOG:  # stands in for a main.py module
+    KafkaNode = OwnLogNode
+
+
 class LinKVNode(Node):
-    """Stage 1 (5b) as most people first write it: everything in lin-kv."""
+    """Stage 2 (5b) as most people first write it: everything in lin-kv."""
 
     def __init__(self, node_id, node_ids):
         super().__init__(node_id, node_ids)
@@ -75,6 +109,19 @@ class LINKV:  # stands in for a main.py module
     KafkaNode = LinKVNode
 
 
+class SeqKVNode(LinKVNode):
+    """Stage 2 with everything in seq-kv: offsets stay unique (a CAS acts on the latest value), but the
+    other node may read an older committed offset."""
+
+    def __init__(self, node_id, node_ids):
+        super().__init__(node_id, node_ids)
+        self.kv = KV(self, "seq-kv", timeout=0.5)
+
+
+class SEQKV:
+    KafkaNode = SeqKVNode
+
+
 def results(world, v):
     run = world.runs[v]
     return [[r.ok for r in run.settled[i]] for i in sorted(run.settled)
@@ -85,18 +132,34 @@ def results(world, v):
 
 
 @starting_code
+def test_the_starting_node_answers_nothing():
+    world = build_world("kafka_style_log", "main", 1)
+    assert results(world, "main")[0][0] is False
+    assert world.stage_index("main") == 0  # Nothing yet
+
+
 def test_a_log_per_node_hands_out_the_same_offsets_twice():
-    world = build_world("kafka_style_log", "main", 2)
-    res = results(world, "main")
-    assert len(res) >= 2 and all(r[:3] == [False, False, False] for r in res)
-    assert world.stage_index("main") == 0  # Single node
+    world = build_world("kafka_style_log", OWNLOG, 2)
+    res = results(world, OWNLOG)
+    assert len(res) >= 2 and all(r[:4] == [True, False, False, False] for r in res)
+    assert world.stage_index(OWNLOG) == 1  # Single node
 
 
 def test_lin_kv_is_correct_but_slow_and_chatty_on_every_incident():
     world = build_world("kafka_style_log", LINKV, 3)
     res = results(world, LINKV)
-    assert len(res) >= 2 and all(r == [True, True, True, False, False] for r in res)
-    assert world.stage_index(LINKV) == 1  # Multi-node
+    assert len(res) >= 2 and all(r == [True, True, True, True, False, False] for r in res)
+    assert world.stage_index(LINKV) == 2  # Multi-node
+
+
+def test_seq_kv_keeps_offsets_unique_but_loses_commits():
+    """Fly.io 5b: choose what needs lin-kv. On seq-kv a CAS counter still hands out unique offsets and a
+    message stored once is never stale, but a committed offset read on the other node may be an older one.
+    seq-kv's messages count like lin-kv's (both are the store, index 2)."""
+    piece = scenario.run(SEQKV, chunk=0)
+    kinds = {a[1] for a in piece["tables"]["anomalies"]}
+    assert kinds == {scenario.LOST_COMMIT}
+    assert any(scenario.NODES in (m[1], m[2]) for m in piece["tables"]["msgs"])
 
 
 def test_offsets_that_go_back_are_caught_like_fly_5a():
@@ -126,7 +189,7 @@ def test_reference_passes_every_goal():
     res = results(world, "reference")
     kinds = {i.kind for i in world.runs["reference"].incidents}
     assert len(res) >= 3 and kinds == {"burst", "slowkv"} and all(all(r) for r in res)
-    assert world.stage_index("reference") == 2  # Efficient
+    assert world.stage_index("reference") == 3  # Efficient
 
 
 def test_incidents_are_random_but_the_first_is_a_burst_at_twenty_seconds():
@@ -150,6 +213,7 @@ def test_minutes_join_and_old_offsets_are_forgotten():
 def cluster(node_cls):
     net = Network(latency=0.01, jitter=0.0)
     net.join(KVService("lin-kv"))
+    net.join(KVService("seq-kv", stale=scenario.STALE))
     ids = ["n0", "n1"]
     nodes = [node_cls(i, ids) for i in ids]
     for n in nodes:
@@ -159,8 +223,25 @@ def cluster(node_cls):
     return client
 
 
-@your_code(1, "two nodes never hand out the same offset")
-def test_stage1_offsets_are_unique_across_nodes():
+@your_code(1, "one node answers send, poll, commit_offsets and list_committed_offsets")
+def test_stage1_one_node_answers_every_request():
+    async def main():
+        c = cluster(code.KafkaNode)
+        acked = [(await c.rpc("n0", {"type": "send", "key": "k4", "msg": 200 + i}, timeout=10))["offset"]
+                 for i in range(3)]
+        poll = await c.rpc("n0", {"type": "poll", "offsets": {"k4": 0}}, timeout=10)
+        await c.rpc("n0", {"type": "commit_offsets", "offsets": {"k4": acked[1]}}, timeout=10)
+        listed = await c.rpc("n0", {"type": "list_committed_offsets", "keys": ["k4"]}, timeout=10)
+        return acked, poll["msgs"]["k4"], listed["offsets"]
+
+    acked, pairs, listed = run_virtual(main())
+    assert acked == sorted(set(acked))
+    assert [list(p) for p in pairs] == [[o, 200 + i] for i, o in enumerate(acked)]
+    assert listed == {"k4": acked[1]}
+
+
+@your_code(2, "two nodes never hand out the same offset")
+def test_stage2_offsets_are_unique_across_nodes():
     async def main():
         c = cluster(code.KafkaNode)
         offsets = []
@@ -174,8 +255,8 @@ def test_stage1_offsets_are_unique_across_nodes():
     assert len(set(offsets)) == len(offsets)
 
 
-@your_code(1, "a poll on either node sees every message, in offset order")
-def test_stage1_both_nodes_serve_every_message():
+@your_code(2, "a poll on either node sees every message, in offset order")
+def test_stage2_both_nodes_serve_every_message():
     async def main():
         c = cluster(code.KafkaNode)
         acked = [(await c.rpc(f"n{i % 2}", {"type": "send", "key": "k2", "msg": 100 + i}, timeout=10))["offset"]
@@ -189,8 +270,8 @@ def test_stage1_both_nodes_serve_every_message():
         assert got == sorted(got) and got == sorted(acked)[: len(got)] and got
 
 
-@your_code(1, "committed offsets are shared and never go back")
-def test_stage1_commits():
+@your_code(2, "committed offsets are shared and never go back")
+def test_stage2_commits():
     async def main():
         c = cluster(code.KafkaNode)
         await c.rpc("n0", {"type": "commit_offsets", "offsets": {"k3": 7}}, timeout=10)
@@ -200,10 +281,10 @@ def test_stage1_commits():
     assert run_virtual(main()).get("k3") == 7
 
 
-@your_code(2, "under 3 messages per operation, p99 send under 100 ms in a burst")
-def test_stage2_efficient():
+@your_code(3, "under 3 messages per operation, p99 send under 100 ms in a burst")
+def test_stage3_efficient():
     world = build_world("kafka_style_log", variant(), 1)
-    assert [r.ok for r in world.runs[variant()].settled[0]] == [True] * 5
+    assert [r.ok for r in world.runs[variant()].settled[0]] == [True] * 6
 
 
 def test_a_second_picture_shows_what_the_clients_see():
@@ -218,7 +299,6 @@ def test_a_second_picture_shows_what_the_clients_see():
     assert text and len(text) <= 13
 
 
-@starting_code
 def test_the_fan_in_picture_shows_the_nodes_handing_out_offsets_on_their_own():
     from live.views import adapter_for
     from live.worlds.kafka_style_log import ANOMALY_COLOURS
@@ -230,7 +310,7 @@ def test_the_fan_in_picture_shows_the_nodes_handing_out_offsets_on_their_own():
         assert world.view == "fanin"
         return [adapter_for(world).frame(v, t / 4, 90) for t in range(40, 160)]
 
-    given = pictures("main")  # a log per node: the nodes keep flashing (duplicate offsets, lost writes)
+    given = pictures(OWNLOG)  # a log per node: the nodes keep flashing (duplicate offsets, lost writes)
     assert sum(any(lf.outline in flashing for lf in fr.leaves) for fr in given) > len(given) // 2
     assert not any(fr.joins or fr.cross for fr in given)
     ref = pictures("reference")  # each key has an owner: sends cross to it, nothing goes wrong

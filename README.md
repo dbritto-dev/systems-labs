@@ -211,15 +211,17 @@ simulated network with partitions:
 | Lab | Challenge | Stages |
 |---|---|---|
 | `unique_id_generation` | #1 Echo, #2 Unique IDs | echo → unique ids → Snowflake ids (64-bit, time-ordered, survive clock steps) |
-| `broadcast` | #3 Broadcast | multi-node → fault tolerant → efficient → batched: fewer messages, slower is fine (3a given; 3b–3e) |
+| `broadcast` | #3 Broadcast | single node → multi-node, never the whole set in a message → fault tolerant → efficient → batched: fewer messages, slower is fine (3a–3e) |
 | `grow_only_counter` | #4 Grow-only counter | shared key → compare-and-swap → a key per node, on seq-kv, through partitions |
-| `kafka_style_log` | #5 Kafka-style log | single node → multi-node through lin-kv → efficient: an owner per key (5a given; 5b–5c) |
-| `transactions` | #6 Totally-available transactions | replicated → read uncommitted, no G0 → read committed, no G1a/G1b/G1c (6a given; 6b–6c) |
+| `kafka_style_log` | #5 Kafka-style log | single node → multi-node through lin-kv and seq-kv (which data needs which) → efficient: an owner per key (5a–5c) |
+| `transactions` | #6 Totally-available transactions | single node → replicated → read uncommitted, no G0 → read committed, no G1a/G1b/G1c (6a–6c) |
 
 Each stage is judged like Fly.io's challenge: its numbers (3d's < 30 msgs/op and 400/600 ms, 3e's
 < 20 msgs/op and 1 s/2 s), its partitions (#4 and 6b run under them), and the anomalies
 Maelstrom's checkers look for: offsets that repeat or go back (5a), dirty writes (G0, 6b), and
-aborted, intermediate or circular reads (G1a, G1b, G1c, 6c). The clients also check every reply
+aborted, intermediate or circular reads (G1a, G1b, G1c of any length, 6c). `unique_id_generation`,
+`broadcast`, `kafka_style_log` and `transactions` start with a node that answers nothing: their first
+stage is the challenge's first part (#1, 3a, 5a, 6a). The clients also check every reply
 (a `read_ok` must list every number the node had, a `txn_ok` must fill in every read).
 
 Replication, partitioning and coordination, on the same network:

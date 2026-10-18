@@ -11,7 +11,13 @@ code = load("transactions", variant(), scenario.NAMES)
 # ------------------------------------------------------------- one node per stage, as people write them
 
 
-class Single(Node):
+class Nothing(Node):  # the starting code: a store, but no handler, so every txn gets an error
+    def __init__(self, node_id, node_ids):
+        super().__init__(node_id, node_ids)
+        self.store = {}
+
+
+class Single(Node):  # stage 1 (6a): each node answers from its own store
     def __init__(self, node_id, node_ids):
         super().__init__(node_id, node_ids)
         self.store = {}
@@ -32,7 +38,7 @@ class Single(Node):
         self.run(msg)
 
 
-class FireAndForget(Single):  # stage 1: send each write to the others, no retries
+class FireAndForget(Single):  # stage 2: send each write to the others, no retries
     async def on_txn(self, msg):
         for key, value in self.run(msg):
             for n in self.node_ids:
@@ -43,7 +49,7 @@ class FireAndForget(Single):  # stage 1: send each write to the others, no retri
         self.store[msg.body["key"]] = msg.body["value"]
 
 
-class PerWrite(Single):  # stage 2: each write re-sent until acked, newest stamp wins
+class PerWrite(Single):  # stage 3: each write re-sent until acked, newest stamp wins
     def __init__(self, node_id, node_ids):
         super().__init__(node_id, node_ids)
         self.stamps, self.rank, self.counter = {}, node_ids.index(node_id), itertools.count()
@@ -75,7 +81,7 @@ def module(cls):
     return type(cls.__name__, (), {"TxnNode": cls})
 
 
-SINGLE, FIRE, PER_WRITE = module(Single), module(FireAndForget), module(PerWrite)
+NOTHING, SINGLE, FIRE, PER_WRITE = module(Nothing), module(Single), module(FireAndForget), module(PerWrite)
 
 
 def results(world, v):
@@ -87,16 +93,29 @@ def results(world, v):
 # ------------------------------------------------------------- given behaviour
 
 
-def test_a_single_node_per_store_never_catches_up():
+def test_a_node_without_on_txn_answers_nothing():
+    world = build_world("transactions", NOTHING, 1)
+    res = results(world, NOTHING)
+    assert res and all(not r[0] for r in res)
+    assert world.stage_index(NOTHING) == 0  # Nothing yet
+
+
+@starting_code
+def test_the_starting_node_answers_nothing():
+    world = build_world("transactions", "main", 1)
+    assert world.stage_index("main") == 0  # Nothing yet
+
+
+def test_a_single_node_per_store_answers_but_never_catches_up():
     world = build_world("transactions", SINGLE, 2)
     res = results(world, SINGLE)
-    assert res and all(not r[0] for r in res)
-    assert world.stage_index(SINGLE) == 0  # Single node
+    assert res and all(r[0] and not r[1] for r in res)  # answered in the calm, but not fresh
+    assert world.stage_index(SINGLE) == 1  # Single node
 
 
 def test_stage_variants_land_on_their_stage_on_every_partition():
-    for v, stage, expected in ((FIRE, 1, [True, True, False]),  # Replicated
-                               (PER_WRITE, 2, [True, True, True, True, False])):  # Read uncommitted: no G0
+    for v, stage, expected in ((FIRE, 2, [True, True, True, False]),  # Replicated
+                               (PER_WRITE, 3, [True] * 5 + [False])):  # Read uncommitted: no G0
         world = build_world("transactions", v, 3)
         res = results(world, v)
         assert len(res) >= 3, res
@@ -128,6 +147,31 @@ class WritesFirst(Single):  # applies a transaction's writes, waits, then reads:
         await self.sleep(0.05)
         self.reply(msg, {"type": "txn_ok", "txn": [[op, key, self.store.get(key) if op == "r" else value]
                                                    for op, key, value in ops]})
+
+
+def test_g1c_is_a_ring_of_any_length():
+    """T1 read T3's write, T2 read T1's, T3 read T2's: no two read each other's, but the three form a ring.
+    It is caught when the last of them is answered, and only then."""
+    import asyncio
+
+    sim = scenario._Sim(SINGLE, 1, 40.0, 3)
+    replies = []
+
+    async def rpc(node, body, timeout):
+        return {"type": "txn_ok", "txn": replies.pop(0)}
+
+    async def ring():
+        sim.client.rpc = rpc
+        x1, x2, x3 = sim.value(101), sim.value(102), sim.value(103)
+        for tid, write, read in ((101, x1, x3), (102, x2, x1), (103, x3, x2)):
+            replies.append([["w", 0, write], ["r", 1, read]])
+            await sim.one("n0", tid, [["w", 0, write], ["r", 1, None]])
+            yield [a[4] for a in sim.anomalies]
+
+    async def main():
+        return [kinds async for kinds in ring()]
+
+    assert asyncio.run(main()) == [[], [], [scenario.G1C]]
 
 
 def test_the_checker_catches_what_6b_and_6c_forbid():
@@ -169,7 +213,7 @@ def test_reference_passes_every_goal():
     world = build_world("transactions", "reference", 4)
     res = results(world, "reference")
     assert len(res) >= 4 and all(all(r) for r in res)
-    assert world.stage_index("reference") == 3  # Read committed
+    assert world.stage_index("reference") == 4  # Read committed
 
 
 def test_partitions_are_random_but_the_first_cuts_a_node_off_at_twenty_seconds():
@@ -197,19 +241,24 @@ def first():
     return [r.ok for r in build_world("transactions", v, 1).runs[v].settled[0]]
 
 
-@your_code(1, "writes reach the other nodes")
-def test_stage1_replicates():
+@your_code(1, "every transaction is answered from the node's own store")
+def test_stage1_answers():
     assert first()[0]
 
 
-@your_code(2, "every node catches up after a partition, with no dirty writes (G0)")
-def test_stage2_catches_up():
-    assert first()[:4] == [True, True, True, True]
+@your_code(2, "writes reach the other nodes")
+def test_stage2_replicates():
+    assert first()[:2] == [True, True]
 
 
-@your_code(3, "no aborted, intermediate or circular reads (read committed)")
-def test_stage3_read_committed():
-    assert first() == [True] * 5
+@your_code(3, "every node catches up after a partition, with no dirty writes (G0)")
+def test_stage3_catches_up():
+    assert first()[:5] == [True] * 5
+
+
+@your_code(4, "no aborted, intermediate or circular reads (read committed)")
+def test_stage4_read_committed():
+    assert first() == [True] * 6
 
 
 def test_a_second_picture_shows_what_the_clients_see():
@@ -236,9 +285,9 @@ def test_the_peers_picture_shows_the_node_cut_off_and_who_replicates():
         return world, [adapter_for(world).frame(v, t, 90) for t in times]
 
     calm = [k / 2 for k in range(10, 38)]  # 0:05 to 0:19
-    world, given = peers("main", calm)
+    world, given = peers(SINGLE, calm)
     _, solved = peers("reference", calm)
-    assert not any(f.links for f in given)  # the starting code sends nothing to the others ...
+    assert not any(f.links for f in given)  # a store per node sends nothing to the others ...
     assert all(p.gauge == EXTRA2 for p in given[-1].peers)  # ... so every node falls behind
     assert all(len(f.links) == 3 and all(c == BLUE for *_, c in f.links) for f in solved)  # replication
     assert all(p.fill == 1.0 and p.outline == BLUE for f in solved for p in f.peers)
