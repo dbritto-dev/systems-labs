@@ -53,12 +53,26 @@ def test_panel_widgets_like_a_dashboard(world):
 
 def test_chart_scrolls_and_never_draws_the_future(world):
     lines = frame(world, 100.0)
-    labels = lines[-4]
-    assert "0:40" in labels and "1:40" in labels and "0:30" not in labels
+    labels = lines[-4]  # 104 columns: 52 seconds at 2 columns each, the last at 1:39
+    assert "0:50" in labels and "1:40" in labels and "0:40" not in labels
     early = frame(world, 10.0)
     plot = early[-4 - CHART_ROWS:-4]
-    # Only 10 of 60 seconds are drawn: the right part of every chart row is empty but the limit.
+    # Only 10 seconds are drawn: the right part of every chart row is empty but the limit.
     assert all(not row[30:].replace("-", "").strip() for row in plot)
+
+
+def test_chart_moves_a_whole_second_at_a_time(world):
+    """Within a second the chart does not change at all (no bar twitching between widths); when the next
+    second comes, everything moves BAR columns to the left."""
+    from live.frame import BAR
+
+    def chart(t):
+        return [row[5:] for row in frame(world, t)[-4 - CHART_ROWS:-4]]
+
+    assert chart(100.05) == chart(100.5) == chart(100.95)
+    now, later = chart(100.5), chart(101.5)
+    if frame(world, 100.5)[-4 - CHART_ROWS][:4] == frame(world, 101.5)[-4 - CHART_ROWS][:4]:  # the same scale
+        assert all(a[BAR:-BAR] == b[:-2 * BAR] for a, b in zip(now, later))
 
 
 def test_listing_labs(capsys):

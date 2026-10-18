@@ -1,4 +1,5 @@
-"""One screenful, drawn from (world, variant, time). No state, so any moment can be rendered on its own.
+"""One screenful, drawn from (world, variant, time). No state, so any moment can be rendered on its own (the
+chart keeps its last lines, a cache: the same inputs give the same lines, it is only redrawn when they change).
 
 `compose(...)` returns painted lines: the header with the clock top right, the picture with the panel
 beside it, the chart (a bar per second, the limit dashed, incidents shaded), and the footer.
@@ -18,7 +19,7 @@ MIN_COLS = 92
 MIN_ROWS = 27
 MAX_COLS = 124
 CHART_ROWS = 6
-WINDOW = 60.0  # seconds the chart shows; it scrolls once the run passes a minute
+BAR = 2  # columns per second on the chart: every second as wide as the others, so bars never change width
 EIGHTHS = " ▁▂▃▄▅▆▇█"
 KEYS = [("pause", "space"), ("restart", "0"), ("rerun", "r"), ("view", "v"), ("quit", "q"), ("help", "?")]  # ? lists all
 
@@ -30,9 +31,12 @@ def layout(cols: int, rows: int) -> dict[str, int]:
     return dict(width=width, body=body, picture=picture, panel=width - picture - 2, chart=CHART_ROWS)
 
 
-def window(t: float) -> tuple[float, float]:
-    lo = max(0.0, t - WINDOW)
-    return lo, lo + WINDOW
+def window(t: float, cols: int) -> tuple[int, int]:
+    """The seconds the chart shows, [lo, hi): as many as fit at BAR columns each. It moves a whole second at a
+    time, once the run has filled it, so a bar keeps its place and its width until the next second comes."""
+    n = max(1, cols // BAR)
+    lo = max(0, int(t) - n)
+    return lo, lo + n
 
 
 def nice(v: float) -> float:
@@ -42,57 +46,98 @@ def nice(v: float) -> float:
     return float(int(v) + 1)
 
 
+_chart_cache: tuple = (None, None, None)  # (world, inputs, lines): the last chart drawn
+
+
 def bar_chart(world, v: str, t: float, cols: int, rows: int, style: Style) -> list[str]:
     """A bar per second up to now, stacked in the same colours as the picture, the limit as a dashed line and
-    the incidents that have started shaded. Nothing is drawn for the future."""
-    p = style.paint
-    lo, hi = window(t)
+    the incidents that have started shaded. Nothing is drawn for the future. Every second is BAR columns wide.
+
+    A dirty flag: the chart only changes when a second ends (or the scale, the shading, the size or the run do),
+    so between those the last lines are given again instead of being drawn 30 times a second."""
+    global _chart_cache
+    lo, hi = window(t, cols)
+    run = world.runs.get(v)
+    bands = world.bands(v, t)
+    shade = tuple((int(a), -int(-b // 1), rgb) for a, b, rgb in bands)  # the whole seconds each band covers
+    key = (v, run, int(t), cols, rows, style.mode, shade)
+    cached_world, cached_key, lines = _chart_cache
+    if cached_world is world and cached_key == key:
+        return lines
+    lines = _draw_chart(world, v, t, lo, hi, cols, rows, style, bands)
+    _chart_cache = (world, key, lines)
+    return lines
+
+
+def _draw_chart(world, v: str, t: float, lo: int, hi: int, cols: int, rows: int, style: Style,
+                bands: list) -> list[str]:
     stacks = world.stacks(v)
     lim = world.chart_limit()
     limit = lim[0] if lim else None
-    seconds = range(int(lo), int(t))
-    totals = [sum(vals[s] if s < len(vals) else 0 for _, vals in stacks) for s in seconds]
+    now = int(t)
+    totals = [sum(vals[s] if s < len(vals) else 0 for _, vals in stacks) for s in range(lo, now)]
     top = max(world.chart_top, nice(max(totals + [limit * 1.2 if limit else 0])))
     lim_r = int(limit / top * rows) if limit else None  # the row (from the bottom) the limit runs through
-    bands = world.bands(v, t)
+    dash = "┄" if style.mode != "none" else "-"
+    # Each second once (not once per cell): its stack, its total, its band.
+    seconds = []
+    for sec in range(lo, hi):
+        parts = [(vals[sec] if sec < len(vals) else 0, rgb) for rgb, vals in stacks] if sec < now else []
+        band = next((rgb for a, b, rgb in bands if a <= sec < b), None)
+        seconds.append((parts, sum(n for n, _ in parts), band))
     out = []
     for r in range(rows - 1, -1, -1):
-        line = ""
+        cells = []  # (character, colour, band) for each column
         for c in range(cols):
-            sec = int(lo + c / cols * (hi - lo))
+            k = c // BAR
+            if k >= len(seconds):
+                cells.append((" ", EMPTY, None))
+                continue
+            parts, total, band = seconds[k]
             ch, col = " ", EMPTY
-            if sec < int(t):
-                parts = [(vals[sec] if sec < len(vals) else 0, rgb) for rgb, vals in stacks]
-                total = sum(n for n, _ in parts)
-                h = total / top * rows * 8 - r * 8
-                if h > 0:
-                    mid, cum = min(total - 0.01, (r + 0.5) / rows * top), 0.0
-                    col = parts[-1][1]
-                    for n, pc in parts:
-                        if cum <= mid < cum + n:
-                            col = pc
-                            break
-                        cum += n
-                    if h < 8:  # the top cell: the colour of the highest layer
-                        col = next(pc for n, pc in reversed(parts) if n > 0)
-                    ch = "█" if h >= 8 else EIGHTHS[max(1, int(h))]
+            h = total / top * rows * 8 - r * 8 if parts else 0
+            if h > 0:
+                mid, cum = min(total - 0.01, (r + 0.5) / rows * top), 0.0
+                col = parts[-1][1]
+                for n, pc in parts:
+                    if cum <= mid < cum + n:
+                        col = pc
+                        break
+                    cum += n
+                if h < 8:  # the top cell: the colour of the highest layer
+                    col = next(pc for n, pc in reversed(parts) if n > 0)
+                ch = "█" if h >= 8 else EIGHTHS[max(1, int(h))]
             if ch == " " and r == lim_r:
-                ch, col = ("┄" if style.mode != "none" else "-"), LIMIT
-            cell = p(ch, col)
-            band = next((rgb for a, b, rgb in bands if a <= sec < b), None)
-            line += (style.bg(band) + cell + style.reset) if band and style.mode != "none" else cell
+                ch, col = dash, LIMIT
+            cells.append((ch, col, band if style.mode != "none" else None))
         tick = {rows - 1: f"{top:.0f}", 0: "0"}.get(r, f"{limit:.0f}" if r == lim_r else "")
-        out.append(f"{p(f'{tick:>4}', LIMIT if r == lim_r and tick else MUTED)} " + line)
+        out.append(f"{style.paint(f'{tick:>4}', LIMIT if r == lim_r and tick else MUTED)} " + _runs(cells, style))
     return out
 
 
+def _runs(cells: list[tuple[str, RGB, RGB | None]], style: Style) -> str:
+    """A row of cells painted a run at a time: one colour code for each run of cells in the same colours,
+    not one for every cell (fewer bytes to the terminal)."""
+    out, i = [], 0
+    while i < len(cells):
+        j = i
+        while j < len(cells) and cells[j][1:] == cells[i][1:]:
+            j += 1
+        _, col, band = cells[i]
+        text = style.paint("".join(ch for ch, _, _ in cells[i:j]), col)
+        out.append(style.bg(band) + text + style.reset if band else text)
+        i = j
+    return "".join(out)
+
+
 def axis(t: float, cols: int) -> str:
-    """Clock labels every 10 s under the chart."""
-    lo, hi = window(t)
+    """Clock labels every 10 s under the chart, each centred on the start of its second's bar."""
+    lo, hi = window(t, cols)
     cells = [" "] * cols
-    for sec in range(int(-(-lo // 10) * 10), int(hi) + 1, 10):
+    for sec in range(-(-lo // 10) * 10, hi + 1, 10):
         label = clock(sec)
-        pos = max(0, min(cols - len(label), int((sec - lo) / (hi - lo) * (cols - 1)) - (len(label) // 2 if sec > lo else 0)))
+        at = (sec - lo) * BAR - (len(label) // 2 if sec > lo else 0)
+        pos = max(0, min(cols - len(label), at))
         cells[pos:pos + len(label)] = label
     return "".join(cells)
 
